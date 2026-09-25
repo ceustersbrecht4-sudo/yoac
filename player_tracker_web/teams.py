@@ -5,10 +5,13 @@ v6 names each box from fixed hue ranges, one frame at a time. That breaks on
 small / far-away players, whose shirt sample is mostly grass - they all come
 out "green". This module instead:
   1. ignores pixels that look like the pitch when reading a shirt colour
-  2. finds the two most common kit colours in this video (plus "other" for
-     referees and anything that fits neither)
+  2. finds the two kit colours in this video - a rugby match only ever has
+     two teams. Other colour groups are either one of those teams in shade or
+     floodlight (merged in) or, if small and clearly different, the match
+     officials ("other")
   3. lets every shirt pixel vote for the kit colour it's closest to, and
-     gives each tracked player the team that won the vote over all frames
+     gives each tracked player the team that won the vote over all frames.
+     A close vote still picks the likelier team rather than giving up.
 It runs on the saved boxes, reading the video twice - no detection needed.
 """
 
@@ -18,11 +21,19 @@ import numpy as np
 PITCH_DISTANCE = 12     # colour (a/b) distance: closer than this to the pitch = grass
                         # (brightness is ignored so mowing stripes still count as grass)
 MIN_SHIRT_SHARE = 0.1   # need this share of non-grass pixels to trust a sample
+GREY_SAT = 40           # HSV saturation below this = white / grey / black kit
+                        # (a white shirt in shade picks up a slight tint)
 L_WEIGHT = 0.3          # brightness matters less than hue (shade, floodlights)
-MERGE_DISTANCE = 14     # a 3rd colour this close to a team is that team
+MERGE_DISTANCE = 14     # colour groups this close together are the same kit
+CLUSTERS = 4            # colour groups looked for: 2 teams + shade/light + officials
+REF_MAX_SHARE = 0.15    # a group bigger than this share of all players can't be
+                        # the officials (referee + 2 touch judges of ~33 people),
+                        # so it's a team seen in different light
+REF_DISTANCE = 30       # officials wear a clearly different colour: a small group
+                        # closer than this to a team is that team (e.g. in shade)
 PIXEL_MATCH = 22        # a shirt pixel this close to a kit colour votes for it...
 CLEAR_RATIO = 0.6       # ...if it's also this much closer to it than to the next one
-CLEAR_WIN = 0.65        # a player needs this share of the votes, else "unsure"
+REF_WIN = 0.65          # a player needs this share of the votes to count as an official
 OTHER = "other"
 UNSURE = "unsure"
 
@@ -99,7 +110,7 @@ def _lab_to_bgr(lab):
 def _box_color(bgr):
     """Kit colour made bright enough to see as a box outline on the pitch."""
     h, s, v = (int(x) for x in cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0, 0])
-    if s >= 25:
+    if s >= GREY_SAT:
         s, v = max(s, 170), max(v, 230)
     else:
         v = 245 if v > 110 else 40  # white / black kits
@@ -109,7 +120,7 @@ def _box_color(bgr):
 def _color_name(bgr):
     """Same colour families as v6, for one colour."""
     h, s, v = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0, 0]
-    if s < 25:
+    if s < GREY_SAT:
         return "white" if v > 140 else ("black" if v < 80 else "grey")
     if h < 10 or h >= 170:
         return "red"
@@ -154,24 +165,59 @@ def assign_teams(video_path, all_detections, progress=None):
     weights = np.array([sum(w for _, w in tracks[k]) for k in keys], dtype=np.float64)
     scaled = feats * np.array([L_WEIGHT, 1, 1], dtype=np.float32)
 
-    centers, labels = _weighted_kmeans(scaled, weights, k=min(3, len(keys)))
-    size = np.array([weights[labels == j].sum() for j in range(len(centers))])
-    order = list(np.argsort(-size))
-    teams = order[:2]
-    # A small 3rd group close to a team is just that team in shade/light.
-    remap = {j: j for j in range(len(centers))}
-    for j in order[2:]:
-        dists = [np.linalg.norm(centers[j] - centers[t]) for t in teams]
-        if min(dists) < MERGE_DISTANCE:
-            remap[j] = teams[int(np.argmin(dists))]
+    centers, labels = _weighted_kmeans(scaled, weights, k=min(CLUSTERS, len(keys)))
+    k = len(centers)
+    size = np.array([weights[labels == j].sum() for j in range(k)])
+
+    # Colour groups that are close together are one kit (shade, floodlight,
+    # a muddy shirt) - join them first so a team isn't counted twice.
+    group = list(range(k))
+
+    def root(j):
+        while group[j] != j:
+            j = group[j]
+        return j
+    for a in range(k):
+        for b in range(a + 1, k):
+            if np.linalg.norm(centers[a] - centers[b]) < MERGE_DISTANCE:
+                group[root(b)] = root(a)
+    members = {}
+    for j in range(k):
+        members.setdefault(root(j), []).append(j)
+    group_size = {g: size[m].sum() for g, m in members.items()}
+
+    # The two biggest kits are the teams.
+    ranked = sorted(members, key=lambda g: -group_size[g])
+    team_groups = ranked[:2]
+    teams = [max(members[g], key=lambda j: size[j]) for g in team_groups]
+    remap = {j: None for j in range(k)}
+    for g, t in zip(team_groups, teams):
+        for j in members[g]:
+            remap[j] = t
+    # Any other kit is a team in different light unless it's small and far
+    # from both teams - that's the officials, who go to "other".
+    total_size = size.sum()
+    for g in ranked[2:]:
+        dists = [min(np.linalg.norm(centers[j] - centers[t]) for j in members[g]) for t in teams]
+        if group_size[g] > REF_MAX_SHARE * total_size or min(dists) < REF_DISTANCE:
+            for j in members[g]:
+                remap[j] = teams[int(np.argmin(dists))]
+        else:
+            for j in members[g]:
+                remap[j] = OTHER
+    # A team's kit colour is the average over everything merged into it, so a
+    # white kit half in shade still reads as white.
+    kit = {t: np.average([centers[j] for j in range(k) if remap[j] == t], axis=0,
+                         weights=[size[j] for j in range(k) if remap[j] == t])
+           for t in teams}
 
     # Name the teams after their kit colour.
     unscale = np.array([1 / L_WEIGHT, 1, 1])
     names, colors = {}, {}
-    team_bgr = {t: _lab_to_bgr(centers[t] * unscale) for t in teams}
+    team_bgr = {t: _lab_to_bgr(kit[t] * unscale) for t in teams}
     base = {t: _color_name(team_bgr[t]) for t in teams}
     if len(teams) == 2 and base[teams[0]] == base[teams[1]]:
-        light = max(teams, key=lambda t: centers[t][0])
+        light = max(teams, key=lambda t: kit[t][0])
         for t in teams:
             base[t] = ("light " if t == light else "dark ") + base[t]
     for t in teams:
@@ -200,14 +246,27 @@ def assign_teams(video_path, all_detections, progress=None):
             for j, n in zip(*np.unique(nearest[close], return_counts=True)):
                 j = remap[int(j)]
                 tally[j] = tally.get(j, 0) + int(n)
-    # A player whose vote is close (e.g. a far-away dark shirt blurred into
-    # the grass) is marked unsure rather than guessed - a wrong team would
-    # mislead the coaching report more than a missing player does.
+    # Every player gets one of the two teams: there are only two on the pitch.
+    # Only someone who clearly wears the officials' colour is left out, and a
+    # close vote goes to the likelier team rather than "unsure". Players with
+    # no clear shirt pixels at all go to the team their average colour is
+    # nearest to.
+    nearest_team = {key: teams[int(np.argmin([np.linalg.norm(f - centers[t]) for t in teams]))]
+                    for key, f in zip(keys, scaled)}
     track_team = {}
-    for k, v in votes.items():
-        if v:
-            best = max(v, key=v.get)
-            track_team[k] = best if v[best] >= CLEAR_WIN * sum(v.values()) else UNSURE
+    for key in set(votes) | set(nearest_team):
+        v = votes.get(key, {})
+        total_votes = sum(v.values())
+        ref_votes = v.get(OTHER, 0)
+        team_votes = {t: v.get(t, 0) for t in teams}
+        if total_votes and ref_votes >= REF_WIN * total_votes:
+            track_team[key] = OTHER
+        elif any(team_votes.values()):
+            track_team[key] = max(team_votes, key=team_votes.get)
+        elif key in nearest_team:
+            track_team[key] = nearest_team[key]
+        else:
+            track_team[key] = UNSURE  # never seen a clean shirt sample
     for fi, dets in enumerate(new):
         for di, d in enumerate(dets):
             if d[4] == "ball":
@@ -215,5 +274,5 @@ def assign_teams(video_path, all_detections, progress=None):
             tid = d[5]
             key = ("t", tid) if tid is not None else ("d", fi, di)
             t = track_team.get(key)
-            d[4] = UNSURE if t == UNSURE else names.get(t, OTHER)
+            d[4] = names.get(t, t or UNSURE)
     return new, colors

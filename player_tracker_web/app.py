@@ -35,6 +35,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".m4v", ".webm"}
+# Match officials (teams.OTHER) aren't tracked in the video by default; the
+# Teams tab can still bring them back.
+HIDDEN_BY_DEFAULT = ["other"]
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
@@ -96,11 +99,14 @@ def _analyze(job_id):
     detections, colors = assign_teams(job["input"], detections, progress=_progress(job_id, "Sorting players into teams..."))
     with open(_detections_path(job_id), "w") as f:
         json.dump(detections, f, separators=(",", ":"))
+    teams = count_buckets(detections)
+    hidden = [b for b in HIDDEN_BY_DEFAULT if b in teams]
     # Colours are known now, so the processing preview can draw boxes in team
     # colours while the final video is still being drawn.
-    _update(job_id, colors=colors)
-    render_video(job["input"], detections, job["output"], colors=colors, progress=_progress(job_id, "Drawing the video..."))
-    _update(job_id, teams=count_buckets(detections), colors=colors, hidden=[])
+    _update(job_id, colors=colors, hidden=hidden)
+    render_video(job["input"], detections, job["output"], hidden, colors=colors,
+                 progress=_progress(job_id, "Drawing the video..."))
+    _update(job_id, teams=teams, colors=colors, hidden=hidden)
 
 
 def _render(job_id, hidden):
@@ -394,10 +400,11 @@ def frame(job_id):
     colors = job.get("colors")
     if request.args.get("boxes") == "1" and colors and os.path.exists(_detections_path(job_id)):
         frames = _prepared_frames(job_id, job["input"])
+        hidden = set(job.get("hidden") or [])
         if frame_no < len(frames):
             for p in frames[frame_no][0]:
                 color = colors.get(p["bucket"]) or BUCKET_COLORS.get(p["bucket"])
-                if color is None:
+                if color is None or p["bucket"] in hidden:
                     continue
                 x1, y1, x2, y2 = (int(v * scale) for v in p["box"])
                 cv2.rectangle(img, (x1, y1), (x2, y2), tuple(int(c) for c in color), 2)
