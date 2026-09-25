@@ -1,0 +1,68 @@
+<div id="cookie-banner" role="region" aria-label="Cookie consent" hidden>
+  <p>
+    We use cookies to keep the site working and to remember your preferences.
+  </p>
+  <div class="cookie-actions">
+    <button type="button" data-consent="declined">Decline</button>
+    <button type="button" data-consent="accepted" class="cookie-accept">Accept</button>
+  </div>
+</div>
+
+<style>
+  #cookie-banner {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #1a2129;
+    color: #e8edf2;
+    border: 1px solid #2c3640;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.95rem;
+    z-index: 1000;
+  }
+  #cookie-banner[hidden] { display: none; }
+  #cookie-banner p { margin: 0; flex: 1 1 240px; }
+  #cookie-banner .cookie-actions { display: flex; gap: 8px; }
+  #cookie-banner button {
+    font: inherit;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid #4a5561;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  #cookie-banner button.cookie-accept {
+    background: #2ecc71;
+    border-color: #2ecc71;
+    color: #0f1419;
+  }
+</style>
+
+<script>
+  (function () {
+    var banner = document.getElementById("cookie-banner");
+    if (!/(?:^|;\s*)cookie_consent=/.test(document.cookie)) {
+      banner.hidden = false;
+    }
+    banner.addEventListener("click", function (e) {
+      var choice = e.target.getAttribute("data-consent");
+      if (!choice) return;
+      document.cookie = "cookie_consent=" + choice +
+        "; max-age=" + 60 * 60 * 24 * 365 + "; path=/; SameSite=Lax";
+      banner.hidden = true;
+    });
+  })();
+</script>

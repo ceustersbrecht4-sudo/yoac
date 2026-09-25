@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player Tracker</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2129;
+      --text: #e8edf2;
+      --muted: #9aa7b4;
+      --accent: #2ecc71;
+      --accent-dark: #27ae60;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 640px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      margin: 0 0 16px;
+    }
+    .lead {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin: 0 0 32px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      margin: 0 0 40px;
+      padding: 0;
+      list-style: none;
+      text-align: left;
+    }
+    .steps li {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .steps strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .cta {
+      display: inline-block;
+      background: var(--accent);
+      color: #0f1419;
+      font-weight: 700;
+      font-size: 1.1rem;
+      text-decoration: none;
+      padding: 14px 40px;
+      border-radius: 999px;
+      transition: background 0.15s;
+    }
+    .cta:hover, .cta:focus-visible { background: var(--accent-dark); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Player Tracker</h1>
+    <p class="lead">
+      Upload your match footage and Player Tracker finds every player on the pitch,
+      follows them through the whole video, and groups them by their team colours.
+      You get the footage back with each player tracked and labelled, so you can
+      review positioning and movement without tagging anything by hand.
+    </p>
+
+    <ol class="steps">
+      <li><strong>1. Upload</strong>Choose a match video from your computer.</li>
+      <li><strong>2. Track</strong>Players are detected and followed frame by frame.</li>
+      <li><strong>3. Review</strong>Watch the result with players marked in team colours.</li>
+    </ol>
+
+    <a class="cta" href="{{ url_for('upload_page') }}">Get Started</a>
+  </main>
+
+  {% include "_cookie_banner.html" %}
+</body>
+</html>
