@@ -122,8 +122,12 @@
     </ul>
 
     <h2>5. Security</h2>
-    <p>Passwords are hashed, sessions are signed, forms are protected against cross-site requests, and repeated wrong
-      passwords are blocked. The connection between your phone or browser and the laptop uses plain HTTP inside your own
+    <p>Accounts can only be created with a single-use invite code from the owner. Passwords are hashed, must meet
+      minimum rules and are checked against known data breaches: only the first 5 characters of a SHA-1 fingerprint of
+      the password are sent to the Have I Been Pwned service (api.pwnedpasswords.com), never the password itself, and
+      nothing about you. Two-step login with an authenticator app is available for every account. Sessions are signed
+      HttpOnly cookies, forms are protected against cross-site requests, a Content Security Policy blocks injected
+      scripts, and repeated wrong passwords or codes are blocked per device and per account. The connection between your phone or browser and the laptop uses plain HTTP inside your own
       network and is <strong>not encrypted</strong>, so only use the app on a Wi-Fi network you trust (not public Wi-Fi).</p>
 
     <h2>6. Children</h2>
@@ -148,7 +152,7 @@
     {% if current_user %}
     <p>This removes your login straight away. Videos you analysed are not linked to your account; delete them on their
       result pages, or they are removed automatically after the retention period.</p>
-    <form class="danger" method="post" action="{{ url_for('delete_account') }}" onsubmit="return confirm('Delete your account for good?');">
+    <form class="danger" id="deleteForm" method="post" action="{{ url_for('delete_account') }}">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <input type="password" name="password" placeholder="Your password, to confirm" autocomplete="current-password" required>
       <button type="submit">Delete my account</button>
@@ -171,7 +175,7 @@
     </table>
     <p>Essential cookies don't need your consent because the app can't work without them. You can change your choice at any time:</p>
     <p><button type="button" id="resetConsent" style="font:inherit;font-weight:700;padding:9px 16px;border-radius:999px;border:1px solid var(--border);background:#0a1711;color:var(--text);cursor:pointer">Change my cookie choice</button></p>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
       document.getElementById("resetConsent").addEventListener("click", function () {
         document.cookie = "cookie_consent=; max-age=0; path=/";
         try { localStorage.removeItem("recentJobs"); } catch (e) {}
@@ -256,6 +260,10 @@
       <a href="{{ url_for('legal_page', doc='licences') }}">Licences</a>
     </footer>
   </div>
+  <script nonce="{{ csp_nonce() }}">
+    var del = document.getElementById("deleteForm");
+    if (del) del.addEventListener("submit", function (e) { if (!confirm("Delete your account for good?")) e.preventDefault(); });
+  </script>
   {% include "_cookie_banner.html" %}
 </body>
 </html>

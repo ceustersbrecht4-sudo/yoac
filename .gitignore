@@ -3,3 +3,5 @@ __pycache__/
 users.json
 users.json.tmp
 secret.key
+invites.json
+invites.json.tmp

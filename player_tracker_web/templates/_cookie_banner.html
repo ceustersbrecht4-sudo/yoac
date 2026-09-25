@@ -54,7 +54,7 @@
   }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
   (function () {
     var banner = document.getElementById("cookie-banner");
     if (!/(?:^|;\s*)cookie_consent=(accepted|declined)/.test(document.cookie)) {

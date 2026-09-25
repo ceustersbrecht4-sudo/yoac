@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050b08">
+  <title>Account · YOAC Player Tracker</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
+  <style>
+    @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap;
+      src: url("{{ url_for('static', filename='fonts/barlow-condensed-800.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Barlow Condensed"; font-style: italic; font-weight: 900; font-display: swap;
+      src: url("{{ url_for('static', filename='fonts/barlow-condensed-900-italic.woff2') }}") format("woff2"); }
+    :root { --bg: #050b08; --surface: rgba(15, 31, 23, .85); --surface-2: #0a1711; --border: #1d3a2b; --border-hi: #2c5a42;
+      --text: #eaf3ee; --muted: #9db1a6; --neon: #45e07c; --warn: #f5b945; --issue: #ff7a6e; --ease: cubic-bezier(.2, .7, .2, 1); }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(700px 420px at 85% -10%, rgba(69, 224, 124, .14), transparent 65%), var(--bg); min-height: 100vh; }
+    a { color: var(--neon); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 18px 110px; }
+    header { display: flex; align-items: center; gap: 12px; padding: 18px 0; }
+    header img { height: 24px; display: block; }
+    header .sub { padding-left: 12px; border-left: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: .9rem; flex: 1; }
+    .pill-btn { font: inherit; font-size: .9rem; font-weight: 600; text-decoration: none; border: 1px solid var(--border); padding: 6px 14px; border-radius: 999px; color: var(--text); background: rgba(255, 255, 255, .03); cursor: pointer; }
+    .pill-btn:hover { border-color: var(--neon); }
+    h1 { font-family: "Barlow Condensed", system-ui, sans-serif; font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(2.6rem, 7vw, 4rem); line-height: .95; margin: 18px 0 6px; }
+    h1 .g { color: var(--neon); }
+    .lead { color: var(--muted); margin: 0 0 24px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 16px; animation: in .5s var(--ease) both; }
+    @keyframes in { from { opacity: 0; transform: translateY(12px); } }
+    .card h2 { font-family: "Barlow Condensed", system-ui, sans-serif; font-weight: 800; font-size: 1.7rem; line-height: 1; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+    .card p.help { color: var(--muted); margin: 0 0 16px; font-size: .93rem; }
+    .badge { font-family: system-ui, sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .06); color: var(--muted); border: 1px solid var(--border); }
+    .badge.on { background: rgba(69, 224, 124, .14); color: var(--neon); border-color: rgba(69, 224, 124, .35); }
+    .badge.off { background: rgba(245, 185, 69, .12); color: var(--warn); border-color: rgba(245, 185, 69, .35); }
+    form.grid { display: grid; gap: 10px; max-width: 440px; }
+    label.lbl { font-size: .82rem; font-weight: 700; color: var(--muted); }
+    input[type=password], input[type=text] { width: 100%; padding: 12px 13px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; outline: none; }
+    input:focus { border-color: var(--neon); box-shadow: 0 0 0 4px rgba(69, 224, 124, .14); }
+    .btn { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; border: 1px solid transparent; font: inherit; font-weight: 800; cursor: pointer; }
+    .btn-primary { background: var(--neon); color: #03140a; box-shadow: 0 8px 24px rgba(69, 224, 124, .25); }
+    .btn-primary:hover { background: #6cf09a; }
+    .btn-ghost { background: transparent; border-color: var(--border-hi); color: var(--text); }
+    .btn-danger { background: transparent; border-color: rgba(255, 122, 110, .5); color: #ffb4ab; }
+    .msg { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; margin-bottom: 16px; }
+    .msg.ok { background: rgba(69, 224, 124, .1); border: 1px solid rgba(69, 224, 124, .4); }
+    .msg.err { background: rgba(255, 122, 110, .1); border: 1px solid rgba(255, 122, 110, .45); color: #ffd5d0; animation: shake .45s var(--ease); }
+    .msg.warn { background: rgba(245, 185, 69, .1); border: 1px solid rgba(245, 185, 69, .45); }
+    @keyframes shake { 25% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-2px); } }
+    .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: .8rem; color: var(--muted); }
+    .rules li { display: flex; align-items: center; gap: 8px; }
+    .rules li::before { content: ""; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--border-hi); flex: none; }
+    .rules li.ok { color: var(--text); }
+    .rules li.ok::before { background: var(--neon); border-color: var(--neon); box-shadow: inset 0 0 0 3px var(--surface-2); }
+    .setup { display: grid; grid-template-columns: 200px 1fr; gap: 22px; align-items: start; }
+    .qr { width: 200px; height: 200px; border-radius: 14px; background: #fff; padding: 8px; display: grid; place-items: center; }
+    .qr svg { width: 100%; height: 100%; }
+    .qr.none { background: var(--surface-2); border: 1px dashed var(--border-hi); color: var(--muted); font-size: .82rem; text-align: center; padding: 14px; }
+    .key { font: 700 1.05rem/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .08em; word-break: break-all; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+    ol.steps { margin: 0 0 14px; padding-left: 20px; color: #d6e3dc; }
+    ol.steps li { margin-bottom: 6px; }
+    .codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; max-width: 420px; }
+    .codes code { font: 700 1.05rem ui-monospace, Consolas, monospace; letter-spacing: .06em; padding: 8px 10px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); text-align: center; }
+    .big-code { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
+    .big-code code { font: 800 1.6rem ui-monospace, Consolas, monospace; letter-spacing: .1em; color: var(--neon); padding: 8px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid rgba(69, 224, 124, .4); }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    td form { display: inline; }
+    td .btn { padding: 6px 12px; font-size: .82rem; font-weight: 700; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    footer { margin-top: 34px; color: var(--muted); font-size: .84rem; text-align: center; }
+    footer a { color: var(--muted); }
+    @media (max-width: 640px) {
+      .setup { grid-template-columns: 1fr; }
+      .hide-sm { display: none; }
+      header .sub { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { .card, .msg.err { animation: none; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="{{ url_for('landing') }}"><img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC"></a>
+    <span class="sub">Player Tracker</span>
+    {% if not forced %}<a class="pill-btn" href="{{ url_for('index') }}">Open the app</a>{% endif %}
+    <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="pill-btn" type="submit">Log out</button>
+    </form>
+  </header>
+
+  <h1>Your <span class="g">account.</span></h1>
+  <p class="lead">Signed in as <strong>{{ me.name }}</strong> <span class="badge {{ 'on' if is_owner else '' }}">{{ 'Owner' if is_owner else 'Member' }}</span></p>
+
+  {% if forced %}<div class="msg warn">Your password was reset by the owner. Choose a new password to continue.</div>{% endif %}
+  {% if notice %}<div class="msg ok" role="status">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="msg err" role="alert">{{ error }}</div>{% endif %}
+
+  {% if recovery_codes %}
+  <section class="card" style="border-color:rgba(245,185,69,.5)">
+    <h2>Save your recovery codes</h2>
+    <p class="help">If you lose your phone, each of these codes lets you log in once instead of a 6-digit code.
+      Store them somewhere safe (print them or keep them in a password manager). They won't be shown again.</p>
+    <div class="codes" id="codes">{% for c in recovery_codes %}<code>{{ c }}</code>{% endfor %}</div>
+    <div class="row">
+      <button type="button" class="btn btn-ghost" id="saveCodes">Download as a text file</button>
+      <button type="button" class="btn btn-ghost" id="copyCodes">Copy</button>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ================================================= password -->
+  <section class="card" id="password">
+    <h2>Change password</h2>
+    <p class="help">Changing it logs you out on your other devices.</p>
+    <form class="grid" method="post" action="{{ url_for('change_password') }}" id="pwForm">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label class="lbl" for="current">{{ 'Temporary password from the owner' if forced else 'Current password' }}</label>
+      <input type="password" id="current" name="current" autocomplete="current-password" required>
+      <label class="lbl" for="new">New password</label>
+      <input type="password" id="new" name="new" autocomplete="new-password" required>
+      <ul class="rules" id="rules">
+        <li data-rule="len">At least {{ min_password }} characters</li>
+        <li data-rule="user">Doesn't contain your username</li>
+        <li data-rule="mix">Mixes letters with numbers or symbols</li>
+      </ul>
+      <label class="lbl" for="confirm">New password again</label>
+      <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+      <button class="btn btn-primary" type="submit">Change password</button>
+    </form>
+  </section>
+
+  {% if not forced %}
+  <!-- ================================================= two-step login -->
+  <section class="card" id="twofa">
+    <h2>Two-step login <span class="badge {{ 'on' if me.totp else 'off' }}">{{ 'On' if me.totp else 'Off' }}</span></h2>
+    {% if setup %}
+      <p class="help">Use any authenticator app, such as Google Authenticator, Microsoft Authenticator or 2FAS.</p>
+      <div class="setup">
+        {% if setup.qr %}<div class="qr" aria-label="QR code for your authenticator app">{{ setup.qr | safe }}</div>
+        {% else %}<div class="qr none">Type the set-up key into your app instead (the QR code needs the optional <code>qrcode</code> package).</div>{% endif %}
+        <div>
+          <ol class="steps">
+            <li>In your app, tap <strong>+</strong> and scan the QR code, or choose "Enter a set-up key" and type this key:</li>
+          </ol>
+          <div class="key">{{ setup.secret | batch(4) | map('join') | join(' ') }}</div>
+          <ol class="steps" start="2" style="margin-top:12px">
+            <li>Type the 6-digit code the app shows:</li>
+          </ol>
+          <form class="grid" method="post" action="{{ url_for('twofa_confirm') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required autofocus>
+            <button class="btn btn-primary" type="submit">Turn on two-step login</button>
+          </form>
+        </div>
+      </div>
+    {% elif me.totp %}
+      <p class="help">When you log in, you also need the 6-digit code from your authenticator app.
+        {{ me.recovery | length }} recovery code{{ '' if me.recovery | length == 1 else 's' }} left.</p>
+      <details>
+        <summary style="cursor:pointer;color:var(--muted)">Turn two-step login off</summary>
+        <form class="grid" method="post" action="{{ url_for('twofa_disable') }}" style="margin-top:12px">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="password" name="password" placeholder="Your password" autocomplete="current-password" required>
+          <input type="text" name="code" inputmode="numeric" placeholder="6-digit code" maxlength="6" required>
+          <button class="btn btn-danger" type="submit">Turn it off</button>
+        </form>
+      </details>
+    {% else %}
+      <p class="help">Even if someone learns your password, they can't log in without the code from your phone.
+        {% if is_owner %}<strong>Strongly recommended for the owner account.</strong>{% endif %}</p>
+      <form method="post" action="{{ url_for('twofa_start') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-primary" type="submit">Set up two-step login</button>
+      </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if is_owner and not forced %}
+  <!-- ================================================= invites -->
+  <section class="card" id="invites">
+    <h2>Invite people</h2>
+    <p class="help">Only people with an invite code can create an account. Each code works once and expires after 7 days.</p>
+    {% if new_invite %}
+      <div class="msg ok" role="status" style="display:block">
+        New invite code. Give it to the person in person or by message; it's only shown now:
+        <div class="big-code"><code id="inviteCode">{{ new_invite }}</code>
+          <button type="button" class="btn btn-ghost" id="copyInvite">Copy</button></div>
+      </div>
+    {% endif %}
+    <form class="row" method="post" action="{{ url_for('admin_invite') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="text" name="note" maxlength="40" placeholder="Who is it for? (optional, e.g. U16 assistant coach)" style="flex:1;min-width:220px">
+      <button class="btn btn-primary" type="submit">Create invite code</button>
+    </form>
+    {% if invites %}
+    <table style="margin-top:14px">
+      <tr><th>For</th><th class="hide-sm">Expires</th><th></th></tr>
+      {% for inv in invites %}
+      <tr>
+        <td>{{ inv.note or 'Unnamed invite' }}</td>
+        <td class="hide-sm" data-ts="{{ inv.expires }}"></td>
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('admin_invite_revoke') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" value="{{ inv.id }}">
+            <button class="btn btn-ghost" type="submit">Cancel</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </section>
+
+  <!-- ================================================= accounts -->
+  <section class="card" id="accounts">
+    <h2>Accounts</h2>
+    <p class="help">Everyone with an account can see all analysed videos. Remove accounts that shouldn't have access any more.</p>
+    {% if temp_password %}
+      <div class="msg warn" role="status" style="display:block">
+        Temporary password for <strong>{{ temp_password.name }}</strong> (their two-step login was turned off too). Give it to them;
+        they must choose a new password when they log in. It's only shown now:
+        <div class="big-code"><code>{{ temp_password.password }}</code></div>
+      </div>
+    {% endif %}
+    <table>
+      <tr><th>Name</th><th>Role</th><th class="hide-sm">Two-step</th><th class="hide-sm">Since</th><th></th></tr>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.name }}</strong>{% if u.must_change_password %} <span class="badge off">new password pending</span>{% endif %}</td>
+        <td><span class="badge {{ 'on' if u.role == 'owner' else '' }}">{{ u.role or 'member' }}</span></td>
+        <td class="hide-sm">{{ 'On' if u.totp else 'Off' }}</td>
+        <td class="hide-sm" data-ts="{{ u.created }}"></td>
+        <td style="text-align:right;white-space:nowrap">
+          {% if u.key != me_key %}
+          <form method="post" action="{{ url_for('admin_reset') }}" class="confirm" data-confirm="Give {{ u.name }} a temporary password and turn off their two-step login?">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="user" value="{{ u.key }}">
+            <button class="btn btn-ghost" type="submit">Reset password</button>
+          </form>
+          <form method="post" action="{{ url_for('admin_remove') }}" class="confirm" data-confirm="Remove the account of {{ u.name }}?">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="user" value="{{ u.key }}">
+            <button class="btn btn-danger" type="submit">Remove</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  <footer>
+    <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
+    <a href="{{ url_for('legal_page', doc='privacy') }}#delete">Delete my account</a> ·
+    <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
+    <a href="{{ url_for('legal_page', doc='licences') }}">Licences &amp; source</a>
+  </footer>
+</div>
+
+<script nonce="{{ csp_nonce() }}">
+(function () {
+  "use strict";
+  var MIN = {{ min_password }}, NAME = {{ me.name | tojson }};
+  // Password rules checklist (the server checks the same rules plus the breach check).
+  var pw = document.getElementById("new");
+  function rules() {
+    var v = pw.value, u = NAME.toLowerCase();
+    var ok = { len: v.length >= MIN, user: !!v && v.toLowerCase().indexOf(u) === -1, mix: /[A-Za-z]/.test(v) && /[^A-Za-z]/.test(v) };
+    document.querySelectorAll("#rules li").forEach(function (li) { li.classList.toggle("ok", ok[li.dataset.rule]); });
+    return ok.len && ok.user && ok.mix;
+  }
+  pw.addEventListener("input", rules);
+  document.getElementById("pwForm").addEventListener("submit", function (e) {
+    if (!rules()) { e.preventDefault(); alert("Your new password doesn't meet all the rules yet."); }
+    else if (pw.value !== document.getElementById("confirm").value) { e.preventDefault(); alert("The two new passwords don't match."); }
+  });
+  // Confirm owner actions.
+  document.querySelectorAll("form.confirm").forEach(function (f) {
+    f.addEventListener("submit", function (e) { if (!confirm(f.dataset.confirm)) e.preventDefault(); });
+  });
+  // Dates in the viewer's own format.
+  document.querySelectorAll("[data-ts]").forEach(function (el) {
+    var t = parseInt(el.dataset.ts, 10);
+    if (t) el.textContent = new Date(t * 1000).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+  });
+  function copy(text, btn) {
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () {
+      btn.textContent = "Copied";
+    }, function () { window.prompt("Copy this:", text); });
+  }
+  var inv = document.getElementById("copyInvite");
+  if (inv) inv.addEventListener("click", function () { copy(document.getElementById("inviteCode").textContent, inv); });
+  var codes = document.getElementById("codes");
+  if (codes) {
+    var text = "YOAC Player Tracker recovery codes for " + NAME + "\n(each works once)\n\n" +
+      Array.prototype.map.call(codes.children, function (c) { return c.textContent; }).join("\n") + "\n";
+    document.getElementById("copyCodes").addEventListener("click", function (e) { copy(text, e.target); });
+    document.getElementById("saveCodes").addEventListener("click", function () {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+      a.download = "yoac-recovery-codes.txt";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  }
+})();
+</script>
+{% include "_cookie_banner.html" %}
+</body>
+</html>

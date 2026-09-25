@@ -26,6 +26,7 @@ import cv2
 import analysis
 from accounts import init_accounts
 from legal import init_legal, retention_days
+from security import init_security_headers
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
 
@@ -46,6 +47,7 @@ app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
 app.config["TEMPLATES_AUTO_RELOAD"] = True  # page edits show up without a restart
 init_accounts(app)  # every page needs a logged-in user; see accounts.py
 init_legal(app)     # privacy / cookies / terms / legal notice / licences, and /source
+init_security_headers(app)  # Content Security Policy and other protective headers
 
 # job_id -> {status, done, total, message, teams, colors, hidden, version,
 #            filename, input, output, started}

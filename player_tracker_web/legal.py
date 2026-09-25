@@ -83,7 +83,10 @@ def init_legal(app):
         info = load_info()
         missing = any(isinstance(v, str) and v.startswith("[") for k, v in info.items() if not k.startswith("_"))
         errors = {"password": "That password isn't right, so the account was not deleted.",
-                  "expired": "Your session expired. Please try again."}
+                  "expired": "Your session expired. Please try again.",
+                  "wait": "Too many attempts. Please wait a few minutes and try again.",
+                  "owner": "You're the owner. Remove the other accounts on your account page first, "
+                           "so nobody is left without an owner."}
         return render_template("legal.html", doc=doc, titles=TITLES, info=info, missing=missing,
                                deleted=request.args.get("deleted") == "1",
                                delete_error=errors.get(request.args.get("error")))

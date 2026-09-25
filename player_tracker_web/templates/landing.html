@@ -82,7 +82,9 @@
     .brand-sub { padding-left: 12px; border-left: 1px solid var(--border); font-weight: 600; font-size: .92rem; color: var(--muted); white-space: nowrap; }
     .nav-links { display: flex; gap: 22px; margin-right: 10px; }
     .logout { margin: 0; }
-    .logout button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, .03); color: var(--muted); cursor: pointer; font: inherit; }
+    .acct { text-decoration: none; display: inline-flex; border-radius: 50%; }
+    .acct:hover .avatar { box-shadow: 0 0 0 2px var(--neon); }
+    .logout button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, .03); color: var(--muted); cursor: pointer; font: inherit; }
     .logout button:hover { border-color: var(--neon); color: var(--text); }
     .logout .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--neon-soft); color: var(--neon); font-weight: 800; text-transform: uppercase; }
     .nav-links a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; }
@@ -410,10 +412,10 @@
       </div>
       <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">Get Started</a>
       {% if current_user %}
+      <a class="acct" href="{{ url_for('account') }}" title="Your account ({{ display_name() }})" aria-label="Your account"><span class="avatar" aria-hidden="true">{{ display_name()[:1] }}</span></a>
       <form class="logout" method="post" action="{{ url_for('logout') }}">
         <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-        <button type="submit" title="Log out ({{ display_name() }})" aria-label="Log out {{ display_name() }}">
-          <span class="avatar" aria-hidden="true">{{ display_name()[:1] }}</span>
+        <button type="submit" title="Log out" aria-label="Log out">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H5a1 1 0 01-1-1V5a1 1 0 011-1h7"/></svg>
         </button>
       </form>
@@ -656,7 +658,7 @@
     </p>
   </footer>
 
-  <script>
+  <script nonce="{{ csp_nonce() }}">
   (function () {
     "use strict";
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
