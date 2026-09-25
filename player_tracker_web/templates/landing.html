@@ -3,202 +3,529 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b2a1d">
   <title>Player Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f7a4d'/%3E%3Cellipse cx='16' cy='16' rx='11' ry='7' transform='rotate(-35 16 16)' fill='none' stroke='white' stroke-width='2.4'/%3E%3Cpath d='M12 20l8-8M13.5 15.5l3 3M15.5 13.5l3 3' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E">
   <style>
     :root {
-      --bg: #0f1419;
-      --surface: #1a2129;
-      --text: #e8edf2;
-      --muted: #9aa7b4;
-      --accent: #2ecc71;
-      --accent-dark: #27ae60;
+      --bg: #08140f;
+      --bg-2: #0b2a1d;
+      --surface: #11231a;
+      --border: #1f3a2c;
+      --text: #e8f0ec;
+      --muted: #97aaa1;
+      --accent: #3fb07a;
+      --accent-bright: #5cd69a;
+      --red: #ef4b4b;
+      --blue: #3b8cf6;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
       background: var(--bg);
       color: var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       line-height: 1.6;
+      overflow-x: hidden;
     }
-    main {
-      max-width: 640px;
-      width: 100%;
-      text-align: center;
-    }
-    h1 {
-      font-size: clamp(2rem, 6vw, 3rem);
-      margin: 0 0 16px;
-    }
-    .lead {
-      font-size: 1.15rem;
-      color: var(--muted);
-      margin: 0 0 32px;
-    }
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 16px;
-      margin: 0 0 40px;
-      padding: 0;
-      list-style: none;
-      text-align: left;
-    }
-    .steps li {
-      background: var(--surface);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .steps strong {
-      display: block;
-      color: var(--accent);
-      margin-bottom: 4px;
-    }
-    .cta {
-      display: inline-block;
-      background: var(--accent);
-      color: #0f1419;
-      font-weight: 700;
-      font-size: 1.1rem;
-      text-decoration: none;
-      padding: 14px 40px;
-      border-radius: 999px;
-    }
+    a { color: inherit; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
 
-    /* Before/after demo: raw footage underneath, tracked frame clipped on top. */
-    .demo {
-      margin: 0 0 32px;
+    /* ---------- nav ---------- */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: color-mix(in srgb, var(--bg) 80%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
     }
-    .demo[hidden] { display: none; }
+    nav .wrap { display: flex; align-items: center; gap: 12px; height: 64px; }
+    .logo {
+      width: 36px; height: 36px; border-radius: 10px; flex: none;
+      background: #1f7a4d; display: grid; place-items: center;
+    }
+    .brand { font-weight: 800; letter-spacing: -.01em; flex: 1; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 999px; font-weight: 700;
+      text-decoration: none; border: 1px solid transparent; white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #04110a; }
+    .btn-primary:hover { background: var(--accent-bright); }
+    .btn-ghost { border-color: var(--border); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--accent); }
+    nav .btn { padding: 8px 18px; font-size: .95rem; }
+
+    /* ---------- hero ---------- */
+    .hero {
+      position: relative; overflow: hidden;
+      padding: 72px 0 88px;
+      background:
+        radial-gradient(900px 500px at 85% 10%, rgba(63, 176, 122, .18), transparent 60%),
+        radial-gradient(700px 400px at 0% 100%, rgba(59, 140, 246, .10), transparent 60%),
+        linear-gradient(180deg, var(--bg-2), var(--bg));
+    }
+    .hero .wrap { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: .85rem; font-weight: 700; color: var(--accent-bright);
+      background: rgba(63, 176, 122, .12); border: 1px solid rgba(63, 176, 122, .3);
+      padding: 4px 12px; border-radius: 999px;
+    }
+    .eyebrow .live { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-bright); animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 50% { opacity: .25; } }
+    h1 {
+      font-size: clamp(2.4rem, 5.5vw, 4rem); line-height: 1.05; letter-spacing: -.03em;
+      margin: 18px 0 18px;
+    }
+    h1 .grad {
+      background: linear-gradient(90deg, var(--accent-bright), #b5f5d4 40%, var(--accent-bright) 80%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: shine 6s linear infinite;
+    }
+    @keyframes shine { to { background-position: -200% 0; } }
+    .lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 30px; max-width: 34em; }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* staggered entrance */
+    .enter { opacity: 0; transform: translateY(18px); animation: enter .8s cubic-bezier(.2, .7, .2, 1) forwards; }
+    .enter.d1 { animation-delay: .08s; } .enter.d2 { animation-delay: .2s; }
+    .enter.d3 { animation-delay: .32s; } .enter.d4 { animation-delay: .44s; }
+    @keyframes enter { to { opacity: 1; transform: none; } }
+
+    /* live pitch demo */
+    .screen {
+      position: relative; border-radius: 18px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+      background: #1d5a36; aspect-ratio: 16 / 10;
+    }
+    .screen canvas { display: block; width: 100%; height: 100%; }
+    .screen .chip {
+      position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px;
+      font-size: .78rem; font-weight: 700; background: rgba(4, 12, 8, .72); pointer-events: none;
+    }
+    .screen .chip-l { left: 12px; color: var(--accent-bright); }
+    .screen .chip-r { right: 12px; color: #fff; font-variant-numeric: tabular-nums; }
+    .screen-caption { margin-top: 12px; font-size: .88rem; color: var(--muted); text-align: center; }
+
+    /* ---------- sections ---------- */
+    section { padding: 96px 0; }
+    .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
+    .section-head h2 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); letter-spacing: -.02em; line-height: 1.15; margin: 0 0 12px; }
+    .section-head p { color: var(--muted); margin: 0; font-size: 1.05rem; }
+    .kicker { color: var(--accent-bright); font-weight: 700; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; }
+
+    /* scroll reveal */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.2, .7, .2, 1), transform .8s cubic-bezier(.2, .7, .2, 1); }
+    .reveal.in { opacity: 1; transform: none; }
+    .reveal.s1 { transition-delay: .1s; } .reveal.s2 { transition-delay: .2s; } .reveal.s3 { transition-delay: .3s; }
+
+    /* before / after on real footage */
     .compare {
       --pos: 50%;
-      position: relative;
-      overflow: hidden;
-      border-radius: 12px;
-      background: var(--surface);
-      aspect-ratio: 16 / 9;
-      touch-action: pan-y;
+      position: relative; overflow: hidden; border-radius: 16px;
+      border: 1px solid var(--border); background: var(--surface);
+      aspect-ratio: 16 / 9; max-width: 900px; margin: 0 auto; touch-action: pan-y;
     }
-    .compare img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
+    .compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
     .compare .tracked { clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
     .compare .handle {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: var(--pos);
-      width: 3px;
-      margin-left: -1.5px;
-      background: #fff;
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
-      pointer-events: none;
+      position: absolute; top: 0; bottom: 0; left: var(--pos); width: 3px; margin-left: -1.5px;
+      background: var(--accent-bright); box-shadow: 0 0 16px var(--accent-bright); pointer-events: none;
     }
     .compare .handle::after {
-      content: "\2194";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 36px;
-      height: 36px;
-      margin: -18px 0 0 -18px;
-      border-radius: 50%;
-      background: #fff;
-      color: #0f1419;
-      font-weight: 700;
-      line-height: 36px;
-      text-align: center;
+      content: "\2194"; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px;
+      border-radius: 50%; background: var(--accent-bright); color: #04110a; font-weight: 800; line-height: 42px; text-align: center;
     }
-    .compare .tag {
-      position: absolute;
-      top: 10px;
-      padding: 2px 10px;
-      border-radius: 999px;
-      background: rgba(15, 20, 25, 0.75);
-      font-size: 0.8rem;
-      font-weight: 600;
-      pointer-events: none;
+    .compare .tag { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(4, 12, 8, .75); font-size: .8rem; font-weight: 700; pointer-events: none; }
+    .compare .tag-tracked { left: 12px; color: var(--accent-bright); }
+    .compare .tag-raw { right: 12px; }
+    .compare input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+    #real[hidden] { display: none; }
+
+    /* how it works */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; position: relative; list-style: none; margin: 0; padding: 0; }
+    .steps::before {
+      content: ""; position: absolute; top: 34px; left: 16%; right: 16%; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+      transform: scaleX(0); transform-origin: left; transition: transform 1.4s cubic-bezier(.2, .7, .2, 1) .3s;
     }
-    .compare .tag-tracked { left: 10px; color: var(--accent); }
-    .compare .tag-raw { right: 10px; }
-    .compare input[type=range] {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      opacity: 0;
-      cursor: ew-resize;
+    .steps.in::before { transform: scaleX(1); }
+    .step { text-align: center; padding: 0 12px; }
+    .step .num {
+      position: relative; z-index: 1; width: 68px; height: 68px; margin: 0 auto 18px; border-radius: 50%;
+      display: grid; place-items: center; background: var(--surface); border: 2px solid var(--accent);
+      color: var(--accent-bright); box-shadow: 0 0 0 8px var(--bg);
     }
-    .compare input[type=range]:focus-visible ~ .handle { background: var(--accent); }
-    .demo figcaption {
-      margin-top: 8px;
-      font-size: 0.9rem;
-      color: var(--muted);
+    .step h3 { margin: 0 0 6px; font-size: 1.2rem; }
+    .step p { margin: 0; color: var(--muted); }
+
+    /* features */
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feature {
+      background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 60%, var(--bg)));
+      border: 1px solid var(--border); border-radius: 18px; padding: 26px; position: relative; overflow: hidden;
+    }
+    .feature .ic { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: rgba(63, 176, 122, .14); color: var(--accent-bright); margin-bottom: 16px; }
+    .feature h3 { margin: 0 0 6px; font-size: 1.15rem; }
+    .feature p { margin: 0; color: var(--muted); font-size: .98rem; }
+    .swatches { display: flex; gap: 6px; margin-top: 16px; }
+    .swatches span { height: 8px; flex: 1; border-radius: 4px; transform: scaleX(0); transform-origin: left; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
+    .feature.in .swatches span { transform: scaleX(1); }
+    .feature.in .swatches span:nth-child(2) { transition-delay: .15s; }
+    .feature.in .swatches span:nth-child(3) { transition-delay: .3s; }
+
+    /* final CTA */
+    .cta-band {
+      text-align: center; padding: 72px 24px; border-radius: 24px;
+      background:
+        radial-gradient(600px 300px at 50% 0%, rgba(92, 214, 154, .25), transparent 70%),
+        linear-gradient(180deg, #0f3d2a, #0b2a1d);
+      border: 1px solid #1f5a3d;
+    }
+    .cta-band h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); letter-spacing: -.02em; margin: 0 0 10px; }
+    .cta-band p { color: #b7cfc3; margin: 0 0 28px; }
+    .cta-band .btn { font-size: 1.1rem; padding: 16px 34px; animation: pulse 2.6s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(92, 214, 154, .45); }
+      50% { box-shadow: 0 0 0 14px rgba(92, 214, 154, 0); }
+    }
+
+    footer { padding: 32px 0 110px; color: var(--muted); font-size: .88rem; text-align: center; }
+
+    @media (max-width: 860px) {
+      .hero { padding: 44px 0 64px; }
+      .hero .wrap { grid-template-columns: 1fr; gap: 36px; }
+      .steps, .features { grid-template-columns: 1fr; }
+      .steps { gap: 36px; }
+      .steps::before { top: 0; bottom: 0; left: 50%; right: auto; width: 2px; height: auto; transform: scaleY(0); transform-origin: top; }
+      .steps.in::before { transform: scaleY(1); }
+      section { padding: 72px 0; }
+    }
+    @media (max-width: 480px) {
+      nav .brand { font-size: .95rem; }
+      .hero-ctas .btn { flex: 1; justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .enter, .reveal { opacity: 1; transform: none; }
+      .steps::before { transform: none; }
+      .swatches span { transform: none; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Player Tracker</h1>
-    <p class="lead">
-      Upload your match footage and Player Tracker finds every player on the pitch,
-      follows them through the whole video, and groups them by their team colours.
-      You get the footage back with each player tracked and labelled, so you can
-      review positioning and movement without tagging anything by hand.
-    </p>
+  <nav>
+    <div class="wrap">
+      <div class="logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 32 32"><ellipse cx="16" cy="16" rx="12" ry="7.5" transform="rotate(-35 16 16)" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M11.5 20.5l9-9M13.4 15.6l3 3M15.6 13.4l3 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <div class="brand">Player Tracker</div>
+      <a class="btn btn-primary" href="{{ url_for('index') }}">Get Started</a>
+    </div>
+  </nav>
 
-    <figure class="demo" id="demo" hidden>
-      <div class="compare" id="compare">
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow enter"><span class="live"></span>Rugby match analysis for coaches</span>
+        <h1 class="enter d1">See every player.<br><span class="grad">Every phase.</span></h1>
+        <p class="lead enter d2">
+          Upload your match footage and Player Tracker follows every player through the video,
+          sorts them into teams by shirt colour, and builds a coach report with the moments worth reviewing.
+        </p>
+        <div class="hero-ctas enter d3">
+          <a class="btn btn-primary" href="{{ url_for('index') }}">
+            Get Started
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#how">How it works</a>
+        </div>
+      </div>
+      <div class="enter d4">
+        <div class="screen">
+          <canvas id="pitch" aria-label="Animation: players on a rugby pitch being picked up by tracking boxes in their team colours"></canvas>
+          <span class="chip chip-l" id="pitchMode">Scanning…</span>
+          <span class="chip chip-r" id="pitchCount">0 players</span>
+        </div>
+        <div class="screen-caption">Illustration. Your own footage gets the same treatment.</div>
+      </div>
+    </div>
+  </header>
+
+  <section id="real" hidden>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">Your footage</div>
+        <h2>Drag to see what changes</h2>
+        <p>A frame from your latest analysed match. Left is what Player Tracker gives back, right is what you uploaded.</p>
+      </div>
+      <div class="compare reveal s1" id="compare">
         <img class="raw" src="/demo/raw.jpg" alt="Raw match footage">
         <img class="tracked" src="/demo/tracked.jpg" alt="The same frame with every player boxed in their team colour">
         <span class="tag tag-tracked">Tracked</span>
         <span class="tag tag-raw">Raw footage</span>
-        <input type="range" min="0" max="100" value="50" step="0.5"
-               aria-label="Drag to compare raw footage with tracked footage">
+        <input type="range" min="0" max="100" value="50" step="0.5" aria-label="Drag to compare raw footage with tracked footage">
         <span class="handle"></span>
       </div>
-      <figcaption>Drag across the frame: left is what Player Tracker gives back, right is the footage you upload.</figcaption>
-    </figure>
+    </div>
+  </section>
 
-    <ol class="steps">
-      <li><strong>1. Upload</strong>Choose a match video from your computer.</li>
-      <li><strong>2. Track</strong>Players are detected and followed frame by frame.</li>
-      <li><strong>3. Review</strong>Watch the result with players marked in team colours.</li>
-    </ol>
+  <section id="how">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">How it works</div>
+        <h2>From phone video to coach report</h2>
+        <p>No tagging, no setup. Just the footage you already film.</p>
+      </div>
+      <ol class="steps reveal" id="steps">
+        <li class="step reveal s1">
+          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></div>
+          <h3>1. Upload</h3>
+          <p>Pick a match video from your phone or laptop. Wide shots of the pitch work best.</p>
+        </li>
+        <li class="step reveal s2">
+          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><path d="M7.5 16v4M16.5 4v4"/></svg></div>
+          <h3>2. Track</h3>
+          <p>Every player is found and followed frame by frame, then sorted into teams by shirt colour.</p>
+        </li>
+        <li class="step reveal s3">
+          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h3>3. Review</h3>
+          <p>Watch the tracked video and read the coach report, with each moment one tap away.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
 
-    <a class="cta" href="{{ url_for('index') }}">Get Started</a>
-  </main>
+  <section>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">What you get</div>
+        <h2>Everything a coach needs from the video</h2>
+      </div>
+      <div class="features">
+        <div class="feature reveal s1">
+          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></div>
+          <h3>Tracked video</h3>
+          <p>Your footage back with every player boxed and numbered. Download it or watch it on your phone.</p>
+        </div>
+        <div class="feature reveal s2">
+          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/></svg></div>
+          <h3>Teams by colour</h3>
+          <p>Players are grouped by shirt colour automatically. Hide referees or anyone else with one tap.</p>
+          <div class="swatches" aria-hidden="true"><span style="background:var(--red)"></span><span style="background:var(--blue)"></span><span style="background:#a0a0a0"></span></div>
+        </div>
+        <div class="feature reveal s3">
+          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+          <h3>Coach report</h3>
+          <p>Line structure, spacing and ruck numbers in attack or defence, with the moments to review.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta-band reveal">
+        <h2>Ready when your footage is.</h2>
+        <p>Start with a short 10–30 second clip to see it work.</p>
+        <a class="btn btn-primary" href="{{ url_for('index') }}">Get Started</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>Player Tracker runs on your own laptop. Your videos stay on it.</footer>
 
   <script>
+    // ---------------------------------------------------------- scroll reveal
     (function () {
-      var demo = document.getElementById("demo");
+      var items = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) { items.forEach(function (e) { e.classList.add("in"); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.15 });
+      items.forEach(function (e) { io.observe(e); });
+    })();
+
+    // ------------------------------------------------ real before/after slider
+    (function () {
+      var section = document.getElementById("real");
       var compare = document.getElementById("compare");
       var imgs = compare.querySelectorAll("img");
       var loaded = 0;
-      // Only show the demo once both frames exist. Before the first video has
-      // been analysed there is nothing to compare, so it stays hidden.
-      function onLoad() { if (++loaded === imgs.length) demo.hidden = false; }
+      // Only shown once both frames exist, i.e. after a first analysed video.
+      function onLoad() { if (++loaded === imgs.length) section.hidden = false; }
       imgs.forEach(function (img) {
         if (img.complete && img.naturalWidth) return onLoad();
         img.addEventListener("load", onLoad);
-        img.addEventListener("error", function () { demo.hidden = true; });
+        img.addEventListener("error", function () { section.hidden = true; });
       });
       compare.querySelector("input").addEventListener("input", function (e) {
         compare.style.setProperty("--pos", e.target.value + "%");
       });
+    })();
+
+    // ------------------------------------------------------ live pitch demo
+    // Two teams move in formation; a scan line sweeps across and tracking
+    // boxes lock onto each player as it passes, then the cycle repeats.
+    (function () {
+      var canvas = document.getElementById("pitch");
+      var ctx = canvas.getContext("2d");
+      var modeChip = document.getElementById("pitchMode");
+      var countChip = document.getElementById("pitchCount");
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var TEAMS = [{ color: "#ef4b4b", shirt: "#d83a3a" }, { color: "#3b8cf6", shirt: "#2c6fd1" }];
+      var CYCLE = 10, SCAN_START = 1.2, SCAN_END = 4.2, FADE_START = 9.2;
+      var W = 0, H = 0, dpr = 1;
+
+      // 10 attackers (red) in a flat line, 10 defenders (blue) facing them.
+      var players = [];
+      for (var t = 0; t < 2; t++) {
+        for (var i = 0; i < 10; i++) {
+          players.push({
+            team: t,
+            num: t === 0 ? [9, 10, 12, 13, 11, 14, 15, 7, 6, 8][i] : [9, 10, 12, 13, 11, 14, 15, 7, 6, 8][9 - i],
+            lane: 0.1 + i * 0.087,
+            depth: (i % 3) * 0.025 + (t ? 0.07 : 0),
+            ph: Math.random() * 6.28,
+            sp: 0.6 + Math.random() * 0.6,
+            x: 0, y: 0
+          });
+        }
+      }
+
+      function resize() {
+        var r = canvas.getBoundingClientRect();
+        dpr = Math.min(2, window.devicePixelRatio || 1);
+        W = r.width; H = r.height;
+        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function drawPitch() {
+        var stripes = 10;
+        for (var s = 0; s < stripes; s++) {
+          ctx.fillStyle = s % 2 ? "#236b40" : "#277547";
+          ctx.fillRect(s * W / stripes, 0, W / stripes + 1, H);
+        }
+        ctx.strokeStyle = "rgba(255,255,255,.75)";
+        ctx.lineWidth = 2;
+        [0.06, 0.28, 0.5, 0.72, 0.94].forEach(function (fx) {
+          ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke();
+        });
+        ctx.setLineDash([8, 10]);
+        [0.39, 0.61].forEach(function (fx) {
+          ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke();
+        });
+        ctx.setLineDash([]);
+      }
+
+      function place(time) {
+        // The contact line surges forward and back like phases of play.
+        var front = 0.44 + 0.1 * Math.sin(time * 0.35) + 0.03 * Math.sin(time * 0.9);
+        players.forEach(function (p) {
+          var wobbleX = 0.012 * Math.sin(time * p.sp + p.ph);
+          var wobbleY = 0.01 * Math.cos(time * p.sp * 0.8 + p.ph);
+          var x = p.team === 0 ? front - p.depth - 0.02 : front + p.depth + 0.02;
+          p.x = (x + wobbleX) * W;
+          p.y = (p.lane + wobbleY + 0.02 * Math.sin(time * 0.3 + p.lane * 4)) * H;
+        });
+      }
+
+      function drawPlayer(p, s) {
+        // Top-down player: shadow, shirt, head.
+        ctx.fillStyle = "rgba(0,0,0,.25)";
+        ctx.beginPath(); ctx.ellipse(p.x + s * 0.15, p.y + s * 0.5, s * 0.45, s * 0.18, 0, 0, 6.28); ctx.fill();
+        ctx.fillStyle = TEAMS[p.team].shirt;
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, s * 0.42, s * 0.3, 0, 0, 6.28); ctx.fill();
+        ctx.fillStyle = "#f1d1b5";
+        ctx.beginPath(); ctx.arc(p.x, p.y, s * 0.17, 0, 6.28); ctx.fill();
+      }
+
+      function drawBox(p, s, alpha, pop) {
+        var c = TEAMS[p.team].color;
+        var bw = s * 1.2 * pop, bh = s * 1.3 * pop;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = c; ctx.lineWidth = 2;
+        ctx.strokeRect(p.x - bw / 2, p.y - bh / 2, bw, bh);
+        // number tag above the box
+        var label = "#" + p.num;
+        ctx.font = "700 " + Math.max(9, s * 0.42) + "px system-ui, sans-serif";
+        var tw = ctx.measureText(label).width + 8, th = Math.max(12, s * 0.55);
+        ctx.fillStyle = c;
+        ctx.fillRect(p.x - bw / 2, p.y - bh / 2 - th, tw, th);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(label, p.x - bw / 2 + 4, p.y - bh / 2 - th * 0.25);
+        ctx.globalAlpha = 1;
+      }
+
+      function ballCarrier(time) {
+        var attackers = players.filter(function (p) { return p.team === 0; });
+        var k = Math.floor(time / 2.2) % attackers.length;
+        var n = (k + 1) % attackers.length;
+        var f = Math.min(1, (time % 2.2) / 0.6);  // pass travels for 0.6 s
+        var a = attackers[k], b = attackers[n];
+        return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      }
+
+      function frame(ms) {
+        var time = ms / 1000;
+        var c = reduce ? 6 : time % CYCLE;
+        var s = Math.max(12, H * 0.055);
+        if (!W) resize();
+        drawPitch();
+        place(reduce ? 3 : time);
+
+        var scanX = c < SCAN_START ? -1 : c < SCAN_END ? (c - SCAN_START) / (SCAN_END - SCAN_START) * W : W + 1;
+        var fade = c > FADE_START ? 1 - (c - FADE_START) / (CYCLE - FADE_START) : 1;
+        var tracked = 0;
+
+        players.forEach(function (p) { drawPlayer(p, s); });
+        var ball = ballCarrier(reduce ? 3 : time);
+        ctx.fillStyle = "#fff5d6";
+        ctx.beginPath(); ctx.ellipse(ball.x + s * 0.35, ball.y, s * 0.2, s * 0.13, 0.6, 0, 6.28); ctx.fill();
+
+        players.forEach(function (p) {
+          if (p.x > scanX) return;
+          tracked++;
+          var since = (scanX - p.x) / W * (SCAN_END - SCAN_START);   // seconds since the scan passed
+          var pop = c < SCAN_END ? 1 + Math.max(0, 0.35 - since) : 1;  // quick lock-on pulse
+          drawBox(p, s, fade, pop);
+        });
+
+        if (scanX >= 0 && scanX <= W) {
+          var g = ctx.createLinearGradient(scanX - 60, 0, scanX, 0);
+          g.addColorStop(0, "rgba(92,214,154,0)");
+          g.addColorStop(1, "rgba(92,214,154,.35)");
+          ctx.fillStyle = g; ctx.fillRect(scanX - 60, 0, 60, H);
+          ctx.fillStyle = "#5cd69a"; ctx.fillRect(scanX - 1.5, 0, 3, H);
+        }
+
+        modeChip.textContent = c < SCAN_START ? "Raw footage" : c < SCAN_END ? "Tracking…" : "Tracked";
+        countChip.textContent = tracked + " players";
+      }
+
+      var running = false, raf = 0;
+      function loop(ms) { frame(ms); if (running) raf = requestAnimationFrame(loop); }
+      function start() { if (!running && !reduce) { running = true; raf = requestAnimationFrame(loop); } }
+      function stop() { running = false; cancelAnimationFrame(raf); }
+
+      // Resizing clears the canvas, so redraw straight away even when paused.
+      window.addEventListener("resize", function () { resize(); frame(reduce ? 0 : performance.now()); });
+      resize();
+      frame(0);
+      // Only animate while visible: the laptop also runs the analysis.
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (en) { en[0].isIntersecting ? start() : stop(); }).observe(canvas);
+      } else {
+        start();
+      }
     })();
   </script>
 
