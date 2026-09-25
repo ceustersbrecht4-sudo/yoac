@@ -1,56 +1,27 @@
-# Adding the intro page and cookie banner to Player Tracker
+# Player Tracker: intro page and interactive moments
 
-Three steps, all inside `C:\Users\47289\Downloads\player_tracker_web`.
+This folder holds the updated Player Tracker files:
 
-## 1. Copy the two new files into the `templates` folder
+- `app.py`: intro page at `/`, upload tool at `/upload`, plus `/frame` (live
+  processing preview) and `/demo/raw.jpg` / `/demo/tracked.jpg` (landing page slider).
+- `templates/landing.html`: intro page with the before/after demo slider.
+- `templates/index.html`: upload tool with drop-zone feedback, a live frame strip
+  while processing, and the raw-to-tracked reveal when the result is ready.
+- `templates/_cookie_banner.html`: cookie consent banner.
 
-Put them next to your existing `index.html`:
+## Install on the laptop
 
-- `templates/landing.html`: the intro page with the **Get Started** button
-- `templates/_cookie_banner.html`: the cookie consent banner
+In PowerShell:
 
-## 2. Change 3 lines in `app.py`
-
-Find this (around line 140):
-
-```python
-@app.route("/")
-def index():
-    return render_template("index.html")
+```powershell
+cd "$HOME\Downloads\player_tracker_web"; Invoke-WebRequest "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/claude/locate-app-py-sobmfj/player_tracker_web/update_player_tracker.ps1" -OutFile update_player_tracker.ps1 -UseBasicParsing; powershell -ExecutionPolicy Bypass -File .\update_player_tracker.ps1
 ```
 
-Replace it with this:
+It backs up the current files into a `backup_<date>` folder, installs the new ones
+and restarts the app.
 
-```python
-@app.route("/")
-def landing():
-    return render_template("landing.html")
+## Demo slider
 
-
-@app.route("/upload")
-def index():
-    return render_template("index.html")
-```
-
-That's the only change. Uploads still go to `/analyze` as before, so the upload tool keeps
-working. It's just at `/upload` now.
-
-## 3. (Optional) Show the cookie banner on the upload page too
-
-Open `templates/index.html` in Notepad. Just before the `</body>` line near the bottom, add:
-
-```html
-{% include "_cookie_banner.html" %}
-```
-
-After someone clicks Accept or Decline, the banner stays hidden on every page for a year.
-
-## Run it
-
-```cmd
-cd C:\Users\47289\Downloads\player_tracker_web
-py app.py
-```
-
-Open http://127.0.0.1:5000. You'll see the intro page first, and **Get Started** takes you
-to the upload tool.
+The slider on the intro page uses a frame from the most recently analysed video.
+To pin a specific image instead, put `raw.jpg` and `tracked.jpg` (the same frame,
+before and after) in `static/demo/`.
