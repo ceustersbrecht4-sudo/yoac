@@ -1,12 +1,12 @@
-# Updates Player Tracker with the intro page demo, drop-zone feedback, live
-# processing preview and results reveal, then restarts the app.
+# Updates Player Tracker (intro page, upload page, two-team sorting) and
+# restarts the app.
 # Run from the player_tracker_web folder:
 #   powershell -ExecutionPolicy Bypass -File .\update_player_tracker.ps1
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/ef4ca64bb5747ab78021dd8c83f1fdf3f004b63d/player_tracker_web"
-$files = @("app.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html")
+$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/2b90d4e4b047e27e789ebcf70638b5ca648c2f9a/player_tracker_web"
+$files = @("app.py", "teams.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html")
 
 if (-not (Test-Path (Join-Path $root "app.py"))) {
     Write-Host "app.py not found next to this script. Put it in the player_tracker_web folder." -ForegroundColor Red
