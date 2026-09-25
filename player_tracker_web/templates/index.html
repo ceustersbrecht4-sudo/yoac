@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3d2a">
+<title>Player Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f7a4d'/%3E%3Cellipse cx='16' cy='16' rx='11' ry='7' transform='rotate(-35 16 16)' fill='none' stroke='white' stroke-width='2.4'/%3E%3Cpath d='M12 20l8-8M13.5 15.5l3 3M15.5 13.5l3 3' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f3f5f4; --surface: #ffffff; --surface-2: #f7f9f8; --text: #16201b; --muted: #5d6b64;
+    --border: #dfe5e2; --accent: #1f7a4d; --accent-hover: #186240; --accent-soft: #e4f2ea;
+    --issue: #c0392b; --issue-soft: #fbecea; --good: #1f7a4d; --good-soft: #e4f2ea;
+    --info: #5d6b64; --info-soft: #eef1f0; --warn: #9a6700;
+    --header: #0f3d2a; --header-text: #ffffff; --bar-bg: #e3e9e6;
+    --shadow: 0 1px 2px rgba(16, 32, 24, .06), 0 4px 16px rgba(16, 32, 24, .06);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161e1a; --surface-2: #1b2520; --text: #e6ece9; --muted: #98a6a0;
+      --border: #2a3630; --accent: #3fb07a; --accent-hover: #5cc792; --accent-soft: #1b3328;
+      --issue: #f07a6e; --issue-soft: #3a211e; --good: #3fb07a; --good-soft: #1b3328;
+      --info: #98a6a0; --info-soft: #222c28; --warn: #e3b341;
+      --header: #0b2a1d; --bar-bg: #26312c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  button { font: inherit; }
+
+  /* ---------- header ---------- */
+  header {
+    background: var(--header); color: var(--header-text);
+    padding: 18px 16px 56px;
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.18));
+    background-size: 80px 100%, 100% 100%;
+  }
+  .head-in { max-width: 820px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 40px; height: 40px; flex: none; border-radius: 10px; background: rgba(255,255,255,.12); display: grid; place-items: center; }
+  .brand { font-weight: 700; font-size: 1.2rem; letter-spacing: -.01em; line-height: 1.2; }
+  .brand small { display: block; font-weight: 500; font-size: .85rem; opacity: .75; letter-spacing: 0; }
+
+  main { max-width: 820px; margin: -40px auto 0; padding: 0 16px 64px; }
+
+  /* ---------- steps ---------- */
+  .steps { display: flex; gap: 6px; margin-bottom: 14px; }
+  .step {
+    flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 12px 6px 6px; font-size: .88rem; color: var(--muted); box-shadow: var(--shadow);
+  }
+  .step .n {
+    width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 700; font-size: .8rem; background: var(--bar-bg); color: var(--muted);
+  }
+  .step span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step.on { color: var(--text); font-weight: 600; border-color: var(--accent); }
+  .step.on .n { background: var(--accent); color: #fff; }
+  .step.done .n { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---------- cards & basics ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow);
+  }
+  h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+  .muted { color: var(--muted); }
+  .small { font-size: .88rem; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 18px; min-height: 46px; border-radius: 10px; border: 1px solid transparent;
+    font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-block { width: 100%; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .error-box {
+    border: 1px solid color-mix(in srgb, var(--issue) 35%, transparent); background: var(--issue-soft);
+    color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: .92rem;
+  }
+  .bar { height: 10px; background: var(--bar-bg); border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 5px; transition: width .4s; }
+  .dot { width: 12px; height: 12px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+
+  /* ---------- upload ---------- */
+  .drop {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+    border: 2px dashed var(--border); border-radius: 12px; background: var(--surface-2);
+    padding: 34px 16px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop.has-file { border-style: solid; border-color: var(--accent); }
+  .drop-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 4px; }
+  .drop strong { font-size: 1.05rem; word-break: break-word; }
+  input[type=file] { display: none; }
+  .file-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
+  .fact { font-size: .82rem; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+  .fact.warn { color: var(--warn); border-color: currentColor; }
+  .tips { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .tips li { display: flex; gap: 8px; font-size: .88rem; color: var(--muted); }
+  .tips li::before { content: "•"; color: var(--accent); font-weight: 700; }
+
+  .recent { margin-top: 4px; }
+  .recent-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface-2); margin-top: 8px;
+    color: inherit; text-decoration: none;
+  }
+  .recent-item:hover { border-color: var(--accent); }
+  .recent-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .95rem; }
+  .recent-item .when { font-size: .82rem; color: var(--muted); white-space: nowrap; }
+
+  /* ---------- progress ---------- */
+  .pct { font-size: 2.6rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .prog-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 6px 0 12px; }
+  .prog-top .eta { text-align: right; font-size: .9rem; color: var(--muted); }
+  .stages { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 2px; }
+  .stages li { display: flex; align-items: center; gap: 10px; padding: 6px 0; color: var(--muted); font-size: .95rem; }
+  .stages .ic { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; }
+  .stages li.done { color: var(--text); }
+  .stages li.done .ic { background: var(--accent); border-color: var(--accent); }
+  .stages li.now { color: var(--text); font-weight: 600; }
+  .stages li.now .ic { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .stages li.now .ic { animation: none; border-top-color: var(--accent); } }
+  .note { margin-top: 16px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; font-size: .88rem; color: var(--muted); }
+
+  /* ---------- result ---------- */
+  .video-card { padding: 0; overflow: hidden; }
+  video { width: 100%; max-height: 70vh; background: #000; display: block; }
+  .video-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .video-bar .title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+  .tabs { display: flex; gap: 4px; background: var(--bar-bg); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+  .tab {
+    flex: 1; border: 0; background: transparent; color: var(--muted); padding: 10px 12px; border-radius: 9px;
+    font-weight: 600; cursor: pointer; min-height: 44px;
+  }
+  .tab.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+  .field { margin-bottom: 14px; }
+  .field-label { font-size: .88rem; font-weight: 600; margin-bottom: 8px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg button {
+    display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; min-height: 42px;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-weight: 500; cursor: pointer;
+  }
+  .seg button:hover { border-color: var(--accent); }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; min-height: 40px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); font-size: .92rem;
+  }
+  .chip .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chip .x {
+    width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--muted);
+    font-size: 1.2rem; line-height: 1; cursor: pointer; display: grid; place-items: center;
+  }
+  .chip .x:hover { background: var(--issue-soft); color: var(--issue); }
+  .chip.removed { opacity: .5; text-decoration: line-through; cursor: pointer; padding-right: 12px; }
+  .apply-bar { margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--accent-soft); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .apply-bar span { flex: 1; min-width: 160px; font-size: .92rem; }
+  .legend { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: .86rem; color: var(--muted); }
+
+  /* ---------- report ---------- */
+  .report-head { display: flex; align-items: center; gap: 12px; margin: 26px 0 12px; padding-bottom: 10px; border-bottom: 3px solid var(--team, var(--accent)); }
+  .report-head .dot { width: 16px; height: 16px; }
+  .report-head h3 { margin: 0; font-size: 1.15rem; flex: 1; }
+  .report-head .phase { font-size: .82rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: .86rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+  .pill.issue { background: var(--issue-soft); color: var(--issue); }
+  .pill.good { background: var(--good-soft); color: var(--good); }
+  .pill.info { background: var(--info-soft); color: var(--info); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .stat .v { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: .78rem; color: var(--muted); line-height: 1.3; }
+  .rnote { display: flex; gap: 8px; font-size: .86rem; color: var(--muted); margin: 0 0 8px; }
+  .rnote svg { flex: none; margin-top: 2px; }
+  .point {
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-top: 10px;
+    background: var(--surface); position: relative; overflow: hidden;
+  }
+  .point::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--kc); }
+  .point.issue { --kc: var(--issue); --ks: var(--issue-soft); }
+  .point.good { --kc: var(--good); --ks: var(--good-soft); }
+  .point.info { --kc: var(--info); --ks: var(--info-soft); }
+  .point-top { display: flex; gap: 12px; align-items: flex-start; }
+  .kind-ic { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--ks); color: var(--kc); }
+  .tag { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--kc); }
+  .point h4 { font-size: 1.02rem; margin: 1px 0 4px; }
+  .point p { margin: 4px 0; }
+  .point .why { color: var(--muted); font-size: .92rem; }
+  .moments { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+  .moment {
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--surface-2);
+    padding: 0; text-align: left; color: inherit; transition: border-color .15s, transform .15s;
+  }
+  .moment:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .moment .thumb { position: relative; aspect-ratio: 16/9; background: #000; }
+  .moment img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .moment .play {
+    position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,0,0,.72); color: #fff; font-size: .8rem; font-weight: 700; padding: 3px 8px 3px 6px; border-radius: 999px;
+  }
+  .moment .cap { padding: 7px 10px; font-size: .84rem; line-height: 1.35; }
+  .caveat { margin-top: 18px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: .85rem; }
+  .empty { text-align: center; padding: 26px 10px; color: var(--muted); }
+
+  @media (max-width: 560px) {
+    .card { padding: 18px 16px; }
+    .step { padding-right: 8px; }
+    .step span:last-child { display: none; }
+    .step.on span:last-child { display: inline; }
+    .step:not(.on) { flex: none; }
+    .video-bar .title { flex-basis: 100%; }
+    .video-bar .row { width: 100%; }
+    .video-bar .btn { flex: 1; }
+    .kind-ic { display: none; }
+    .report-actions .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-in">
+    <div class="logo" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 32 32"><ellipse cx="16" cy="16" rx="12" ry="7.5" transform="rotate(-35 16 16)" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M11.5 20.5l9-9M13.4 15.6l3 3M15.6 13.4l3 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="brand">Player Tracker<small>Rugby match analysis for coaches</small></div>
+  </div>
+</header>
+
+<main>
+  <nav class="steps" aria-label="Progress">
+    <div class="step" id="step1"><span class="n">1</span><span>Upload</span></div>
+    <div class="step" id="step2"><span class="n">2</span><span>Analyse</span></div>
+    <div class="step" id="step3"><span class="n">3</span><span>Review</span></div>
+  </nav>
+
+  <!-- ============ upload ============ -->
+  <section id="uploadCard">
+    <div class="card">
+      <form id="form">
+        <label class="drop" id="drop" for="file">
+          <span class="drop-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+          </span>
+          <strong id="fileName">Choose a match video</strong>
+          <span class="muted small" id="fileHint">Tap to pick from your gallery or files · MP4, MOV, AVI, MKV, WEBM</span>
+          <span class="file-facts" id="fileFacts" hidden></span>
+        </label>
+        <input type="file" id="file" name="video" accept="video/*">
+        <div class="error-box" id="fileError" style="margin-top:12px" hidden></div>
+        <button type="submit" class="btn btn-primary btn-block" id="analyzeBtn" style="margin-top:14px" disabled>Analyse video</button>
+      </form>
+      <ul class="tips">
+        <li>Start with a short clip (10–30 seconds) to check the results before doing a whole match.</li>
+        <li>Wide shots that show most of the pitch work best. Close-ups and replays are skipped in the coach report.</li>
+      </ul>
+    </div>
+    <div class="card" id="recentCard" hidden>
+      <h2>Recent videos</h2>
+      <p class="muted small" style="margin:0">Analysed on this device. Tap one to open it again.</p>
+      <div class="recent" id="recentList"></div>
+    </div>
+  </section>
+
+  <!-- ============ progress ============ -->
+  <section class="card" id="progressCard" hidden>
+    <h2 id="stage">Uploading…</h2>
+    <div class="prog-top">
+      <div class="pct" id="pct">0%</div>
+      <div class="eta"><div id="eta"></div><div id="progressText"></div></div>
+    </div>
+    <div class="bar"><div id="barFill"></div></div>
+    <ol class="stages" id="stages"></ol>
+    <div class="note">Once the upload reaches 100% you can lock your phone or close this page. Open the page again later and it picks up where it left off. The laptop has to stay on and running the app.</div>
+  </section>
+
+  <!-- ============ error ============ -->
+  <section class="card" id="errorCard" hidden>
+    <h2>Something went wrong</h2>
+    <p class="muted" id="errorText" style="margin:6px 0 16px"></p>
+    <button type="button" class="btn btn-primary" id="retry1">Try another video</button>
+  </section>
+
+  <!-- ============ result ============ -->
+  <section id="resultCard" hidden>
+    <div class="card video-card">
+      <video id="player" controls playsinline></video>
+      <div class="video-bar">
+        <div class="title" id="videoTitle">Tracked video</div>
+        <div class="row">
+          <a class="btn btn-ghost" id="downloadBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>
+            Download
+          </a>
+          <button type="button" class="btn btn-ghost" id="retry2">New video</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab on" role="tab" id="tabReport" aria-selected="true">Coach report</button>
+      <button type="button" class="tab" role="tab" id="tabTeams" aria-selected="false">Teams</button>
+    </div>
+
+    <!-- report tab -->
+    <div class="card" id="reportPane">
+      <div id="reportBox">
+        <h2>Coach report</h2>
+        <p class="muted small" style="margin:0 0 16px">Improvement points on your team's structure in attack or defence, with the moments to review.</p>
+        <div class="field">
+          <div class="field-label">Which team?</div>
+          <div class="seg" id="teamSeg"></div>
+        </div>
+        <div class="field">
+          <div class="field-label" id="phaseLabel">In this video, the team is…</div>
+          <div class="seg" id="phaseSeg"></div>
+        </div>
+        <div class="row report-actions">
+          <button type="button" class="btn btn-primary" id="reportBtn">Make report</button>
+          <button type="button" class="btn btn-ghost" id="onlyTeamBtn"></button>
+        </div>
+        <div class="error-box" id="reportError" style="margin-top:12px" hidden></div>
+        <div id="reportOut"></div>
+      </div>
+      <div class="empty" id="reportUnavailable" hidden>
+        The coach report isn't available for this video because it was analysed before reports existed.<br>Analyse it again to get one.
+      </div>
+    </div>
+
+    <!-- teams tab -->
+    <div class="card" id="teamsPane" hidden>
+      <h2>Teams found</h2>
+      <p class="muted small" style="margin:0" id="hideHint">Tap × to remove a group's boxes from the video, e.g. referees. Tap a removed one to bring it back.</p>
+      <div class="chips" id="teams"></div>
+      <div class="apply-bar" id="applyRow" hidden>
+        <span>Redraw the video with these changes?</span>
+        <button type="button" class="btn btn-primary" id="applyBtn">Update video</button>
+        <button type="button" class="btn btn-ghost" id="undoBtn">Cancel</button>
+      </div>
+      <div class="error-box" id="hideError" style="margin-top:12px" hidden></div>
+      <ul class="legend">
+        <li><strong>other</strong> — referees and anyone whose shirt fits neither team.</li>
+        <li><strong>unsure</strong> — too far away or blurry to tell; left out of the coach report.</li>
+        <li>Numbers are detections across all frames, not number of players.</li>
+        <li>People on the sideline (stewards, touch judges) can still end up in a team.</li>
+        <li>A player leaving the picture and coming back usually gets a new number.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fileInput = $("file"), drop = $("drop"), btn = $("analyzeBtn");
+const MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const SECONDS_PER_FRAME = 1.5;  // rough speed on this laptop
+const TEAM_COLORS = {
+  red: "#dc0000", orange: "#ff8c00", yellow: "#dcdc00", green: "#00b400",
+  blue: "#0064dc", "purple/pink": "#c800c8", white: "#c8c8c8", black: "#282828", unknown: "#64d200",
+  ball: "#ff8c00", other: "#a0a0a0", unsure: "#ffd700"
+};
+const colorOf = name => (result && result.colors && result.colors[name]) || TEAM_COLORS[name] || "#888";
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k === "html") e.innerHTML = v;
+    else e[k] = v;
+  }
+  e.append(...kids.filter(k => k != null));
+  return e;
+}
+
+const ICONS = {
+  issue: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6"/><path d="M12 17h.01"/></svg>',
+  good: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
+  play: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  note: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>',
+  check: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+};
+
+// ---------------------------------------------------------------- screens
+
+function show(which) {
+  for (const id of ["uploadCard", "progressCard", "errorCard", "resultCard"]) $(id).hidden = !which.includes(id);
+  const step = which.includes("resultCard") ? 3 : which.includes("progressCard") ? 2 : 1;
+  [1, 2, 3].forEach(n => {
+    $("step" + n).className = "step" + (n === step ? " on" : n < step ? " done" : "");
+  });
+  if (which.includes("uploadCard")) renderRecent();
+  window.scrollTo({ top: 0 });
+}
+
+// ------------------------------------------------------------ recent list
+// Kept in this browser only (localStorage), so coaches can reopen results.
+
+function loadRecent() {
+  try { return JSON.parse(localStorage.getItem("recentJobs") || "[]"); } catch { return []; }
+}
+function saveRecent(list) {
+  try { localStorage.setItem("recentJobs", JSON.stringify(list.slice(0, 8))); } catch {}
+}
+function rememberJob(id, name) {
+  const list = loadRecent().filter(j => j.id !== id);
+  list.unshift({ id, name, at: Date.now() });
+  saveRecent(list);
+}
+function renderRecent() {
+  const list = loadRecent();
+  $("recentCard").hidden = !list.length;
+  const box = $("recentList"); box.innerHTML = "";
+  for (const j of list) {
+    const when = new Date(j.at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    const a = el("a", { class: "recent-item", href: "#job=" + j.id },
+      el("span", { class: "dot", style: "background:var(--accent)" }),
+      el("span", { class: "name" }, j.name || "Video"),
+      el("span", { class: "when" }, when));
+    a.onclick = ev => { ev.preventDefault(); openJob(j.id); };
+    box.append(a);
+  }
+}
+
+// ------------------------------------------------------------------ upload
+
+let chosenFile = null;
+function setFile(f) {
+  if (!f) return;
+  chosenFile = f;
+  drop.classList.add("has-file");
+  $("fileName").textContent = f.name;
+  $("fileHint").textContent = "Tap to choose a different video";
+  const facts = $("fileFacts"); facts.hidden = false; facts.innerHTML = "";
+  const mb = f.size / 1024 / 1024;
+  facts.append(el("span", { class: "fact" }, mb >= 1024 ? (mb / 1024).toFixed(2) + " GB" : mb.toFixed(1) + " MB"));
+  const tooBig = f.size > MAX_BYTES;
+  $("fileError").hidden = !tooBig;
+  $("fileError").textContent = tooBig
+    ? `This file is ${(f.size / 1024 ** 3).toFixed(1)} GB - the limit is 2 GB. Trim it to a shorter clip first (most phones can trim in the gallery's edit button).`
+    : "";
+  btn.disabled = tooBig;
+
+  // Read the length in the browser to estimate processing time up front.
+  const url = URL.createObjectURL(f);
+  const probe = document.createElement("video");
+  probe.preload = "metadata"; probe.muted = true;
+  probe.onloadedmetadata = () => {
+    const d = probe.duration;
+    URL.revokeObjectURL(url);
+    if (!isFinite(d) || chosenFile !== f) return;
+    facts.append(el("span", { class: "fact" }, fmtClock(d) + " long"));
+    const est = d * 30 * SECONDS_PER_FRAME;  // assumes ~30 frames per second
+    facts.append(el("span", { class: "fact" + (est > 3600 ? " warn" : "") }, "about " + fmtTime(est) + " to analyse"));
+  };
+  probe.onerror = () => URL.revokeObjectURL(url);
+  probe.src = url;
+}
+fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => setFile(ev.dataTransfer.files[0]));
+
+function fmtTime(s) {
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  if (h) return `${h} h ${m} min`;
+  if (m) return m >= 10 ? `${m} min` : `${m} min ${s % 60} s`;
+  return `${s} s`;
+}
+function fmtClock(s) { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+
+function fail(msg) {
+  $("errorText").textContent = msg;
+  show(["errorCard"]);
+}
+
+function reset() {
+  history.replaceState(null, "", location.pathname);
+  currentJob = null; clearTimeout(pollTimer);
+  fileInput.value = ""; chosenFile = null; btn.disabled = true;
+  drop.classList.remove("has-file");
+  $("fileName").textContent = "Choose a match video";
+  $("fileHint").textContent = "Tap to pick from your gallery or files · MP4, MOV, AVI, MKV, WEBM";
+  $("fileFacts").hidden = true; $("fileError").hidden = true;
+  $("player").removeAttribute("src"); $("player").load();
+  show(["uploadCard"]);
+}
+$("retry1").onclick = reset; $("retry2").onclick = reset;
+
+// ---------------------------------------------------------------- progress
+
+const ANALYSE_STAGES = [
+  ["upload", "Upload video"],
+  ["track", "Find and track players"],
+  ["teams", "Sort players into teams"],
+  ["draw", "Draw the tracked video"],
+];
+function stageKey(message) {
+  const m = (message || "").toLowerCase();
+  if (m.includes("upload")) return "upload";
+  if (m.includes("sorting")) return "teams";
+  if (m.includes("drawing") || m.includes("finishing")) return "draw";
+  if (m.includes("updating")) return "update";
+  return "track";
+}
+function renderStages(current) {
+  const list = current === "update" ? [["update", "Redraw the video"]] : ANALYSE_STAGES;
+  const idx = list.findIndex(([k]) => k === current);
+  const box = $("stages"); box.innerHTML = "";
+  list.forEach(([k, label], i) => {
+    const cls = i < idx ? "done" : i === idx ? "now" : "";
+    box.append(el("li", { class: cls }, el("span", { class: "ic", html: i < idx ? ICONS.check : "" }), label));
+  });
+}
+function setProgress(pct, text, eta) {
+  pct = Math.max(0, Math.min(100, pct || 0));
+  $("barFill").style.width = pct + "%";
+  $("pct").textContent = Math.floor(pct) + "%";
+  $("progressText").textContent = text || "";
+  $("eta").textContent = eta || "";
+}
+function setStage(title, key) { $("stage").textContent = title; renderStages(key); }
+
+$("form").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const f = chosenFile; if (!f || f.size > MAX_BYTES) return;
+  show(["progressCard"]);
+  setStage("Uploading your video…", "upload");
+  setProgress(0, "", "Keep this screen on until the upload finishes");
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/analyze");
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      setProgress(e.loaded / e.total * 100, `${(e.loaded / 1048576).toFixed(0)} of ${(e.total / 1048576).toFixed(0)} MB`,
+        "Keep this screen on until the upload finishes");
+    }
+  };
+  xhr.onload = () => {
+    let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status !== 200) return fail(data.error || (xhr.status === 413 ? "The file is too large (the limit is 2 GB). Trim it to a shorter clip and try again." : "The upload failed. Please try again."));
+    // Put the job in the URL so the page can resume after the phone sleeps
+    // or the tab is closed and reopened.
+    history.replaceState(null, "", "#job=" + data.job_id);
+    rememberJob(data.job_id, f.name);
+    setStage("Starting…", "track"); setProgress(0, "");
+    poll(data.job_id);
+  };
+  xhr.onerror = () => fail("The upload failed. Check that the laptop is on, on the same Wi-Fi and running the app. If your phone locked during the upload, try again and keep the screen on until it reaches 100%.");
+  const fd = new FormData(); fd.append("video", f); xhr.send(fd);
+});
+
+let pollTimer = null, currentJob = null, failures = 0;
+
+async function poll(jobId) {
+  currentJob = jobId;
+  clearTimeout(pollTimer);
+  let s;
+  try {
+    const r = await fetch(`/status/${jobId}`, { cache: "no-store" });
+    if (r.status === 404) {
+      currentJob = null;
+      saveRecent(loadRecent().filter(j => j.id !== jobId));
+      return fail("This video isn't on the laptop any more (it was probably analysed before the app was restarted). Please upload it again.");
+    }
+    if (!r.ok) throw new Error();
+    s = await r.json();
+    failures = 0;
+  } catch {
+    // Phones drop connections when the screen locks; keep retrying quietly
+    // for a while before giving up.
+    if (++failures > 60) { currentJob = null; return fail("Can't reach the laptop. Check that it's still on, on the same Wi-Fi and running the app."); }
+    $("stage").textContent = "Reconnecting to the laptop…";
+    pollTimer = setTimeout(() => poll(jobId), 2000);
+    return;
+  }
+  if (jobId !== currentJob) return;  // user moved on
+
+  if (s.status === "error") { currentJob = null; return fail("The analysis failed: " + s.message); }
+  if (s.status === "done") { currentJob = null; return showResult(jobId, s); }
+
+  if ($("progressCard").hidden) show(["progressCard"]);
+  if (s.status === "queued") {
+    setStage(s.queued_ahead ? `Waiting — ${s.queued_ahead} video(s) ahead` : "Waiting to start…", "track");
+    setProgress(0, "", "Another video is being analysed first");
+  } else {
+    const key = stageKey(s.message);
+    const titles = { track: "Finding and tracking players…", teams: "Sorting players into teams…", draw: "Drawing the tracked video…", update: "Redrawing the video…" };
+    setStage(s.message === "Loading model..." ? "Loading the detection model…" : (titles[key] || s.message), key);
+    if (s.total) {
+      const pct = s.done / s.total * 100;
+      const eta = s.done > 5 ? "About " + fmtTime(s.elapsed / s.done * (s.total - s.done)) + " left" : "Working out time left…";
+      setProgress(pct, key === "track" ? `Frame ${s.done.toLocaleString()} of ${s.total.toLocaleString()}` : "", eta);
+    } else {
+      setProgress(0, "", "");
+    }
+  }
+  pollTimer = setTimeout(() => poll(jobId), 1000);
+}
+
+// Check straight away when the phone is unlocked / tab brought back.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && currentJob) { failures = 0; poll(currentJob); }
+});
+
+// A report choice waiting to be applied once the job's result has loaded
+// (from a link like #job=ID&team=blue&p=defence).
+let wantedReport = null;
+
+function openJob(id, report = null) {
+  wantedReport = report;
+  if (!report) history.replaceState(null, "", "#job=" + id);
+  show(["progressCard"]);
+  setStage("Checking progress…", "track"); setProgress(0, "");
+  poll(id);
+}
+
+// ------------------------------------------------------------------ result
+// Removing colours: `applied` is what the current video shows, `pending` is
+// what the user has picked but not yet sent with "Update video".
+let result = null, applied = new Set(), pending = new Set();
+
+function showResult(jobId, s) {
+  result = { jobId, teams: s.teams || {}, colors: s.colors || {}, canHide: s.can_hide };
+  applied = new Set(s.hidden || []); pending = new Set(applied);
+  const v = `?v=${s.version || 0}`;
+  const src = `/video/${jobId}${v}`;
+  if ($("player").getAttribute("src") !== src) $("player").src = src;
+  $("downloadBtn").href = `/video/${jobId}${v}&download=1`;
+  const known = loadRecent().find(j => j.id === jobId);
+  $("videoTitle").textContent = known && known.name !== "Video" ? known.name : "Tracked video";
+  if (!known) rememberJob(jobId, "Tracked video");
+  $("hideHint").hidden = !result.canHide;
+  const failed = s.message && s.message !== "Done";
+  $("hideError").hidden = !failed;
+  $("hideError").textContent = failed ? s.message : "";
+  renderChips();
+  setupReport();
+  show(["resultCard"]);
+  selectTab(result.canHide ? "report" : "teams");
+  if (wantedReport && result.canHide && (wantedReport.team === "both" || rTeams.includes(wantedReport.team))) {
+    rTeam = wantedReport.team; rPhase = wantedReport.phase;
+    drawReportControls();
+    $("reportBtn").click();
+  }
+  wantedReport = null;
+}
+
+function selectTab(which) {
+  const rep = which === "report";
+  $("tabReport").classList.toggle("on", rep); $("tabReport").setAttribute("aria-selected", rep);
+  $("tabTeams").classList.toggle("on", !rep); $("tabTeams").setAttribute("aria-selected", !rep);
+  $("reportPane").hidden = !rep; $("teamsPane").hidden = rep;
+}
+$("tabReport").onclick = () => selectTab("report");
+$("tabTeams").onclick = () => selectTab("teams");
+
+// ------------------------------------------------------------ teams / hide
+
+function renderChips() {
+  const teams = $("teams"); teams.innerHTML = "";
+  const entries = Object.entries(result.teams).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) teams.textContent = "No players detected.";
+  for (const [name, n] of entries) {
+    const removed = pending.has(name);
+    const chip = el("span", { class: "chip" + (removed ? " removed" : "") },
+      el("span", { class: "dot", style: `background:${colorOf(name)}` }),
+      el("strong", {}, cap(name)),
+      el("span", { class: "count" }, n.toLocaleString()));
+    if (result.canHide) {
+      if (removed) {
+        chip.title = "Tap to bring back";
+        chip.onclick = () => { pending.delete(name); renderChips(); };
+      } else {
+        const x = el("button", { type: "button", class: "x", textContent: "×" });
+        x.setAttribute("aria-label", `Remove ${name}`);
+        x.onclick = () => { pending.add(name); renderChips(); };
+        chip.append(x);
+      }
+    }
+    teams.append(chip);
+  }
+  const changed = pending.size !== applied.size || [...pending].some(b => !applied.has(b));
+  $("applyRow").hidden = !changed;
+}
+
+$("undoBtn").onclick = () => { pending = new Set(applied); renderChips(); };
+
+$("applyBtn").onclick = async () => {
+  $("applyBtn").disabled = true;
+  try {
+    const r = await fetch(`/hide/${result.jobId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden: [...pending] }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Could not update the video.");
+    show(["progressCard"]);
+    setStage("Redrawing the video…", "update");
+    setProgress(0, "");
+    poll(result.jobId);
+  } catch (e) {
+    $("hideError").hidden = false;
+    $("hideError").textContent = e.message || "Can't reach the laptop.";
+  } finally {
+    $("applyBtn").disabled = false;
+  }
+};
+
+// ------------------------------------------------------------ coach report
+
+let rTeams = [], rTeam = "both", rPhase = "mixed";
+
+function mainTeams() {
+  return Object.entries(result.teams)
+    .filter(([b]) => !["ball", "unknown", "other", "unsure"].includes(b))
+    .sort((a, b) => b[1] - a[1]).slice(0, 2).map(([b]) => b);
+}
+
+function segButtons(box, options, current, onPick) {
+  box.innerHTML = "";
+  for (const [value, label, color] of options) {
+    const b = el("button", { type: "button" });
+    if (color) b.append(el("span", { class: "dot", style: `background:${color}` }));
+    b.append(label);
+    if (value === current) b.className = "on";
+    b.setAttribute("aria-pressed", value === current);
+    b.onclick = () => onPick(value);
+    box.append(b);
+  }
+}
+
+function setupReport() {
+  $("reportBox").hidden = !result.canHide;
+  $("reportUnavailable").hidden = result.canHide;
+  if (!result.canHide) return;
+  const teams = mainTeams();
+  if (teams.join() !== rTeams.join()) {
+    rTeams = teams; rTeam = "both"; rPhase = "mixed";
+    $("reportOut").innerHTML = "";
+  }
+  drawReportControls();
+}
+
+function drawReportControls() {
+  const [a, b] = rTeams;
+  segButtons($("teamSeg"), [[a, cap(a), colorOf(a)], [b, cap(b), colorOf(b)], ["both", "Both teams"]], rTeam, v => {
+    // Keep the attacking side meaningful when switching between modes.
+    if (v === "both" && rTeam !== "both") rPhase = rPhase === "attack" ? rTeam : rPhase === "defence" ? (rTeam === a ? b : a) : "none";
+    else if (v !== "both" && rTeam === "both") rPhase = rPhase === v ? "attack" : rPhase === "none" ? "mixed" : "defence";
+    rTeam = v; drawReportControls();
+  });
+  if (rTeam === "both") {
+    if (![a, b, "none"].includes(rPhase)) rPhase = "none";
+    $("phaseLabel").textContent = "Who has the ball in this video?";
+    segButtons($("phaseSeg"), [[a, `${cap(a)} attacking`], [b, `${cap(b)} attacking`], ["none", "Mixed / both"]], rPhase,
+      v => { rPhase = v; drawReportControls(); });
+    $("onlyTeamBtn").textContent = `Show only ${cap(a)} + ${cap(b)} in video`;
+  } else {
+    if (!["attack", "defence", "mixed"].includes(rPhase)) rPhase = "mixed";
+    $("phaseLabel").textContent = `In this video, ${cap(rTeam)} is…`;
+    segButtons($("phaseSeg"), [["attack", "Attacking"], ["defence", "Defending"], ["mixed", "Mixed / both"]], rPhase,
+      v => { rPhase = v; drawReportControls(); });
+    $("onlyTeamBtn").textContent = `Show only ${cap(rTeam)} in video`;
+  }
+}
+
+$("onlyTeamBtn").onclick = () => {
+  const keep = rTeam === "both" ? rTeams : [rTeam];
+  pending = new Set(Object.keys(result.teams).filter(b => !keep.includes(b)));
+  renderChips();
+  $("applyBtn").click();
+};
+
+$("reportBtn").onclick = async () => {
+  const params = new URLSearchParams({ team: rTeam });
+  params.set(rTeam === "both" ? "attacker" : "phase", rPhase);
+  $("reportBtn").disabled = true; $("reportBtn").textContent = "Working…";
+  $("reportError").hidden = true;
+  try {
+    const r = await fetch(`/report/${result.jobId}?${params}`);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Couldn't make the report.");
+    renderReport(data);
+    // Remember the choice in the address, so reopening (or sharing) the
+    // link shows this report again.
+    history.replaceState(null, "", `#job=${result.jobId}&team=${encodeURIComponent(rTeam)}&p=${encodeURIComponent(rPhase)}`);
+    $("reportOut").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    $("reportError").hidden = false;
+    $("reportError").textContent = e.message || "Can't reach the laptop.";
+  } finally {
+    $("reportBtn").disabled = false; $("reportBtn").textContent = "Make report";
+  }
+};
+
+const PHASE_NAME = { attack: "Attack", defence: "Defence", mixed: "Mixed" };
+const KIND_NAME = { issue: "Work on", good: "Going well", info: "Worth a look" };
+
+function renderReport(data) {
+  const out = $("reportOut"); out.innerHTML = "";
+  // Notes that apply to every section (about the video itself) are shown
+  // once at the top instead of repeating under each team.
+  const shared = data.sections[0] ? data.sections[0].notes.filter(n => data.sections.every(s => s.notes.includes(n))) : [];
+  if (shared.length) {
+    const box = el("div", { class: "caveat", style: "margin-top:20px" });
+    shared.forEach(n => box.append(el("p", { class: "rnote", style: "margin:4px 0", html: ICONS.note }, n)));
+    out.append(box);
+  }
+  for (const s of data.sections) {
+    out.append(el("div", { class: "report-head", style: `--team:${colorOf(s.team)}` },
+      el("span", { class: "dot", style: `background:${colorOf(s.team)}` }),
+      el("h3", {}, cap(s.team)),
+      el("span", { class: "phase" }, PHASE_NAME[s.phase])));
+
+    const counts = { issue: 0, good: 0, info: 0 };
+    s.points.forEach(p => counts[p.kind]++);
+    const summary = el("div", { class: "summary" });
+    if (counts.issue) summary.append(el("span", { class: "pill issue" }, `${counts.issue} to work on`));
+    if (counts.good) summary.append(el("span", { class: "pill good" }, `${counts.good} going well`));
+    if (counts.info) summary.append(el("span", { class: "pill info" }, `${counts.info} worth a look`));
+    if (summary.childNodes.length) out.append(summary);
+
+    const st = s.stats, fmt = v => v == null ? "–" : v;
+    out.append(el("div", { class: "stats" },
+      stat(fmt(st.players_in_view), "players in view (average)"),
+      stat(fmt(st.players_in_line), "standing in the line"),
+      stat(fmt(st.per_breakdown), "players per ruck / maul"),
+      stat(st.usual_spacing == null ? "–" : st.usual_spacing, "usual spacing (body lengths)")));
+
+    for (const n of s.notes.filter(n => !shared.includes(n))) out.append(el("p", { class: "rnote", html: ICONS.note }, n));
+    if (!s.points.length && !s.notes.length) out.append(el("p", { class: "empty" }, "Nothing stood out in this video."));
+
+    for (const p of s.points) {
+      const box = el("div", { class: `point ${p.kind}` },
+        el("div", { class: "point-top" },
+          el("span", { class: "kind-ic", html: ICONS[p.kind] }),
+          el("div", { style: "flex:1;min-width:0" },
+            el("div", { class: "tag" }, KIND_NAME[p.kind]),
+            el("h4", {}, p.title),
+            el("p", {}, p.detail),
+            el("p", { class: "why" }, p.why))));
+      if (p.moments.length) {
+        const grid = el("div", { class: "moments" });
+        for (const m of p.moments) {
+          const q = new URLSearchParams({ f: m.frame, team: s.team, opp: s.opponent || "", hl: m.hl });
+          const card = el("button", { type: "button", class: "moment", title: "Play this moment in the video" },
+            el("div", { class: "thumb" },
+              el("img", { src: `/snapshot/${result.jobId}?${q}`, alt: m.label }),
+              el("span", { class: "play", html: ICONS.play + " " + m.time })),
+            el("div", { class: "cap" }, m.label));
+          card.onclick = () => seekTo(m.t);
+          grid.append(card);
+        }
+        box.append(grid);
+      }
+      out.append(box);
+    }
+  }
+  out.append(el("div", { class: "caveat" },
+    el("strong", {}, "How to read this. "),
+    "The app measures what the camera shows, in \"body lengths\" (a player's height on screen), not metres. " +
+    "Players off-screen aren't counted, and far-away players can be missed or marked unsure. " +
+    "Use these points as a guide to which moments to review, and always check them on the video."));
+}
+
+function stat(v, k) { return el("div", { class: "stat" }, el("div", { class: "v" }, String(v)), el("div", { class: "k" }, k)); }
+
+function seekTo(t) {
+  const v = $("player");
+  v.currentTime = Math.max(0, t - 1.5);  // start just before the moment
+  v.scrollIntoView({ behavior: "smooth", block: "center" });
+  v.play().catch(() => {});
+}
+
+// ------------------------------------------------------------------- start
+
+const resumeMatch = location.hash.match(/^#job=([a-f0-9]+)(?:&team=([^&]+)&p=([^&]+))?$/);
+if (resumeMatch) {
+  const [, id, team, phase] = resumeMatch;
+  openJob(id, team ? { team: decodeURIComponent(team), phase: decodeURIComponent(phase) } : null);
+} else {
+  show(["uploadCard"]);
+}
+</script>
+</body>
+</html>
