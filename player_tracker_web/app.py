@@ -386,6 +386,10 @@ def frame(job_id):
     img = _read_frame(job["input"], frame_no)
     if img is None:
         abort(404)
+    # Shrink first and draw after, so the boxes stay visible in a thumbnail.
+    scale = min(1.0, width / img.shape[1])
+    if scale < 1:
+        img = cv2.resize(img, (width, int(img.shape[0] * scale)))
 
     colors = job.get("colors")
     if request.args.get("boxes") == "1" and colors and os.path.exists(_detections_path(job_id)):
@@ -395,8 +399,8 @@ def frame(job_id):
                 color = colors.get(p["bucket"]) or BUCKET_COLORS.get(p["bucket"])
                 if color is None:
                     continue
-                x1, y1, x2, y2 = p["box"]
-                cv2.rectangle(img, (x1, y1), (x2, y2), tuple(color), 3)
+                x1, y1, x2, y2 = (int(v * scale) for v in p["box"])
+                cv2.rectangle(img, (x1, y1), (x2, y2), tuple(int(c) for c in color), 2)
     return _jpeg(img, width, max_age=3600)
 
 

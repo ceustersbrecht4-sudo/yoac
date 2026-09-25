@@ -99,9 +99,17 @@
   .drop {
     display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
     border: 2px dashed var(--border); border-radius: 12px; background: var(--surface-2);
-    padding: 34px 16px; cursor: pointer; transition: border-color .15s, background .15s;
+    padding: 34px 16px; cursor: pointer; transition: border-color .15s, background .15s, transform .15s, box-shadow .15s;
   }
   .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  /* A video is being dragged over: confirm "drop it here". */
+  .drop.over {
+    border-style: solid; transform: scale(1.02);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .drop.over .drop-icon { background: var(--accent); color: #fff; }
+  .drop.over * { pointer-events: none; }  /* stop child elements firing dragleave */
+  @media (prefers-reduced-motion: reduce) { .drop.over { transform: none; } }
   .drop.has-file { border-style: solid; border-color: var(--accent); }
   .drop-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 4px; }
   .drop strong { font-size: 1.05rem; word-break: break-word; }
@@ -136,11 +144,35 @@
   .stages li.now .ic { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .stages li.now .ic { animation: none; border-top-color: var(--accent); } }
+  /* Live preview: real frames from the video as the analysis reaches them. */
+  .live { margin-top: 18px; }
+  .live-head { display: flex; justify-content: space-between; gap: 10px; font-size: .88rem; color: var(--muted); margin-bottom: 8px; }
+  .live-head strong { color: var(--text); }
+  .frames { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 560px) { .frames { grid-template-columns: repeat(2, 1fr); } }
+  .frames figure { margin: 0; position: relative; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+  .frames img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frames figcaption {
+    position: absolute; left: 6px; bottom: 6px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(0,0,0,.7); color: #fff; font-size: .72rem; font-variant-numeric: tabular-nums;
+  }
+  .frames figure.new { animation: frame-in .5s ease-out; }
+  @keyframes frame-in { from { opacity: 0; transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { .frames figure.new { animation: none; } }
   .note { margin-top: 16px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; font-size: .88rem; color: var(--muted); }
 
   /* ---------- result ---------- */
   .video-card { padding: 0; overflow: hidden; }
   video { width: 100%; max-height: 70vh; background: #000; display: block; }
+  /* Results reveal: the raw first frame sits over the tracked video and is
+     wiped away once, so the boxes appear across the picture. */
+  .reveal-wrap { position: relative; }
+  .reveal { position: absolute; inset: 0; background: #000; pointer-events: none; }
+  .reveal img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reveal-scan {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 3px; margin-left: -1.5px;
+    background: var(--accent); box-shadow: 0 0 14px 2px var(--accent); pointer-events: none;
+  }
   .video-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; }
   .video-bar .title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
@@ -292,6 +324,10 @@
       <div class="eta"><div id="eta"></div><div id="progressText"></div></div>
     </div>
     <div class="bar"><div id="barFill"></div></div>
+    <div class="live" id="live" hidden>
+      <div class="live-head"><strong id="liveTitle">Frames being analysed</strong><span id="liveHint"></span></div>
+      <div class="frames" id="frames"></div>
+    </div>
     <ol class="stages" id="stages"></ol>
     <div class="note">Once the upload reaches 100% you can lock your phone or close this page. Open the page again later and it picks up where it left off. The laptop has to stay on and running the app.</div>
   </section>
@@ -306,7 +342,11 @@
   <!-- ============ result ============ -->
   <section id="resultCard" hidden>
     <div class="card video-card">
-      <video id="player" controls playsinline></video>
+      <div class="reveal-wrap">
+        <video id="player" controls playsinline></video>
+        <div class="reveal" id="reveal" hidden><img id="revealImg" alt=""></div>
+        <span class="reveal-scan" id="revealScan" hidden></span>
+      </div>
       <div class="video-bar">
         <div class="title" id="videoTitle">Tracked video</div>
         <div class="row">
@@ -481,9 +521,31 @@ function setFile(f) {
   probe.src = url;
 }
 fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
-["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", ev => setFile(ev.dataTransfer.files[0]));
+// Drop zone feedback: while a file is dragged over it, the zone highlights
+// and says "Drop to upload", so it's clear the drop will be accepted.
+const dragsFile = ev => [...(ev.dataTransfer?.types || [])].includes("Files");
+let dropText = null;
+function setOver(on) {
+  if (on === drop.classList.contains("over")) return;
+  drop.classList.toggle("over", on);
+  if (on) {
+    dropText = [$("fileName").textContent, $("fileHint").textContent];
+    $("fileName").textContent = "Drop to upload";
+    $("fileHint").textContent = "Release to use this video";
+  } else if (dropText) {
+    [$("fileName").textContent, $("fileHint").textContent] = dropText;
+    dropText = null;
+  }
+}
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => {
+  if (!dragsFile(ev)) return;
+  ev.preventDefault(); ev.dataTransfer.dropEffect = "copy"; setOver(true);
+}));
+drop.addEventListener("dragleave", ev => { if (!drop.contains(ev.relatedTarget)) setOver(false); });
+drop.addEventListener("drop", ev => { ev.preventDefault(); setOver(false); setFile(ev.dataTransfer.files[0]); });
+// A video dropped just outside the zone would otherwise open in the browser
+// and leave the app.
+["dragover", "drop"].forEach(e => window.addEventListener(e, ev => { if (dragsFile(ev)) ev.preventDefault(); }));
 
 function fmtTime(s) {
   s = Math.round(s);
@@ -508,6 +570,7 @@ function reset() {
   $("fileHint").textContent = "Tap to pick from your gallery or files · MP4, MOV, AVI, MKV, WEBM";
   $("fileFacts").hidden = true; $("fileError").hidden = true;
   $("player").removeAttribute("src"); $("player").load();
+  hideReveal();
   show(["uploadCard"]);
 }
 $("retry1").onclick = reset; $("retry2").onclick = reset;
@@ -546,9 +609,50 @@ function setProgress(pct, text, eta) {
 }
 function setStage(title, key) { $("stage").textContent = title; renderStages(key); }
 
+// ------------------------------------------------------------ live preview
+// Every few seconds, fetch the frame the analysis has just reached and add it
+// to a strip of the latest four. While tracking they're the raw frames being
+// scanned; once teams are sorted they come back with players boxed in their
+// team colours - the same thing the finished video will show.
+const LIVE_EVERY_MS = 3000, LIVE_KEEP = 4;
+let liveJob = null, liveLast = 0, liveFrame = -1, liveBoxes = false;
+function resetLive() {
+  liveJob = null; liveLast = 0; liveFrame = -1; liveBoxes = false;
+  $("frames").innerHTML = ""; $("live").hidden = true;
+}
+function updateLive(jobId, s, key) {
+  if (jobId !== liveJob) { resetLive(); liveJob = jobId; }
+  const boxes = key === "draw" || key === "update";
+  if (key === "teams") {
+    $("liveTitle").textContent = "Sorting players into teams";
+    $("liveHint").textContent = "";
+    return;
+  }
+  if (!(key === "track" || boxes) || !s.total || s.done < 1) return;
+  if (boxes !== liveBoxes) {  // new stage: start a fresh strip
+    const job = liveJob; resetLive(); liveJob = job; liveBoxes = boxes;
+  }
+  const f = Math.min(s.done, s.total) - 1;
+  if (f === liveFrame || Date.now() - liveLast < LIVE_EVERY_MS) return;
+  liveLast = Date.now(); liveFrame = f;
+
+  $("liveTitle").textContent = boxes ? "Players found, in team colours" : "Frames being scanned for players";
+  $("liveHint").textContent = "Updates every few seconds";
+  const img = el("img", { alt: `Frame ${f + 1}`, src: `/frame/${jobId}?f=${f}&w=320${boxes ? "&boxes=1" : ""}` });
+  const fig = el("figure", { class: "new" }, img, el("figcaption", {}, `Frame ${(f + 1).toLocaleString()}`));
+  img.onload = () => {
+    if (jobId !== liveJob) return;
+    $("live").hidden = false;
+    const strip = $("frames");
+    strip.append(fig);
+    while (strip.children.length > LIVE_KEEP) strip.firstElementChild.remove();
+  };
+}
+
 $("form").addEventListener("submit", ev => {
   ev.preventDefault();
   const f = chosenFile; if (!f || f.size > MAX_BYTES) return;
+  resetLive();
   show(["progressCard"]);
   setStage("Uploading your video…", "upload");
   setProgress(0, "", "Keep this screen on until the upload finishes");
@@ -576,6 +680,9 @@ $("form").addEventListener("submit", ev => {
 });
 
 let pollTimer = null, currentJob = null, failures = 0;
+// True once this page has watched an analysis run, so the result gets the
+// raw-to-tracked reveal. Reopening an old result or a redraw doesn't.
+let watchedAnalysis = false;
 
 async function poll(jobId) {
   currentJob = jobId;
@@ -602,7 +709,11 @@ async function poll(jobId) {
   if (jobId !== currentJob) return;  // user moved on
 
   if (s.status === "error") { currentJob = null; return fail("The analysis failed: " + s.message); }
-  if (s.status === "done") { currentJob = null; return showResult(jobId, s); }
+  if (s.status === "done") {
+    currentJob = null;
+    const reveal = watchedAnalysis; watchedAnalysis = false;
+    return showResult(jobId, s, reveal);
+  }
 
   if ($("progressCard").hidden) show(["progressCard"]);
   if (s.status === "queued") {
@@ -610,8 +721,10 @@ async function poll(jobId) {
     setProgress(0, "", "Another video is being analysed first");
   } else {
     const key = stageKey(s.message);
+    watchedAnalysis = key !== "update";
     const titles = { track: "Finding and tracking players…", teams: "Sorting players into teams…", draw: "Drawing the tracked video…", update: "Redrawing the video…" };
     setStage(s.message === "Loading model..." ? "Loading the detection model…" : (titles[key] || s.message), key);
+    updateLive(jobId, s, key);
     if (s.total) {
       const pct = s.done / s.total * 100;
       const eta = s.done > 5 ? "About " + fmtTime(s.elapsed / s.done * (s.total - s.done)) + " left" : "Working out time left…";
@@ -634,6 +747,7 @@ let wantedReport = null;
 
 function openJob(id, report = null) {
   wantedReport = report;
+  resetLive();
   if (!report) history.replaceState(null, "", "#job=" + id);
   show(["progressCard"]);
   setStage("Checking progress…", "track"); setProgress(0, "");
@@ -645,12 +759,13 @@ function openJob(id, report = null) {
 // what the user has picked but not yet sent with "Update video".
 let result = null, applied = new Set(), pending = new Set();
 
-function showResult(jobId, s) {
+function showResult(jobId, s, reveal = false) {
   result = { jobId, teams: s.teams || {}, colors: s.colors || {}, canHide: s.can_hide };
   applied = new Set(s.hidden || []); pending = new Set(applied);
   const v = `?v=${s.version || 0}`;
   const src = `/video/${jobId}${v}`;
   if ($("player").getAttribute("src") !== src) $("player").src = src;
+  if (reveal) playReveal(jobId); else hideReveal();
   $("downloadBtn").href = `/video/${jobId}${v}&download=1`;
   const known = loadRecent().find(j => j.id === jobId);
   $("videoTitle").textContent = known && known.name !== "Video" ? known.name : "Tracked video";
@@ -669,6 +784,37 @@ function showResult(jobId, s) {
     $("reportBtn").click();
   }
   wantedReport = null;
+}
+
+function hideReveal() {
+  for (const e of [$("reveal"), $("revealScan")]) { e.getAnimations().forEach(a => a.cancel()); e.hidden = true; }
+}
+
+// Cover the video with its raw first frame, wait until both are loaded, then
+// wipe the raw frame away left to right so the tracking appears across it.
+function playReveal(jobId) {
+  hideReveal();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cover = $("reveal"), scan = $("revealScan"), img = $("revealImg"), v = $("player");
+  cover.hidden = false;
+  let ready = 0, started = false;
+  const giveUp = setTimeout(hideReveal, 8000);  // never keep the video hidden
+  const go = () => {
+    if (++ready < 2 || started) return;
+    started = true; clearTimeout(giveUp);
+    setTimeout(() => {
+      if (cover.hidden) return;  // user moved on
+      scan.hidden = false;
+      const timing = { duration: 1600, easing: "ease-in-out", fill: "forwards" };
+      cover.animate([{ clipPath: "inset(0 0 0 0)" }, { clipPath: "inset(0 0 0 100%)" }], timing);
+      scan.animate([{ left: "0%" }, { left: "100%" }], timing)
+        .onfinish = hideReveal;
+    }, 500);
+  };
+  img.onload = go;
+  img.onerror = hideReveal;
+  img.src = `/frame/${jobId}?f=0&w=960`;
+  if (v.readyState >= 2) go(); else v.addEventListener("loadeddata", go, { once: true });
 }
 
 function selectTab(which) {
@@ -721,6 +867,7 @@ $("applyBtn").onclick = async () => {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || "Could not update the video.");
+    resetLive();
     show(["progressCard"]);
     setStage("Redrawing the video…", "update");
     setProgress(0, "");
