@@ -6,7 +6,7 @@
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/de03041d92359a08f26a543a00765eaca993073e/player_tracker_web"
-$files = @("app.py", "teams.py", "accounts.py", "security.py", "legal.py", "requirements.txt", "templates/account.html", "templates/legal.html", "templates/login.html", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
+$files = @("app.py", "teams.py", "accounts.py", "security.py", "content_check.py", "legal.py", "SECURITY.md", "requirements.txt", "templates/account.html", "templates/legal.html", "templates/login.html", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
            "static/brand/yoac-logo.png", "static/brand/yoac-wordmark.png", "static/brand/yoac-icon-64.png", "static/brand/yoac-icon-192.png",
            "static/brand/yoac-outline.png", "static/brand/yoac-stencil.png", "static/brand/yoac-y-icon.png", "static/brand/yoac-icon-italic-320.png",
            "static/fonts/barlow-condensed-800.woff2", "static/fonts/barlow-condensed-900-italic.woff2", "static/fonts/LICENSE-barlow-condensed.txt")
@@ -64,5 +64,6 @@ Write-Host "Starting Player Tracker... open http://127.0.0.1:5000 when it's read
 Write-Host "Press Ctrl+C in this window to stop it." -ForegroundColor Cyan
 Set-Location $root
 # Optional package that draws the QR code for two-step login set-up.
-py -m pip install --quiet --disable-pip-version-check "qrcode>=7.4"
+# Optional packages: QR code for 2FA set-up, and the production web server.
+py -m pip install --quiet --disable-pip-version-check "qrcode>=7.4" "waitress>=3.0"
 py app.py

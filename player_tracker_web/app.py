@@ -23,10 +23,12 @@ from werkzeug.utils import secure_filename
 
 import cv2
 
+import accounts
 import analysis
 from accounts import init_accounts
+from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
-from security import init_security_headers
+from security import Throttle, init_security_headers
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
 
@@ -41,6 +43,11 @@ ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".m4v", ".webm"}
 # Match officials (teams.OTHER) aren't tracked in the video by default; the
 # Teams tab can still bring them back.
 HIDDEN_BY_DEFAULT = ["other"]
+
+# Abuse limits per account.
+MAX_ACTIVE_JOBS = 3                     # videos queued or being analysed at once
+uploads_per_day = Throttle(20, 86400)   # uploads in 24 hours
+rejects_per_day = Throttle(3, 86400)    # uploads refused by the content check in 24 hours
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
@@ -68,7 +75,8 @@ def _save_meta(job_id):
     # Finished jobs are written to disk so results survive a server restart.
     with jobs_lock:
         job = jobs[job_id]
-        meta = {k: job.get(k) for k in ("filename", "input", "output", "teams", "colors", "hidden", "version")}
+        meta = {k: job.get(k) for k in ("filename", "input", "output", "teams", "colors", "hidden", "version",
+                                        "owner", "uploaded", "original_name")}
     with open(_meta_path(job_id), "w") as f:
         json.dump(meta, f)
 
@@ -83,9 +91,26 @@ def _load_saved_jobs():
                 meta = json.load(f)
         except (OSError, ValueError):
             continue
-        if not os.path.exists(meta.get("output", "")):
+        if not os.path.exists(meta.get("output") or ""):
             continue
+        # Videos from before accounts existed have no owner: only the app's
+        # owner can see those.
         jobs[job_id] = dict(meta, status="done", done=0, total=0, message="Done", started=None)
+
+
+def _can_see(job):
+    """Each video is private to the account that uploaded it; the app's owner
+    can see every video (to moderate uploads)."""
+    return job.get("owner") == accounts.current_user() or accounts.user_is_owner()
+
+
+def _job_or_404(job_id):
+    """The job, if it exists AND this user may see it. Someone else's video
+    gives the same 404 as a missing one, so IDs can't be probed."""
+    job = jobs.get(job_id)
+    if not job or not _can_see(job):
+        abort(404)
+    return job
 
 
 def _update(job_id, **fields):
@@ -102,6 +127,7 @@ def _progress(job_id, message):
 def _analyze(job_id):
     job = jobs[job_id]
     detections = detect_players(job["input"], progress=_progress(job_id, "Tracking players..."))
+    check_players(detections)  # no match in it -> ContentRejected
     detections, colors = assign_teams(job["input"], detections, progress=_progress(job_id, "Sorting players into teams..."))
     with open(_detections_path(job_id), "w") as f:
         json.dump(detections, f, separators=(",", ":"))
@@ -147,13 +173,26 @@ def worker():
                 _render(job_id, arg)
             _update(job_id, status="done", message="Done")
             _save_meta(job_id)
+        except ContentRejected as e:
+            # Not match footage: remove the upload and anything made from it.
+            with jobs_lock:
+                job = dict(jobs.get(job_id) or {})
+            for path in _job_files(job_id, job):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            if job.get("owner"):
+                rejects_per_day.hit(job["owner"])
+            _update(job_id, status="error", message=str(e))
         except Exception as e:
-            traceback.print_exc()
+            traceback.print_exc()  # details stay in the console, not on the page
+            friendly = str(e) if isinstance(e, ValueError) else "Something went wrong while analysing this video."
             if kind == "analyze":
-                _update(job_id, status="error", message=str(e))
+                _update(job_id, status="error", message=friendly)
             else:
                 # The previous video is still fine - go back to it.
-                _update(job_id, status="done", message=f"Could not update the video: {e}")
+                _update(job_id, status="done", message="Could not update the video. The previous version is kept.")
         finally:
             job_queue.task_done()
 
@@ -176,15 +215,38 @@ def analyze():
     if request.form.get("rights") != "1":
         return jsonify(error="Please confirm you're allowed to use this video before analysing it."), 400
 
+    user = accounts.current_user()
     name = secure_filename(file.filename) or "video.mp4"
     base, ext = os.path.splitext(name)
     if ext.lower() not in ALLOWED_EXTENSIONS:
-        return jsonify(error=f"Unsupported file type '{ext}'. Use one of: {', '.join(sorted(ALLOWED_EXTENSIONS))}"), 400
+        return jsonify(error=f"Unsupported file type. Use one of: {', '.join(sorted(ALLOWED_EXTENSIONS))}"), 400
+    if rejects_per_day.wait(user):
+        return jsonify(error="Uploads are paused for your account for 24 hours because several videos weren't "
+                             "match footage. Contact the owner of this app if this is a mistake."), 429
+    wait = uploads_per_day.wait(user)
+    if wait:
+        return jsonify(error=f"You've reached today's upload limit. Try again in {wait // 3600 + 1} hours."), 429
+    with jobs_lock:
+        active = sum(1 for j in jobs.values() if j.get("owner") == user and j["status"] in ("queued", "processing"))
+    if active >= MAX_ACTIVE_JOBS:
+        return jsonify(error=f"You already have {active} videos waiting or being analysed. Wait for one to finish."), 429
 
     job_id = uuid.uuid4().hex[:12]
     input_path = os.path.join(UPLOAD_DIR, f"{job_id}{ext.lower()}")
     output_path = os.path.join(OUTPUT_DIR, f"{job_id}.mp4")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)  # in case the folder was deleted while running
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     file.save(input_path)
+    uploads_per_day.hit(user)
+    try:
+        check_upload(input_path)  # a real, sensible-sized video that shows a pitch
+    except ContentRejected as e:
+        try:
+            os.remove(input_path)
+        except OSError:
+            pass
+        rejects_per_day.hit(user)
+        return jsonify(error=str(e)), 422
 
     with jobs_lock:
         jobs[job_id] = {
@@ -199,6 +261,9 @@ def analyze():
             "input": input_path,
             "output": output_path,
             "started": None,
+            "owner": user,                    # who uploaded it (access + accountability)
+            "uploaded": int(time.time()),
+            "original_name": name,
         }
     job_queue.put(("analyze", job_id, None))
     return jsonify(job_id=job_id)
@@ -234,9 +299,7 @@ def _delete_job(job_id):
 def delete(job_id):
     """Right to erasure: delete a video and everything the app made from it."""
     with jobs_lock:
-        job = jobs.get(job_id)
-        if not job:
-            abort(404)
+        job = _job_or_404(job_id)
         if job["status"] not in ("done", "error"):
             return jsonify(error="This video is still being processed. Delete it once it's finished."), 409
     _delete_job(job_id)
@@ -272,15 +335,14 @@ def _purge_loop():
 def hide(job_id):
     """Redraw the video without the given colour buckets."""
     with jobs_lock:
-        job = jobs.get(job_id)
-        if not job:
-            abort(404)
+        job = _job_or_404(job_id)
         if job["status"] != "done":
             return jsonify(error="This video is still being processed."), 409
         if not os.path.exists(_detections_path(job_id)):
             return jsonify(error="This video was analysed before removing colours was possible. Please analyse it again."), 409
-        hidden = request.get_json(silent=True, force=True) or {}
-        hidden = sorted({str(b) for b in hidden.get("hidden", []) if b in (job["teams"] or {})})
+        body = request.get_json(silent=True, force=True)
+        wanted = body.get("hidden", []) if isinstance(body, dict) else []
+        hidden = sorted({b for b in wanted if isinstance(b, str) and b in (job["teams"] or {})})
         job.update(status="queued", message="Waiting in queue...")
     job_queue.put(("render", job_id, hidden))
     return jsonify(ok=True)
@@ -289,9 +351,7 @@ def hide(job_id):
 @app.route("/status/<job_id>")
 def status(job_id):
     with jobs_lock:
-        job = jobs.get(job_id)
-        if not job:
-            abort(404)
+        job = _job_or_404(job_id)
         queued_ahead = sum(
             1 for j in jobs.values() if j["status"] == "queued"
         ) - 1 if job["status"] == "queued" else 0
@@ -345,8 +405,8 @@ def report(job_id):
       single team: &phase=attack|defence|mixed
       both:        &attacker=<bucket>|none
     """
-    job = jobs.get(job_id)
-    if not job or job["status"] != "done":
+    job = _job_or_404(job_id)
+    if job["status"] != "done":
         abort(404)
     if not os.path.exists(_detections_path(job_id)):
         return jsonify(error="This video was analysed before reports existed. Please analyse it again."), 409
@@ -383,11 +443,11 @@ def report(job_id):
 def snapshot(job_id):
     """One frame of the original video with the chosen team's boxes and the
     moment's highlight (red) drawn on. ?f=frame&team=&opp=&hl=..."""
-    job = jobs.get(job_id)
-    if not job or not os.path.exists(_detections_path(job_id)):
+    job = _job_or_404(job_id)
+    if not os.path.exists(_detections_path(job_id)):
         abort(404)
     try:
-        frame_no = int(request.args.get("f", 0))
+        frame_no = max(0, int(request.args.get("f", 0)))
     except ValueError:
         abort(400)
     team, opp = request.args.get("team", ""), request.args.get("opp", "")
@@ -453,9 +513,7 @@ def frame(job_id):
     """One raw frame of an uploaded video, used by the live processing preview.
     ?f=frame&w=width&boxes=1 draws every player in their team colour once the
     teams are known."""
-    job = jobs.get(job_id)
-    if not job:
-        abort(404)
+    job = _job_or_404(job_id)
     try:
         frame_no = max(0, int(request.args.get("f", 0)))
         width = min(960, max(120, int(request.args.get("w", 480))))
@@ -484,9 +542,11 @@ def frame(job_id):
 
 
 def _demo_job():
-    """The most recently finished analysis - its footage is the landing page demo."""
+    """Your most recently finished analysis - its footage is the landing page
+    demo. Only ever your own video, never someone else's."""
+    me = accounts.current_user()
     done = [j for j in list(jobs.values())
-            if j.get("status") == "done" and os.path.exists(j.get("output") or "")
+            if j.get("owner") == me and j.get("status") == "done" and os.path.exists(j.get("output") or "")
             and os.path.exists(j.get("input") or "")]
     return max(done, key=lambda j: os.path.getmtime(j["output"]), default=None)
 
@@ -517,8 +577,8 @@ def demo(kind):
 
 @app.route("/video/<job_id>")
 def video(job_id):
-    job = jobs.get(job_id)
-    if not job or job["status"] != "done":
+    job = _job_or_404(job_id)
+    if job["status"] != "done":
         abort(404)
     as_download = request.args.get("download") == "1"
     return send_file(
@@ -541,6 +601,26 @@ def lan_ip():
         return None
 
 
+def _uploads_overview():
+    """All videos with who uploaded them, for the owner's moderation list."""
+    with jobs_lock:
+        return sorted(({"id": jid, "owner": j.get("owner"), "name": j.get("original_name") or j.get("filename"),
+                        "uploaded": j.get("uploaded"), "status": j["status"]} for jid, j in jobs.items()),
+                      key=lambda u: u["uploaded"] or 0, reverse=True)
+
+
+def _delete_user_videos(user_key):
+    """When an account is removed, its videos go too."""
+    with jobs_lock:
+        theirs = [jid for jid, j in jobs.items() if j.get("owner") == user_key and j["status"] in ("done", "error")]
+    for jid in theirs:
+        _delete_job(jid)
+
+
+accounts.uploads_overview = _uploads_overview
+accounts.delete_user_videos = _delete_user_videos
+accounts.delete_video = _delete_job
+
 _load_saved_jobs()
 threading.Thread(target=worker, daemon=True).start()
 threading.Thread(target=_purge_loop, daemon=True).start()
@@ -556,4 +636,10 @@ if __name__ == "__main__":
     print("=" * 56 + "\n")
     # 0.0.0.0 = reachable from other devices on the same Wi-Fi, not just
     # this laptop. It is still not reachable from the internet.
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    try:
+        from waitress import serve  # production-grade server, if installed
+    except ImportError:
+        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    else:
+        serve(app, host="0.0.0.0", port=port, threads=8,
+              max_request_body_size=app.config["MAX_CONTENT_LENGTH"] + 1024 * 1024)

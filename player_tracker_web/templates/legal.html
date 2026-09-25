@@ -98,8 +98,14 @@
         The app does <strong>not</strong> recognise faces or identify who anyone is, and does not process biometric data
         to identify people.</li>
       <li><strong>Why:</strong> only to give coaches the tracking and report they asked for. Videos are not used for anything else.</li>
-      <li><strong>Who sees them:</strong> everyone with an account on this app can open the analysed videos and reports,
-        and a still frame of the latest analysed video is shown on the front page after logging in.</li>
+      <li><strong>Who sees them:</strong> only you, the account that uploaded the video, and the owner of the app (who can
+        see all uploads to remove misuse). A still frame of your own latest video is shown to you on the front page.</li>
+      <li><strong>Automatic content check:</strong> before analysis, the app looks at a few frames of the upload on this
+        computer to check it shows a pitch and players. Uploads that don't look like match footage are refused and deleted
+        straight away. Nothing is sent anywhere for this check.</li>
+      <li><strong>Upload log:</strong> each video is linked to the account that uploaded it, with the file name and time,
+        so misuse can be traced. This is kept as long as the video (legal basis: legitimate interest in preventing misuse,
+        Art. 6(1)(f)).</li>
       <li><strong>Legal basis:</strong> the person who uploads a video must have a lawful basis to use it, usually the club's
         legitimate interest in coaching (Art. 6(1)(f)) or the consent of the players, and of the parents for players under 16.
         See the <a href="{{ url_for('legal_page', doc='terms') }}">terms of use</a>.</li>
@@ -187,8 +193,8 @@
     <p>These terms apply when you use YOAC Player Tracker, provided by {{ v('owner_name') }}. By creating an account you accept them.</p>
     <h2>1. Your account</h2>
     <ul>
-      <li>You must be 16 or older.</li>
-      <li>Keep your password to yourself. You are responsible for what happens with your account.</li>
+      <li>You must be 16 or older. Accounts are by invitation of the owner only.</li>
+      <li>Keep your password to yourself and don't share your account. You are responsible for what happens with your account.</li>
     </ul>
     <h2>2. Videos you upload</h2>
     <ul>
@@ -203,6 +209,25 @@
     <ul>
       <li>Use the app for sports coaching only, not to monitor or follow specific people outside sport.</li>
       <li>Don't try to get around the login, reach other people's data or disrupt the app.</li>
+    </ul>
+    <h3>Forbidden content</h3>
+    <p>Only upload match or training footage. Never upload:</p>
+    <ul>
+      <li>violence, gore, injuries shown for shock value, or cruelty to people or animals;</li>
+      <li>nudity or sexual content of any kind, and anything that sexualises or endangers minors;</li>
+      <li>hate speech, harassment, bullying or content that humiliates someone;</li>
+      <li>people filmed in private situations (for example changing rooms) or without the permission they need;</li>
+      <li>anything else that is illegal, or that infringes someone's copyright or privacy.</li>
+    </ul>
+    <h3>How misuse is handled</h3>
+    <ul>
+      <li>Uploads are checked automatically and refused if they don't look like match footage. Accounts that keep
+        uploading refused videos are paused for 24 hours.</li>
+      <li>Every upload is linked to the account that made it. The owner can review and delete any upload and remove any account.</li>
+      <li>Illegal content is removed straight away and, where the law requires it, reported to the police. Content
+        involving the sexual abuse of children is always reported (in Belgium via Child Focus,
+        <a href="https://www.stopchildporno.be" rel="noopener">stopchildporno.be</a>, or the police).</li>
+      <li>To report something, e-mail {{ v('email') }}.</li>
     </ul>
     <h2>4. The analysis is a guide</h2>
     <p>Tracking, team sorting and coach reports are made automatically and can be wrong: players can be missed, put in the

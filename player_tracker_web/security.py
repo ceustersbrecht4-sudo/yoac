@@ -15,15 +15,17 @@ Security building blocks for the web app.
 import base64
 import hashlib
 import hmac
+import ipaddress
 import os
 import secrets
+import socket
 import struct
 import threading
 import time
 import urllib.request
 from urllib.parse import quote
 
-from flask import g
+from flask import abort, g, request
 
 # ------------------------------------------------------------------ headers
 
@@ -33,8 +35,43 @@ def csp_nonce():
     return g.csp_nonce
 
 
+def _host_allowed(host):
+    """Only answer requests addressed to this laptop: localhost, a private
+    network address, or the laptop's own name. This stops DNS rebinding, where
+    a web page on another site tricks a browser into talking to the app."""
+    if host.startswith("["):                      # [IPv6]:port
+        name = host[1:host.find("]")] if "]" in host else ""
+    else:
+        name = host.rsplit(":", 1)[0]              # name:port or ipv4:port
+    name = name.lower().rstrip(".")
+    if name in ("localhost",) or name in _own_names():
+        return True
+    try:
+        ip = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private or ip.is_link_local
+
+
+_OWN = None
+
+
+def _own_names():
+    global _OWN
+    if _OWN is None:
+        me = socket.gethostname().lower()
+        extra = {h.strip().lower() for h in os.environ.get("YOAC_ALLOWED_HOSTS", "").split(",") if h.strip()}
+        _OWN = {me, me + ".local", me + ".lan", me + ".home"} | extra
+    return _OWN
+
+
 def init_security_headers(app):
     app.jinja_env.globals["csp_nonce"] = csp_nonce
+
+    @app.before_request
+    def _check_host():
+        if not _host_allowed(request.host or ""):
+            abort(400)
 
     @app.after_request
     def _headers(resp):

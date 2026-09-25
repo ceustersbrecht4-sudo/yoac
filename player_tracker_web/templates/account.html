@@ -67,7 +67,7 @@
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
     td form { display: inline; }
-    td .btn { padding: 6px 12px; font-size: .82rem; font-weight: 700; }
+    td .btn { padding: 6px 12px; font-size: .82rem; font-weight: 700; text-decoration: none; }
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     footer { margin-top: 34px; color: var(--muted); font-size: .84rem; text-align: center; }
     footer a { color: var(--muted); }
@@ -252,6 +252,38 @@
       </tr>
       {% endfor %}
     </table>
+  </section>
+
+  <!-- ================================================= uploads (moderation) -->
+  <section class="card" id="uploads">
+    <h2>Uploads</h2>
+    <p class="help">Every video on this app and who uploaded it. Each video is private to its uploader; as owner you can
+      see them all. Delete anything that isn't match footage, and remove the account if someone misuses the app.</p>
+    {% if uploads %}
+    <table>
+      <tr><th>Video</th><th>Uploaded by</th><th class="hide-sm">When</th><th class="hide-sm">Status</th><th></th></tr>
+      {% for u in uploads %}
+      <tr>
+        <td style="word-break:break-word">{{ u.name }}</td>
+        <td>{{ u.owner_name }}</td>
+        <td class="hide-sm" data-ts="{{ u.uploaded or '' }}"></td>
+        <td class="hide-sm">{{ {'done': 'Ready', 'error': 'Refused / failed', 'queued': 'Waiting', 'processing': 'Analysing'}.get(u.status, u.status) }}</td>
+        <td style="text-align:right;white-space:nowrap">
+          {% if u.status == 'done' %}<a class="btn btn-ghost" href="{{ url_for('index') }}#job={{ u.id }}">Open</a>{% endif %}
+          {% if u.status in ('done', 'error') %}
+          <form method="post" action="{{ url_for('admin_delete_video') }}" class="confirm" data-confirm="Delete {{ u.name }} and everything made from it?">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" value="{{ u.id }}">
+            <button class="btn btn-danger" type="submit">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="help" style="margin:0">No videos yet.</p>
+    {% endif %}
   </section>
   {% endif %}
 

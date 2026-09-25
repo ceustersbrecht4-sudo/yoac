@@ -65,6 +65,11 @@ admin_actions = Throttle(30, 60 * 60)  # owner actions (invites, resets)
 
 _users_lock = threading.Lock()
 
+# Set by app.py: the owner's list of all uploads, and deleting videos.
+uploads_overview = lambda: []
+delete_user_videos = lambda user_key: None
+delete_video = lambda job_id: False
+
 
 # ------------------------------------------------------------------ storage
 
@@ -143,6 +148,11 @@ def current_user():
     return session.get("user")
 
 
+def user_is_owner():
+    me = _me()
+    return bool(me and me.get("role") == "owner")
+
+
 def _me():
     """The logged-in user's record, or None (also None if the session is stale)."""
     key = current_user()
@@ -176,15 +186,16 @@ def require_owner(view):
     return wrapped
 
 
-def _check_invite(code):
-    """Consume a valid invite code. Returns True if it was valid."""
+def _check_invite(code, use=True):
+    """Is this a valid, unused, unexpired invite code? Uses it up if `use`."""
     invites = _read(INVITES_FILE)
     h = _hash_code(code.strip().upper())
     inv = invites.get(h)
     if not inv or inv.get("used") or inv.get("expires", 0) < time.time():
         return False
-    inv["used"] = int(time.time())
-    _write(INVITES_FILE, invites)
+    if use:
+        inv["used"] = int(time.time())
+        _write(INVITES_FILE, invites)
     return True
 
 
@@ -193,12 +204,15 @@ def _account_page(status=200, **extra):
     ctx = {"me": me, "me_key": current_user(), "is_owner": bool(me and me.get("role") == "owner"), "min_password": MIN_PASSWORD,
            "forced": bool(me and me.get("must_change_password")), "notice": None, "error": None,
            "setup": None, "recovery_codes": None, "new_invite": None, "temp_password": None,
-           "users": [], "invites": []}
+           "users": [], "invites": [], "uploads": []}
     ctx.update(extra)
     if ctx["is_owner"]:
         users = _load_users()
         ctx["users"] = sorted(({"key": k, **v} for k, v in users.items()), key=lambda u: u.get("created", 0))
         now = time.time()
+        names = {k: v["name"] for k, v in users.items()}
+        ctx["uploads"] = [dict(u, owner_name=names.get(u["owner"], "(removed or before accounts)"))
+                          for u in uploads_overview()]
         ctx["invites"] = sorted(
             ({"id": h, **v} for h, v in _read(INVITES_FILE).items() if not v.get("used") and v.get("expires", 0) > now),
             key=lambda i: i.get("created", 0), reverse=True)
@@ -232,6 +246,11 @@ def init_accounts(app):
             return None
         me = _me()
         if me:
+            # Actions the page's JavaScript sends need the CSRF token in a header
+            # (forms send it as a field). Stops other pages triggering them.
+            if request.method == "POST" and request.path.startswith(API_PREFIXES):
+                if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), session.get("csrf", "") or "x"):
+                    return jsonify(error="Your session expired. Reload the page and try again."), 403
             if me.get("must_change_password") and request.endpoint not in FORCED_CHANGE_OK:
                 if request.path.startswith(API_PREFIXES):
                     return jsonify(error="Please change your password first.", login=url_for("account")), 401
@@ -322,11 +341,14 @@ def init_accounts(app):
                 return page(mode, problem, username, 400)
             with _users_lock:
                 users = _load_users()
+                first = not users
+                # Invite first, so people without one can't find out which usernames exist.
+                if not first and not _check_invite(request.form.get("invite", ""), use=False):
+                    return page(mode, "That invite code isn't valid. Ask the owner of this app for a new one.", username, 400)
                 if key in users:
                     return page(mode, "That username is taken. Log in instead, or pick another one.", username, 400)
-                first = not users
-                if not first and not _check_invite(request.form.get("invite", "")):
-                    return page(mode, "That invite code isn't valid. Ask the owner of this app for a new one.", username, 400)
+                if not first:
+                    _check_invite(request.form.get("invite", ""))  # use it up
                 now = int(time.time())
                 users[key] = {
                     "name": username,
@@ -480,6 +502,7 @@ def init_accounts(app):
                 return redirect(back + "?error=owner#delete")
             del users[key]
             _save_users(users)
+        delete_user_videos(key)
         session.clear()
         return redirect(back + "?deleted=1#delete")
 
@@ -552,7 +575,18 @@ def init_accounts(app):
             _save_users(users)
         if not removed:
             return _account_page(400, error="That account doesn't exist.")
-        return _account_page(notice=f"Removed {removed['name']}.")
+        delete_user_videos(target)
+        return _account_page(notice=f"Removed {removed['name']} and their videos.")
+
+    @app.route("/admin/video/delete", methods=["POST"])
+    @require_owner
+    def admin_delete_video():
+        """Moderation: the owner removes any upload."""
+        if not _csrf_ok():
+            return _account_page(400, error="Your session expired. Please try again.")
+        if not delete_video(request.form.get("id", "")):
+            return _account_page(400, error="That video doesn't exist any more.")
+        return _account_page(notice="Video deleted.")
 
 
 # A real hash of a random password, used when the username doesn't exist.

@@ -30,6 +30,13 @@ automatically (0 = keep until deleted by hand).
 
 ## Security
 
+See **SECURITY.md** for the full security review, what was fixed and the known limits.
+
+- Each video is private to the account that uploaded it; the owner can see and
+  delete every upload (Account page > Uploads) and remove accounts.
+- Uploads are checked automatically: only real videos that show a pitch and players
+  are analysed. Anything else is refused and deleted straight away.
+
 - Invite-only sign-up; the owner role and all admin actions are checked on the server.
 - Two-step login (TOTP authenticator app) with 8 one-time recovery codes.
 - Passwords: at least 10 characters, not containing the username, not a common
@@ -77,7 +84,8 @@ and set your Wi-Fi network to **Private** in Windows settings.
 | --- | --- |
 | `app.py` | The web app: pages, upload, progress, results, coach report |
 | `accounts.py` | Log in, invite-only sign-up, 2FA, account page and owner admin (hashes in `users.json`) |
-| `security.py` | Security headers/CSP, rate limits, password rules + breach check, TOTP codes |
+| `security.py` | Security headers/CSP, host check, rate limits, password rules + breach check, TOTP codes |
+| `content_check.py` | Refuses uploads that aren't match footage (no pitch / no players) |
 | `legal.py`, `legal_info.json` | Privacy, cookie, terms, legal notice and licence pages; your details; source download |
 | `tracker.py` | Finds and tracks players with YOLO, draws the tracked video |
 | `teams.py` | Sorts players into the two teams by shirt colour, sets officials aside |

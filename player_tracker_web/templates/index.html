@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050b08">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>YOAC Player Tracker</title>
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
@@ -360,7 +361,7 @@
         <div class="error-box" id="fileError" style="margin-top:12px" hidden></div>
         <label class="consent">
           <input type="checkbox" id="rights">
-          <span>I'm allowed to use this video for coaching analysis, and players (and parents of players under 16) know matches are filmed and analysed.
+          <span>This is match or training footage I'm allowed to use for coaching analysis (no violent, sexual or other forbidden content), and players (and parents of players under 16) know matches are filmed and analysed.
             <a href="{{ url_for('legal_page', doc='terms') }}" target="_blank" rel="noopener">Terms</a></span>
         </label>
         <button type="submit" class="btn btn-primary btn-block" id="analyzeBtn" style="margin-top:14px" disabled>Analyse video</button>
@@ -484,6 +485,8 @@
 
 <script nonce="{{ csp_nonce() }}">
 const $ = id => document.getElementById(id);
+// Sent with every action (upload, hide, delete) so other sites can't trigger them.
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const fileInput = $("file"), drop = $("drop"), btn = $("analyzeBtn");
 const MAX_BYTES = 2 * 1024 * 1024 * 1024;
 const SECONDS_PER_FRAME = 1.5;  // rough speed on this laptop
@@ -664,7 +667,7 @@ $("deleteBtn").onclick = async () => {
   if (!result || !confirm("Delete this video, the tracked video and its report for good?")) return;
   $("deleteBtn").disabled = true;
   try {
-    const r = await fetch(`/delete/${result.jobId}`, { method: "POST" });
+    const r = await fetch(`/delete/${result.jobId}`, { method: "POST", headers: { "X-CSRF-Token": CSRF } });
     if (r.status === 401) return toLogin();
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || "Could not delete the video.");
@@ -761,6 +764,7 @@ $("form").addEventListener("submit", ev => {
 
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/analyze");
+  xhr.setRequestHeader("X-CSRF-Token", CSRF);
   xhr.upload.onprogress = e => {
     if (e.lengthComputable) {
       setProgress(e.loaded / e.total * 100, `${(e.loaded / 1048576).toFixed(0)} of ${(e.total / 1048576).toFixed(0)} MB`,
@@ -966,7 +970,7 @@ $("applyBtn").onclick = async () => {
   try {
     const r = await fetch(`/hide/${result.jobId}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
       body: JSON.stringify({ hidden: [...pending] }),
     });
     const data = await r.json().catch(() => ({}));
@@ -1160,5 +1164,6 @@ if (resumeMatch) {
   show(["uploadCard"]);
 }
 </script>
+{% include "_cookie_banner.html" %}
 </body>
 </html>
