@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b2a1d">
-  <title>Player Tracker</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f7a4d'/%3E%3Cellipse cx='16' cy='16' rx='11' ry='7' transform='rotate(-35 16 16)' fill='none' stroke='white' stroke-width='2.4'/%3E%3Cpath d='M12 20l8-8M13.5 15.5l3 3M15.5 13.5l3 3' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E">
+  <title>YOAC Player Tracker</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
   <style>
     :root {
       --bg: #08140f;
@@ -40,11 +41,12 @@
       border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
     }
     nav .wrap { display: flex; align-items: center; gap: 12px; height: 64px; }
-    .logo {
-      width: 36px; height: 36px; border-radius: 10px; flex: none;
-      background: #1f7a4d; display: grid; place-items: center;
+    .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; }
+    .brand img { height: 26px; width: auto; display: block; }
+    .brand-sub {
+      padding-left: 12px; border-left: 1px solid var(--border);
+      font-weight: 600; font-size: .92rem; color: var(--muted); white-space: nowrap;
     }
-    .brand { font-weight: 800; letter-spacing: -.01em; flex: 1; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 12px 22px; border-radius: 999px; font-weight: 700;
@@ -194,6 +196,7 @@
     }
 
     footer { padding: 32px 0 110px; color: var(--muted); font-size: .88rem; text-align: center; }
+    footer img { width: 220px; max-width: 60%; height: auto; display: block; margin: 0 auto 14px; }
 
     @media (max-width: 860px) {
       .hero { padding: 44px 0 64px; }
@@ -205,7 +208,8 @@
       section { padding: 72px 0; }
     }
     @media (max-width: 480px) {
-      nav .brand { font-size: .95rem; }
+      .brand img { height: 22px; }
+      .brand-sub { display: none; }
       .hero-ctas .btn { flex: 1; justify-content: center; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -220,10 +224,10 @@
 <body>
   <nav>
     <div class="wrap">
-      <div class="logo" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 32 32"><ellipse cx="16" cy="16" rx="12" ry="7.5" transform="rotate(-35 16 16)" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M11.5 20.5l9-9M13.4 15.6l3 3M15.6 13.4l3 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <div class="brand">Player Tracker</div>
+      <a class="brand" href="{{ url_for('landing') }}">
+        <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
+        <span class="brand-sub">Player Tracker</span>
+      </a>
       <a class="btn btn-primary" href="{{ url_for('index') }}">Get Started</a>
     </div>
   </nav>
@@ -338,7 +342,10 @@
     </div>
   </section>
 
-  <footer>Player Tracker runs on your own laptop. Your videos stay on it.</footer>
+  <footer>
+    <img src="{{ url_for('static', filename='brand/yoac-wordmark.png') }}" alt="YOAC, Your Online AI Coach">
+    Player Tracker runs on your own laptop. Your videos stay on it.
+  </footer>
 
   <script>
     // ---------------------------------------------------------- scroll reveal
