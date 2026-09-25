@@ -1,77 +1,56 @@
 # Adding the intro page and cookie banner to Player Tracker
 
-These files are made to be dropped into your existing
-`C:\Users\47289\Downloads\player_tracker_web` folder.
+Three steps, all inside `C:\Users\47289\Downloads\player_tracker_web`.
 
-## 1. Copy the templates
+## 1. Copy the two new files into the `templates` folder
 
-Copy both files into your project's `templates` folder (create it if it doesn't exist):
+Put them next to your existing `index.html`:
 
 - `templates/landing.html`: the intro page with the **Get Started** button
 - `templates/_cookie_banner.html`: the cookie consent banner
 
-## 2. Change `app.py`
+## 2. Change 3 lines in `app.py`
 
-Your upload page is currently at `/`. Move it to `/upload` and put the intro page at `/`.
-
-Find the route for the upload page. It looks something like this:
+Find this (around line 140):
 
 ```python
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def index():
-    ...
+    return render_template("index.html")
 ```
 
-Change it to this. Only the decorator line changes, and the function body stays the same:
-
-```python
-@app.route("/upload", methods=["GET", "POST"], endpoint="upload_page")
-def index():
-    ...
-```
-
-Keep whatever `methods=[...]` your route already has. `endpoint="upload_page"` is the
-name the **Get Started** button links to.
-
-Then add the new intro route. Put it right above the upload route:
+Replace it with this:
 
 ```python
 @app.route("/")
 def landing():
     return render_template("landing.html")
+
+
+@app.route("/upload")
+def index():
+    return render_template("index.html")
 ```
 
-Make sure `render_template` is in your Flask import at the top of `app.py`:
+That's the only change. Uploads still go to `/analyze` as before, so the upload tool keeps
+working. It's just at `/upload` now.
 
-```python
-from flask import Flask, render_template  # plus whatever else is already imported
-```
+## 3. (Optional) Show the cookie banner on the upload page too
 
-## 3. Check the upload form
-
-Open the HTML template for your upload page and find the `<form>` tag. If it says
-`action="/"`, change it to `action="/upload"`. Otherwise uploads would go to the intro page
-and fail. If there is no `action` at all, or it already uses `url_for(...)`, you don't need
-to change anything.
-
-## 4. Show the cookie banner on the upload page too (optional)
-
-The banner appears on the intro page automatically. To show it on the upload page as well,
-add this line just before `</body>` in that page's template:
+Open `templates/index.html` in Notepad. Just before the `</body>` line near the bottom, add:
 
 ```html
 {% include "_cookie_banner.html" %}
 ```
 
-After someone clicks Accept or Decline, the banner is hidden on every page for a year.
-The choice is stored in a `cookie_consent` cookie.
+After someone clicks Accept or Decline, the banner stays hidden on every page for a year.
 
-## 5. Run it
+## Run it
 
 ```cmd
 cd C:\Users\47289\Downloads\player_tracker_web
-python app.py
+py app.py
 ```
 
-Open http://127.0.0.1:5000. You should see the intro page, and **Get Started** takes you to
-the upload tool.
+Open http://127.0.0.1:5000. You'll see the intro page first, and **Get Started** takes you
+to the upload tool.
