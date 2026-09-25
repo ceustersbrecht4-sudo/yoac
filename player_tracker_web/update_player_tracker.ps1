@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/8cf4d225d26527dd25e6fb8f4a440a635b906111/player_tracker_web"
+$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/ef4ca64bb5747ab78021dd8c83f1fdf3f004b63d/player_tracker_web"
 $files = @("app.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html")
 
 if (-not (Test-Path (Join-Path $root "app.py"))) {
