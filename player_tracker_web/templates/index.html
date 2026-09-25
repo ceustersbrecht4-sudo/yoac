@@ -159,6 +159,12 @@
   .legal-links { max-width: 820px; margin: 0 auto; padding: 0 16px 90px; text-align: center; font-size: .82rem; color: var(--muted); }
   .legal-links a { color: var(--muted); }
   .legal-links a:hover { color: var(--accent); }
+  .usage { margin-top: 16px; display: grid; gap: 6px; }
+  .usage-row { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); }
+  .usage-bar { height: 8px; border-radius: 4px; background: var(--bar-bg, #15261d); overflow: hidden; margin-bottom: 6px; }
+  .usage-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #2fb366, #45e07c); }
+  .usage-bar.full i { background: linear-gradient(90deg, #f5b945, #ff7a6e); }
+  .usage-note { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
   .tips { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
   .tips li { display: flex; gap: 8px; font-size: .88rem; color: var(--muted); }
   .tips li::before { content: "•"; color: var(--accent); font-weight: 700; }
@@ -366,6 +372,7 @@
         </label>
         <button type="submit" class="btn btn-primary btn-block" id="analyzeBtn" style="margin-top:14px" disabled>Analyse video</button>
       </form>
+      {% from "_usage.html" import usage_bars %}{{ usage_bars(usage) }}
       <ul class="tips">
         <li>Start with a short clip (10–30 seconds) to check the results before doing a whole match.</li>
         <li>Wide shots that show most of the pitch work best. Close-ups and replays are skipped in the coach report.</li>

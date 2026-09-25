@@ -1,0 +1,6 @@
+{
+  "_help": "Usage limits per plan. Edit the numbers with Notepad; changes apply straight away. The owner chooses each account's plan on the Account page. storage_gb = space for videos kept on this laptop; minutes_per_month = video minutes that can be analysed each calendar month.",
+  "free": {"name": "Free", "storage_gb": 5, "minutes_per_month": 120, "price": "Free"},
+  "plus": {"name": "Plus", "storage_gb": 25, "minutes_per_month": 600, "price": "Coming soon"},
+  "pro": {"name": "Pro", "storage_gb": 100, "minutes_per_month": 3000, "price": "Coming soon"}
+}

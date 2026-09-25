@@ -69,6 +69,7 @@ _users_lock = threading.Lock()
 uploads_overview = lambda: []
 delete_user_videos = lambda user_key: None
 delete_video = lambda job_id: False
+usage_for = lambda user_key: None
 
 
 # ------------------------------------------------------------------ storage
@@ -206,9 +207,13 @@ def _account_page(status=200, **extra):
            "setup": None, "recovery_codes": None, "new_invite": None, "temp_password": None,
            "users": [], "invites": [], "uploads": []}
     ctx.update(extra)
+    ctx["usage"] = usage_for(current_user()) if me else None
     if ctx["is_owner"]:
         users = _load_users()
-        ctx["users"] = sorted(({"key": k, **v} for k, v in users.items()), key=lambda u: u.get("created", 0))
+        ctx["users"] = sorted(({"key": k, **v, "usage": usage_for(k)} for k, v in users.items()),
+                              key=lambda u: u.get("created", 0))
+        import quota
+        ctx["plans"] = quota.plans()
         now = time.time()
         names = {k: v["name"] for k, v in users.items()}
         ctx["uploads"] = [dict(u, owner_name=names.get(u["owner"], "(removed or before accounts)"))
@@ -577,6 +582,24 @@ def init_accounts(app):
             return _account_page(400, error="That account doesn't exist.")
         delete_user_videos(target)
         return _account_page(notice=f"Removed {removed['name']} and their videos.")
+
+    @app.route("/admin/user/plan", methods=["POST"])
+    @require_owner
+    def admin_set_plan():
+        """The owner puts an account on a plan (Free, Plus, Pro...)."""
+        import quota
+        if not _csrf_ok():
+            return _account_page(400, error="Your session expired. Please try again.")
+        target, plan = request.form.get("user", ""), request.form.get("plan", "")
+        if plan not in quota.plans():
+            return _account_page(400, error="Unknown plan.")
+        with _users_lock:
+            users = _load_users()
+            if target not in users:
+                return _account_page(400, error="That account doesn't exist.")
+            users[target]["plan"] = plan
+            _save_users(users)
+        return _account_page(notice=f"{users[target]['name']} is now on the {quota.plans()[plan].get('name', plan)} plan.")
 
     @app.route("/admin/video/delete", methods=["POST"])
     @require_owner

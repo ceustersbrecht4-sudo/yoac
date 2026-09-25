@@ -1,0 +1,12 @@
+{% macro usage_bars(u) %}
+  {% if u.unlimited %}<p class="usage-note">Plan: <strong>{{ u.plan }}</strong> · {{ u.storage_gb_used }} GB stored · {{ u.minutes_used }} min analysed this month</p>
+  {% else %}
+  <div class="usage">
+    <div class="usage-row"><span>Storage</span><span>{{ u.storage_gb_used }} of {{ u.storage_gb_limit }} GB</span></div>
+    <div class="usage-bar {{ 'full' if u.storage_pct >= 90 else '' }}"><i style="width:{{ u.storage_pct }}%"></i></div>
+    <div class="usage-row"><span>Analysis this month</span><span>{{ u.minutes_used }} of {{ u.minutes_limit }} min</span></div>
+    <div class="usage-bar {{ 'full' if u.minutes_pct >= 90 else '' }}"><i style="width:{{ u.minutes_pct }}%"></i></div>
+    <p class="usage-note">{{ u.plan }} plan{% if u.storage_pct >= 90 or u.minutes_pct >= 90 %} · almost full: delete old videos, or ask the owner about a bigger plan{% endif %}</p>
+  </div>
+  {% endif %}
+{% endmacro %}

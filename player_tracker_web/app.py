@@ -25,6 +25,7 @@ import cv2
 
 import accounts
 import analysis
+import quota
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
@@ -184,6 +185,7 @@ def worker():
                     pass
             if job.get("owner"):
                 rejects_per_day.hit(job["owner"])
+                quota.record_seconds(job["owner"], -job.get("seconds", 0))  # refused: minutes given back
             _update(job_id, status="error", message=str(e))
         except Exception as e:
             traceback.print_exc()  # details stay in the console, not on the page
@@ -202,9 +204,27 @@ def landing():
     return render_template("landing.html")
 
 
+def _storage_used(user_key):
+    """Bytes on disk for this account's videos and everything made from them."""
+    with jobs_lock:
+        theirs = [(jid, dict(j)) for jid, j in jobs.items() if j.get("owner") == user_key]
+    total = 0
+    for jid, job in theirs:
+        for path in _job_files(jid, job):
+            try:
+                total += os.path.getsize(path)
+            except OSError:
+                pass
+    return total
+
+
+def _usage(user_key):
+    return quota.summary(user_key, _storage_used(user_key))
+
+
 @app.route("/upload")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", usage=_usage(accounts.current_user()))
 
 
 @app.route("/analyze", methods=["POST"])
@@ -230,6 +250,11 @@ def analyze():
         active = sum(1 for j in jobs.values() if j.get("owner") == user and j["status"] in ("queued", "processing"))
     if active >= MAX_ACTIVE_JOBS:
         return jsonify(error=f"You already have {active} videos waiting or being analysed. Wait for one to finish."), 429
+    usage = _usage(user)
+    # Tracked video + data take roughly as much room again as the upload.
+    problem = quota.storage_problem(usage, 2 * (request.content_length or 0))
+    if problem:
+        return jsonify(error=problem, limit="storage"), 403
 
     job_id = uuid.uuid4().hex[:12]
     input_path = os.path.join(UPLOAD_DIR, f"{job_id}{ext.lower()}")
@@ -239,7 +264,7 @@ def analyze():
     file.save(input_path)
     uploads_per_day.hit(user)
     try:
-        check_upload(input_path)  # a real, sensible-sized video that shows a pitch
+        facts = check_upload(input_path)  # a real, sensible-sized video that shows a pitch
     except ContentRejected as e:
         try:
             os.remove(input_path)
@@ -247,6 +272,11 @@ def analyze():
             pass
         rejects_per_day.hit(user)
         return jsonify(error=str(e)), 422
+    problem = quota.minutes_problem(usage, facts["seconds"])
+    if problem:
+        os.remove(input_path)
+        return jsonify(error=problem, limit="minutes"), 403
+    quota.record_seconds(user, facts["seconds"])
 
     with jobs_lock:
         jobs[job_id] = {
@@ -262,6 +292,7 @@ def analyze():
             "output": output_path,
             "started": None,
             "owner": user,                    # who uploaded it (access + accountability)
+            "seconds": facts["seconds"],      # counted against the monthly analysis minutes
             "uploaded": int(time.time()),
             "original_name": name,
         }
@@ -618,6 +649,7 @@ def _delete_user_videos(user_key):
 
 
 accounts.uploads_overview = _uploads_overview
+accounts.usage_for = _usage
 accounts.delete_user_videos = _delete_user_videos
 accounts.delete_video = _delete_job
 

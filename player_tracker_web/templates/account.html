@@ -69,6 +69,13 @@
     td form { display: inline; }
     td .btn { padding: 6px 12px; font-size: .82rem; font-weight: 700; text-decoration: none; }
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .usage { margin-top: 16px; display: grid; gap: 6px; }
+  .usage-row { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); }
+  .usage-bar { height: 8px; border-radius: 4px; background: var(--bar-bg, #15261d); overflow: hidden; margin-bottom: 6px; }
+  .usage-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #2fb366, #45e07c); }
+  .usage-bar.full i { background: linear-gradient(90deg, #f5b945, #ff7a6e); }
+  .usage-note { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
+    select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: .85rem; }
     footer { margin-top: 34px; color: var(--muted); font-size: .84rem; text-align: center; }
     footer a { color: var(--muted); }
     @media (max-width: 640px) {
@@ -108,6 +115,13 @@
       <button type="button" class="btn btn-ghost" id="saveCodes">Download as a text file</button>
       <button type="button" class="btn btn-ghost" id="copyCodes">Copy</button>
     </div>
+  </section>
+  {% endif %}
+
+  {% if usage %}
+  <section class="card" id="usage">
+    <h2>Your usage</h2>
+    {% from "_usage.html" import usage_bars %}{{ usage_bars(usage) }}
   </section>
   {% endif %}
 
@@ -219,7 +233,7 @@
   <!-- ================================================= accounts -->
   <section class="card" id="accounts">
     <h2>Accounts</h2>
-    <p class="help">Everyone with an account can see all analysed videos. Remove accounts that shouldn't have access any more.</p>
+    <p class="help">Each account only sees its own videos. Pick each account's plan (it saves straight away), and remove accounts that shouldn't have access any more. Plan limits are set in <code>plans.json</code>.</p>
     {% if temp_password %}
       <div class="msg warn" role="status" style="display:block">
         Temporary password for <strong>{{ temp_password.name }}</strong> (their two-step login was turned off too). Give it to them;
@@ -228,13 +242,24 @@
       </div>
     {% endif %}
     <table>
-      <tr><th>Name</th><th>Role</th><th class="hide-sm">Two-step</th><th class="hide-sm">Since</th><th></th></tr>
+      <tr><th>Name</th><th>Plan</th><th class="hide-sm">Usage</th><th class="hide-sm">Two-step</th><th></th></tr>
       {% for u in users %}
       <tr>
         <td><strong>{{ u.name }}</strong>{% if u.must_change_password %} <span class="badge off">new password pending</span>{% endif %}</td>
-        <td><span class="badge {{ 'on' if u.role == 'owner' else '' }}">{{ u.role or 'member' }}</span></td>
+        <td>
+          {% if u.role == 'owner' %}<span class="badge on">owner</span>
+          {% else %}
+          <form method="post" action="{{ url_for('admin_set_plan') }}" class="plan-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="user" value="{{ u.key }}">
+            <select name="plan" aria-label="Plan for {{ u.name }}">
+              {% for key, p in plans.items() %}<option value="{{ key }}" {{ 'selected' if u.usage and u.usage.plan_key == key else '' }}>{{ p.name }}</option>{% endfor %}
+            </select>
+          </form>
+          {% endif %}
+        </td>
+        <td class="hide-sm" style="font-size:.84rem;color:var(--muted)">{% if u.usage %}{{ u.usage.storage_gb_used }} GB · {{ u.usage.minutes_used }} min{% endif %}</td>
         <td class="hide-sm">{{ 'On' if u.totp else 'Off' }}</td>
-        <td class="hide-sm" data-ts="{{ u.created }}"></td>
         <td style="text-align:right;white-space:nowrap">
           {% if u.key != me_key %}
           <form method="post" action="{{ url_for('admin_reset') }}" class="confirm" data-confirm="Give {{ u.name }} a temporary password and turn off their two-step login?">
@@ -311,6 +336,10 @@
   document.getElementById("pwForm").addEventListener("submit", function (e) {
     if (!rules()) { e.preventDefault(); alert("Your new password doesn't meet all the rules yet."); }
     else if (pw.value !== document.getElementById("confirm").value) { e.preventDefault(); alert("The two new passwords don't match."); }
+  });
+  // Changing a plan saves straight away.
+  document.querySelectorAll("form.plan-form select").forEach(function (sel) {
+    sel.addEventListener("change", function () { sel.form.submit(); });
   });
   // Confirm owner actions.
   document.querySelectorAll("form.confirm").forEach(function (f) {

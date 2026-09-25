@@ -28,6 +28,15 @@ legal pages show an orange "Not finished yet" notice until you've done this.
 `video_retention_days` sets how long videos are kept before they're deleted
 automatically (0 = keep until deleted by hand).
 
+## Plans and usage limits
+
+Every account has a plan with a **storage** limit (GB of videos kept) and a monthly limit
+on **minutes of video analysed**. Defaults: Free 5 GB / 120 min, Plus 25 GB / 600 min,
+Pro 100 GB / 3000 min. Change the numbers in **plans.json** with Notepad (applies straight
+away) and pick each account's plan on the Account page. The owner has no limits. Uploads
+over a limit are refused with a message; minutes of videos refused by the content check
+are given back. Online payments can be connected later, once the app is hosted.
+
 ## Security
 
 See **SECURITY.md** for the full security review, what was fixed and the known limits.
@@ -86,6 +95,7 @@ and set your Wi-Fi network to **Private** in Windows settings.
 | `accounts.py` | Log in, invite-only sign-up, 2FA, account page and owner admin (hashes in `users.json`) |
 | `security.py` | Security headers/CSP, host check, rate limits, password rules + breach check, TOTP codes |
 | `content_check.py` | Refuses uploads that aren't match footage (no pitch / no players) |
+| `quota.py`, `plans.json` | Plans and usage limits (storage and monthly analysis minutes) |
 | `legal.py`, `legal_info.json` | Privacy, cookie, terms, legal notice and licence pages; your details; source download |
 | `tracker.py` | Finds and tracks players with YOLO, draws the tracked video |
 | `teams.py` | Sorts players into the two teams by shirt colour, sets officials aside |
