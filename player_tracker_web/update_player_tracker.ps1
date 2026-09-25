@@ -5,8 +5,9 @@
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/2b90d4e4b047e27e789ebcf70638b5ca648c2f9a/player_tracker_web"
-$files = @("app.py", "teams.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html")
+$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/03b0ca3718073ebfff1c9b2f8ef4603ea4a2d7f0/player_tracker_web"
+$files = @("app.py", "teams.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
+           "static/brand/yoac-logo.png", "static/brand/yoac-wordmark.png", "static/brand/yoac-icon-64.png", "static/brand/yoac-icon-192.png")
 
 if (-not (Test-Path (Join-Path $root "app.py"))) {
     Write-Host "app.py not found next to this script. Put it in the player_tracker_web folder." -ForegroundColor Red
