@@ -24,6 +24,7 @@ from werkzeug.utils import secure_filename
 import cv2
 
 import analysis
+from accounts import init_accounts
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
 
@@ -42,6 +43,7 @@ HIDDEN_BY_DEFAULT = ["other"]
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
 app.config["TEMPLATES_AUTO_RELOAD"] = True  # page edits show up without a restart
+init_accounts(app)  # every page needs a logged-in user; see accounts.py
 
 # job_id -> {status, done, total, message, teams, colors, hidden, version,
 #            filename, input, output, started}

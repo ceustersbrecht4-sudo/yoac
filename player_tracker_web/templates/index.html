@@ -3,55 +3,71 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f3d2a">
+<meta name="theme-color" content="#050b08">
 <title>YOAC Player Tracker</title>
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
 <style>
+  @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap;
+    src: url("{{ url_for('static', filename='fonts/barlow-condensed-800.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow Condensed"; font-style: italic; font-weight: 900; font-display: swap;
+    src: url("{{ url_for('static', filename='fonts/barlow-condensed-900-italic.woff2') }}") format("woff2"); }
+  /* Same dark neon look as the YOAC front page. */
   :root {
-    --bg: #f3f5f4; --surface: #ffffff; --surface-2: #f7f9f8; --text: #16201b; --muted: #5d6b64;
-    --border: #dfe5e2; --accent: #1f7a4d; --accent-hover: #186240; --accent-soft: #e4f2ea;
-    --issue: #c0392b; --issue-soft: #fbecea; --good: #1f7a4d; --good-soft: #e4f2ea;
-    --info: #5d6b64; --info-soft: #eef1f0; --warn: #9a6700;
-    --header: #0f3d2a; --header-text: #ffffff; --bar-bg: #e3e9e6;
-    --shadow: 0 1px 2px rgba(16, 32, 24, .06), 0 4px 16px rgba(16, 32, 24, .06);
-    --radius: 14px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0e1411; --surface: #161e1a; --surface-2: #1b2520; --text: #e6ece9; --muted: #98a6a0;
-      --border: #2a3630; --accent: #3fb07a; --accent-hover: #5cc792; --accent-soft: #1b3328;
-      --issue: #f07a6e; --issue-soft: #3a211e; --good: #3fb07a; --good-soft: #1b3328;
-      --info: #98a6a0; --info-soft: #222c28; --warn: #e3b341;
-      --header: #0b2a1d; --bar-bg: #26312c;
-      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
-    }
+    --bg: #050b08; --surface: rgba(15, 31, 23, .82); --surface-2: #11241a; --text: #eaf3ee; --muted: #93a89d;
+    --border: #1d3a2b; --accent: #45e07c; --accent-hover: #6cf09a; --accent-soft: rgba(69, 224, 124, .12);
+    --issue: #ff7a6e; --issue-soft: rgba(255, 122, 110, .12); --good: #45e07c; --good-soft: rgba(69, 224, 124, .12);
+    --info: #93a89d; --info-soft: #17281f; --warn: #f5b945;
+    --header: transparent; --header-text: #ffffff; --bar-bg: #15261d; --on-accent: #03140a;
+    --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 20px 50px rgba(0, 0, 0, .45);
+    --radius: 18px; --ease: cubic-bezier(.2, .7, .2, 1);
+    --display: "Barlow Condensed", system-ui, sans-serif;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0; background: var(--bg); color: var(--text); min-height: 100vh;
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
+  /* animated backdrop: drifting pitch grid and two soft glows */
+  .backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+    background: radial-gradient(700px 460px at 80% -10%, rgba(69, 224, 124, .16), transparent 65%),
+                radial-gradient(600px 420px at -10% 110%, rgba(59, 140, 246, .10), transparent 60%), var(--bg); }
+  .backdrop::before { content: ""; position: absolute; inset: -64px; opacity: .45;
+    background-image: linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px);
+    background-size: 64px 64px; animation: grid-drift 28s linear infinite;
+    mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%); }
+  .backdrop::after { content: ""; position: absolute; width: 320px; height: 320px; border-radius: 50%; background: #1f7a4d;
+    filter: blur(80px); opacity: .35; top: 10%; left: -120px; animation: glow-float 16s ease-in-out infinite; }
+  @keyframes grid-drift { to { transform: translate(64px, 64px); } }
+  @keyframes glow-float { 50% { transform: translate(60px, -40px) scale(1.15); } }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(18px); } }
   [hidden] { display: none !important; }
   button { font: inherit; }
 
   /* ---------- header ---------- */
-  header {
-    background: var(--header); color: var(--header-text);
-    padding: 18px 16px 56px;
-    background-image:
-      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.18));
-    background-size: 80px 100%, 100% 100%;
-  }
+  header { color: var(--header-text); padding: 16px 16px 58px; }
   .head-in { max-width: 820px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .user { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: .9rem; color: var(--muted); }
+  .user .who { display: inline-flex; align-items: center; gap: 8px; }
+  .user .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 800; border: 1px solid rgba(69, 224, 124, .35); text-transform: uppercase; }
+  .user form { margin: 0; }
+  .user button { font: inherit; font-weight: 600; font-size: .85rem; color: var(--text); background: rgba(255, 255, 255, .03); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .user button:hover { border-color: var(--accent); }
+  .page-title { max-width: 820px; margin: 30px auto 0; }
+  .page-title h1 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(2.6rem, 7vw, 4.2rem); line-height: .92; margin: 0; }
+  .page-title h1 span { display: inline-block; animation: rise-in .8s var(--ease) both; }
+  .page-title h1 .g { background: linear-gradient(90deg, var(--accent), #c9ffe0 40%, var(--accent) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rise-in .8s var(--ease) .12s both, shine 6s linear 1.2s infinite; }
+  @keyframes shine { to { background-position: -200% 0; } }
+  .page-title p { margin: 10px 0 0; color: var(--muted); animation: rise-in .8s var(--ease) .2s both; }
   .yoac { flex: none; display: block; padding-right: 12px; border-right: 1px solid rgba(255,255,255,.2); }
   .yoac img { height: 24px; width: auto; display: block; }
-  .brand { font-weight: 700; font-size: 1.2rem; letter-spacing: -.01em; line-height: 1.2; }
+  .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; line-height: 1.2; }
   .brand small { display: block; font-weight: 500; font-size: .85rem; opacity: .75; letter-spacing: 0; }
 
-  main { max-width: 820px; margin: -40px auto 0; padding: 0 16px 64px; }
+  main { max-width: 820px; margin: -34px auto 0; padding: 0 16px 64px; }
 
   /* ---------- steps ---------- */
   .steps { display: flex; gap: 6px; margin-bottom: 14px; }
@@ -65,24 +81,26 @@
     font-weight: 700; font-size: .8rem; background: var(--bar-bg); color: var(--muted);
   }
   .step span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .step.on { color: var(--text); font-weight: 600; border-color: var(--accent); }
-  .step.on .n { background: var(--accent); color: #fff; }
+  .step.on { color: var(--text); font-weight: 600; border-color: var(--accent); box-shadow: var(--shadow), 0 0 24px rgba(69, 224, 124, .18); }
+  .step.on .n { background: var(--accent); color: var(--on-accent); }
+  .step { backdrop-filter: blur(8px); transition: border-color .4s, box-shadow .4s; }
   .step.done .n { background: var(--accent-soft); color: var(--accent); }
 
   /* ---------- cards & basics ---------- */
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow);
+    backdrop-filter: blur(10px); animation: rise-in .6s var(--ease) both;
   }
-  h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+  h2 { font-family: var(--display); font-weight: 800; font-size: 1.7rem; line-height: 1.05; margin: 0 0 6px; letter-spacing: 0; }
   .muted { color: var(--muted); }
   .small { font-size: .88rem; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 12px 18px; min-height: 46px; border-radius: 10px; border: 1px solid transparent;
+    padding: 12px 20px; min-height: 46px; border-radius: 999px; border: 1px solid transparent;
     font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s;
   }
-  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 26px rgba(69, 224, 124, .25); font-weight: 800; }
   .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
   .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
   .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
@@ -94,7 +112,9 @@
     color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: .92rem;
   }
   .bar { height: 10px; background: var(--bar-bg); border-radius: 5px; overflow: hidden; }
-  .bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 5px; transition: width .4s; }
+  .bar > div { position: relative; overflow: hidden; height: 100%; width: 0; background: linear-gradient(90deg, #2fb366, var(--accent)); border-radius: 5px; transition: width .4s; box-shadow: 0 0 14px rgba(69, 224, 124, .6); }
+  .bar > div::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); transform: translateX(-100%); animation: bar-shine 1.8s ease-in-out infinite; }
+  @keyframes bar-shine { to { transform: translateX(100%); } }
   .dot { width: 12px; height: 12px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
 
   /* ---------- upload ---------- */
@@ -111,9 +131,19 @@
   }
   .drop.over .drop-icon { background: var(--accent); color: #fff; }
   .drop.over * { pointer-events: none; }  /* stop child elements firing dragleave */
-  @media (prefers-reduced-motion: reduce) { .drop.over { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .drop.over { transform: none; }
+    .backdrop::before, .backdrop::after, .drop-icon, .bar > div::after, .drop::after,
+    .card, .page-title h1 span, .page-title h1 .g, .page-title p { animation: none !important; }
+  }
   .drop.has-file { border-style: solid; border-color: var(--accent); }
-  .drop-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 4px; }
+  .drop-icon { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 6px; box-shadow: 0 0 0 8px rgba(69, 224, 124, .05); animation: bob 3.2s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-5px); } }
+  .drop { position: relative; overflow: hidden; }
+  .drop::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(69, 224, 124, .14), transparent); }
+  .drop:hover::after, .drop.over::after { animation: drop-scan 1.6s var(--ease) infinite; }
+  @keyframes drop-scan { to { left: 110%; } }
   .drop strong { font-size: 1.05rem; word-break: break-word; }
   input[type=file] { display: none; }
   .file-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
@@ -134,7 +164,7 @@
   .recent-item .when { font-size: .82rem; color: var(--muted); white-space: nowrap; }
 
   /* ---------- progress ---------- */
-  .pct { font-size: 2.6rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .pct { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 3.6rem; line-height: .9; color: var(--accent); text-shadow: 0 0 30px rgba(69, 224, 124, .35); }
   .prog-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 6px 0 12px; }
   .prog-top .eta { text-align: right; font-size: .9rem; color: var(--muted); }
   .stages { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 2px; }
@@ -164,7 +194,7 @@
   .note { margin-top: 16px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; font-size: .88rem; color: var(--muted); }
 
   /* ---------- result ---------- */
-  .video-card { padding: 0; overflow: hidden; }
+  .video-card { padding: 0; overflow: hidden; border-color: rgba(69, 224, 124, .3); box-shadow: var(--shadow), 0 0 50px rgba(69, 224, 124, .12); }
   video { width: 100%; max-height: 70vh; background: #000; display: block; }
   /* Results reveal: the raw first frame sits over the tracked video and is
      wiped away once, so the boxes appear across the picture. */
@@ -178,12 +208,13 @@
   .video-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; }
   .video-bar .title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
-  .tabs { display: flex; gap: 4px; background: var(--bar-bg); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 4px; background: var(--bar-bg); padding: 4px; border-radius: 14px; margin-bottom: 16px; border: 1px solid var(--border); }
+  .tab { transition: background .3s, color .3s; }
   .tab {
     flex: 1; border: 0; background: transparent; color: var(--muted); padding: 10px 12px; border-radius: 9px;
     font-weight: 600; cursor: pointer; min-height: 44px;
   }
-  .tab.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab.on { background: var(--accent); color: var(--on-accent); box-shadow: 0 6px 20px rgba(69, 224, 124, .25); }
 
   .field { margin-bottom: 14px; }
   .field-label { font-size: .88rem; font-weight: 600; margin-bottom: 8px; }
@@ -194,7 +225,7 @@
     font-weight: 500; cursor: pointer;
   }
   .seg button:hover { border-color: var(--accent); }
-  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .chip {
@@ -261,6 +292,8 @@
 
   @media (max-width: 560px) {
     .card { padding: 18px 16px; }
+    .brand, .user .name { display: none; }
+    .user button { white-space: nowrap; }
     .step { padding-right: 8px; }
     .step span:last-child { display: none; }
     .step.on span:last-child { display: inline; }
@@ -274,10 +307,24 @@
 </style>
 </head>
 <body>
+<div class="backdrop" aria-hidden="true"></div>
 <header>
   <div class="head-in">
     <a class="yoac" href="{{ url_for('landing') }}"><img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC"></a>
     <div class="brand">Player Tracker<small>Rugby match analysis for coaches</small></div>
+    {% if current_user %}
+    <div class="user">
+      <span class="who"><span class="avatar" aria-hidden="true">{{ display_name()[:1] }}</span><span class="name">{{ display_name() }}</span></span>
+      <form method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button type="submit">Log out</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  <div class="page-title">
+    <h1><span>Analyse a</span> <span class="g">match.</span></h1>
+    <p>Upload a video, and YOAC tracks every player and sorts them into two teams.</p>
   </div>
 </header>
 
@@ -557,6 +604,12 @@ function fmtTime(s) {
 }
 function fmtClock(s) { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
 
+// The login ran out (or the user logged out in another tab): log in again and
+// come straight back to this page, including the job in the address.
+function toLogin() {
+  location.href = "{{ url_for('login') }}?next=" + encodeURIComponent(location.pathname + location.hash);
+}
+
 function fail(msg) {
   $("errorText").textContent = msg;
   show(["errorCard"]);
@@ -668,6 +721,7 @@ $("form").addEventListener("submit", ev => {
   };
   xhr.onload = () => {
     let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status === 401) return toLogin();
     if (xhr.status !== 200) return fail(data.error || (xhr.status === 413 ? "The file is too large (the limit is 2 GB). Trim it to a shorter clip and try again." : "The upload failed. Please try again."));
     // Put the job in the URL so the page can resume after the phone sleeps
     // or the tab is closed and reopened.
@@ -691,6 +745,7 @@ async function poll(jobId) {
   let s;
   try {
     const r = await fetch(`/status/${jobId}`, { cache: "no-store" });
+    if (r.status === 401) return toLogin();
     if (r.status === 404) {
       currentJob = null;
       saveRecent(loadRecent().filter(j => j.id !== jobId));

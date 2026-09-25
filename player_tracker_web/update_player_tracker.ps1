@@ -1,12 +1,12 @@
-# Updates Player Tracker (intro page, upload page, two-team sorting) and
-# restarts the app.
+# Updates Player Tracker (login, intro page, upload page, two-team sorting)
+# and restarts the app. Accounts (users.json, secret.key) are never touched.
 # Run from the player_tracker_web folder:
 #   powershell -ExecutionPolicy Bypass -File .\update_player_tracker.ps1
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/69967a283632b0d0105ff62e759ca2573b372ab2/player_tracker_web"
-$files = @("app.py", "teams.py", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
+$files = @("app.py", "teams.py", "accounts.py", "templates/login.html", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
            "static/brand/yoac-logo.png", "static/brand/yoac-wordmark.png", "static/brand/yoac-icon-64.png", "static/brand/yoac-icon-192.png",
            "static/brand/yoac-outline.png", "static/brand/yoac-stencil.png", "static/brand/yoac-y-icon.png", "static/brand/yoac-icon-italic-320.png",
            "static/fonts/barlow-condensed-800.woff2", "static/fonts/barlow-condensed-900-italic.woff2", "static/fonts/LICENSE-barlow-condensed.txt")

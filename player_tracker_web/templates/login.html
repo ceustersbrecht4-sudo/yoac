@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050b08">
+  <title>Log in · YOAC Player Tracker</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
+  <style>
+    @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap;
+      src: url("{{ url_for('static', filename='fonts/barlow-condensed-800.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Barlow Condensed"; font-style: italic; font-weight: 900; font-display: swap;
+      src: url("{{ url_for('static', filename='fonts/barlow-condensed-900-italic.woff2') }}") format("woff2"); }
+    :root {
+      --bg: #050b08; --surface: #0f1f17; --surface-2: #132a1f; --border: #1d3a2b; --border-hi: #2c5a42;
+      --text: #eaf3ee; --muted: #93a89d; --neon: #45e07c; --neon-soft: rgba(69, 224, 124, .14);
+      --issue: #ff7a6e; --ease: cubic-bezier(.2, .7, .2, 1);
+      --display: "Barlow Condensed", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+      display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; overflow-x: hidden;
+    }
+    a { color: var(--neon); }
+
+    /* ---------------------------------------------------------- brand side */
+    .brand-side {
+      position: relative; overflow: hidden; padding: 44px 56px; display: flex; flex-direction: column;
+      background:
+        radial-gradient(600px 420px at 30% 30%, rgba(69, 224, 124, .16), transparent 65%),
+        radial-gradient(500px 380px at 90% 100%, rgba(59, 140, 246, .12), transparent 60%),
+        linear-gradient(160deg, #0b2418, #050b08 70%);
+      border-right: 1px solid var(--border);
+    }
+    .grid { position: absolute; inset: -64px; pointer-events: none; opacity: .5;
+      background-image: linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
+      background-size: 64px 64px; animation: drift 26s linear infinite;
+      mask-image: radial-gradient(ellipse at 40% 40%, #000 25%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at 40% 40%, #000 25%, transparent 75%); }
+    @keyframes drift { to { transform: translate(64px, 64px); } }
+    .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; background: #1f7a4d; filter: blur(70px); opacity: .45; top: -60px; right: -60px; animation: float 13s ease-in-out infinite; pointer-events: none; }
+    @keyframes float { 50% { transform: translate(-50px, 40px) scale(1.15); } }
+    .brand-side > :not(.grid):not(.orb) { position: relative; z-index: 1; }
+    .brand-top { display: flex; align-items: center; gap: 12px; }
+    .brand-top img { height: 26px; width: auto; }
+    .brand-top span { padding-left: 12px; border-left: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: .92rem; }
+    .brand-mid { margin: auto 0; padding: 40px 0; }
+    .mark { width: 76px; height: 76px; margin-bottom: 26px; }
+    .mark rect { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 1.1s var(--ease) .2s forwards; }
+    .mark polygon { fill: #fff; opacity: 0; transform-origin: 84px 90px; transform: scale(.6); animation: pop .5s var(--ease) .9s forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    @keyframes pop { to { opacity: 1; transform: none; } }
+    .brand-mid h1 {
+      font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase;
+      font-size: clamp(3rem, 5.4vw, 5.2rem); line-height: .92; margin: 0 0 22px; letter-spacing: -.005em;
+    }
+    .brand-mid h1 .l { display: block; overflow: hidden; }
+    .brand-mid h1 .l > span { display: inline-block; transform: translateY(110%); animation: rise .9s var(--ease) forwards; }
+    .brand-mid h1 .g { background: linear-gradient(90deg, var(--neon), #c9ffe0 40%, var(--neon) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rise .9s var(--ease) forwards, shine 6s linear 1.4s infinite; }
+    @keyframes rise { to { transform: none; } }
+    @keyframes shine { to { background-position: -200% 0; } }
+    .ticker { height: 1.6em; overflow: hidden; color: var(--muted); font-size: 1.1rem; }
+    .ticker ul { list-style: none; margin: 0; padding: 0; animation: tick 12s var(--ease) infinite; }
+    .ticker li { height: 1.6em; display: flex; align-items: center; gap: 10px; }
+    .ticker li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 10px var(--neon); flex: none; }
+    @keyframes tick {
+      0%, 20% { transform: translateY(0); } 25%, 45% { transform: translateY(-1.6em); }
+      50%, 70% { transform: translateY(-3.2em); } 75%, 95% { transform: translateY(-4.8em); } 100% { transform: translateY(-6.4em); }
+    }
+    .mini { margin-top: 34px; width: 100%; max-width: 440px; aspect-ratio: 16 / 7; border-radius: 16px; overflow: hidden; border: 1px solid rgba(69, 224, 124, .25); box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+    .mini canvas { display: block; width: 100%; height: 100%; }
+    .brand-foot { color: var(--muted); font-size: .85rem; display: flex; align-items: center; gap: 8px; }
+    .brand-foot svg { color: var(--neon); flex: none; }
+
+    /* ---------------------------------------------------------- form side */
+    .form-side { display: grid; place-items: center; padding: 40px 24px; position: relative; }
+    .card {
+      width: 100%; max-width: 420px; padding: 34px 30px; border-radius: 24px; position: relative;
+      background: linear-gradient(180deg, rgba(19, 42, 31, .75), rgba(12, 26, 19, .85));
+      border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+      opacity: 0; transform: translateY(18px); animation: in .8s var(--ease) .35s forwards;
+    }
+    .card::before { content: ""; position: absolute; inset: -1px; border-radius: 25px; padding: 1px; pointer-events: none;
+      background: linear-gradient(140deg, rgba(69, 224, 124, .55), transparent 35%, transparent 65%, rgba(69, 224, 124, .35));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+    @keyframes in { to { opacity: 1; transform: none; } }
+    .card h2 { font-family: var(--display); font-weight: 800; font-size: 2.3rem; line-height: 1; margin: 0 0 6px; }
+    .card .sub { color: var(--muted); margin: 0 0 22px; font-size: .95rem; }
+    .tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: #0a1711; border: 1px solid var(--border); border-radius: 14px; padding: 4px; margin-bottom: 24px; }
+    .tabs button { position: relative; z-index: 1; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 700; padding: 10px; border-radius: 10px; cursor: pointer; transition: color .3s; }
+    .tabs button[aria-selected="true"] { color: #03140a; }
+    .tabs .pill { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--neon); box-shadow: 0 6px 20px rgba(69, 224, 124, .3); transition: transform .45s var(--ease); }
+    .tabs.signup .pill { transform: translateX(100%); }
+
+    .field { position: relative; margin-bottom: 16px; }
+    .field input {
+      width: 100%; padding: 22px 46px 8px 14px; border-radius: 12px; border: 1px solid var(--border);
+      background: #0a1711; color: var(--text); font: inherit; font-size: 1rem; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus { border-color: var(--neon); box-shadow: 0 0 0 4px rgba(69, 224, 124, .15); }
+    .field label { position: absolute; left: 15px; top: 15px; color: var(--muted); pointer-events: none; transition: transform .2s var(--ease), font-size .2s, color .2s; transform-origin: left; }
+    .field input:focus + label, .field input:not(:placeholder-shown) + label { transform: translateY(-10px); font-size: .74rem; color: var(--neon); }
+    .field .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+    .field .eye:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
+    .field .hint { margin: 6px 2px 0; font-size: .78rem; color: var(--muted); }
+    .confirm { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s var(--ease), opacity .3s; opacity: 0; }
+    .confirm > div { overflow: hidden; }
+    .signup-mode .confirm { grid-template-rows: 1fr; opacity: 1; }
+    .strength { display: flex; gap: 4px; margin: 8px 2px 0; }
+    .strength i { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background .3s; }
+    .row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; font-size: .9rem; color: var(--muted); }
+    .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .check input { width: 18px; height: 18px; accent-color: var(--neon); }
+    .submit {
+      position: relative; overflow: hidden; width: 100%; padding: 15px; border: 0; border-radius: 999px;
+      background: var(--neon); color: #03140a; font: inherit; font-weight: 800; font-size: 1.05rem; cursor: pointer;
+      box-shadow: 0 10px 30px rgba(69, 224, 124, .3); transition: transform .2s var(--ease), background .2s;
+    }
+    .submit:hover { background: #6cf09a; }
+    .submit:active { transform: scale(.98); }
+    .submit::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent); transform: skewX(-20deg); animation: sweep 3.2s ease-in-out 1.5s infinite; }
+    @keyframes sweep { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+    .submit .spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(3, 20, 10, .3); border-top-color: #03140a; animation: rot .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+    .submit.busy .spin { display: inline-block; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+    .error { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 18px; padding: 11px 13px; border-radius: 12px; background: rgba(255, 122, 110, .1); border: 1px solid rgba(255, 122, 110, .4); color: #ffd5d0; font-size: .92rem; animation: shake .5s var(--ease); }
+    .error svg { flex: none; color: var(--issue); margin-top: 2px; }
+    @keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+    .fine { margin: 18px 0 0; text-align: center; color: var(--muted); font-size: .82rem; }
+
+    @media (max-width: 900px) {
+      body { grid-template-columns: 1fr; }
+      .brand-side { padding: 28px 22px 34px; border-right: 0; border-bottom: 1px solid var(--border); }
+      .brand-mid { padding: 28px 0 0; }
+      .mark { display: none; }
+      .brand-mid h1 { font-size: 2.6rem; margin-bottom: 12px; }
+      .ticker { font-size: .95rem; }
+      .ticker li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .mini, .brand-foot { display: none; }
+      .form-side { padding: 28px 16px 120px; place-items: start center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .card, .brand-mid h1 .l > span, .brand-mid h1 .g { opacity: 1; transform: none; }
+      .mark rect { stroke-dashoffset: 0; } .mark polygon { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="brand-side">
+    <div class="grid"></div><div class="orb"></div>
+    <div class="brand-top">
+      <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
+      <span>Player Tracker</span>
+    </div>
+    <div class="brand-mid">
+      <svg class="mark" viewBox="18 18 132 132" aria-hidden="true">
+        <rect x="22" y="22" width="124" height="124" rx="30"/>
+        <polygon points="31,57 55,57 78,83 71,90"/>
+        <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
+      </svg>
+      <h1>
+        <span class="l"><span style="animation-delay:.3s">Your Online</span></span>
+        <span class="l"><span class="g" style="animation-delay:.45s">AI Coach.</span></span>
+      </h1>
+      <div class="ticker" aria-hidden="true">
+        <ul>
+          <li>Track every player in your match video</li>
+          <li>Two teams sorted by shirt colour</li>
+          <li>Referee left out automatically</li>
+          <li>Coach report with moments to review</li>
+          <li>Track every player in your match video</li>
+        </ul>
+      </div>
+      <div class="mini"><canvas id="mini" aria-hidden="true"></canvas></div>
+    </div>
+    <div class="brand-foot">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      Your account and videos stay on this laptop.
+    </div>
+  </aside>
+
+  <main class="form-side">
+    <form class="card {{ 'signup-mode' if mode == 'signup' else '' }}" id="form" method="post" action="{{ url_for('login') }}" novalidate>
+      <h2 id="title">{{ 'Create your account' if mode == 'signup' else 'Welcome back' }}</h2>
+      <p class="sub" id="sub">{{ 'Set up a login for this laptop. It only takes a moment.' if mode == 'signup' else 'Log in to analyse your match footage.' }}</p>
+
+      <div class="tabs {{ 'signup' if mode == 'signup' else '' }}" id="tabs" role="tablist">
+        <span class="pill" aria-hidden="true"></span>
+        <button type="button" role="tab" data-mode="login" aria-selected="{{ 'false' if mode == 'signup' else 'true' }}">Log in</button>
+        <button type="button" role="tab" data-mode="signup" aria-selected="{{ 'true' if mode == 'signup' else 'false' }}">Create account</button>
+      </div>
+
+      {% if error %}
+      <div class="error" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/></svg>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <input type="hidden" name="mode" id="mode" value="{{ mode }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+      <div class="field">
+        <input id="username" name="username" type="text" placeholder=" " value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <label for="username">Username</label>
+      </div>
+      <div class="field">
+        <input id="password" name="password" type="password" placeholder=" " autocomplete="{{ 'new-password' if mode == 'signup' else 'current-password' }}" required>
+        <label for="password">Password</label>
+        <button type="button" class="eye" data-for="password" aria-label="Show password">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="confirm" id="confirmWrap">
+        <div>
+          <div class="field">
+            <input id="confirm" name="confirm" type="password" placeholder=" " autocomplete="new-password">
+            <label for="confirm">Confirm password</label>
+            <button type="button" class="eye" data-for="confirm" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="strength" id="strength" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <p class="field hint" style="margin-bottom:16px">At least 8 characters. Longer is stronger.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="check"><input type="checkbox" name="remember" value="1" checked> Remember me for 30 days</label>
+      </div>
+
+      <button type="submit" class="submit" id="submit"><span class="spin"></span><span id="submitText">{{ 'Create account' if mode == 'signup' else 'Log in' }}</span></button>
+      <p class="fine" id="fine">{{ 'Already have an account? Use the Log in tab.' if mode == 'signup' else 'New here? Create an account in a few seconds.' }}</p>
+    </form>
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var form = document.getElementById("form"), tabs = document.getElementById("tabs"), modeInput = document.getElementById("mode");
+    var pw = document.getElementById("password"), confirmInput = document.getElementById("confirm");
+    var TEXT = {
+      login: { title: "Welcome back", sub: "Log in to analyse your match footage.", submit: "Log in", fine: "New here? Create an account in a few seconds." },
+      signup: { title: "Create your account", sub: "Set up a login for this laptop. It only takes a moment.", submit: "Create account", fine: "Already have an account? Use the Log in tab." }
+    };
+
+    function setMode(mode, keepError) {
+      modeInput.value = mode;
+      form.classList.toggle("signup-mode", mode === "signup");
+      tabs.classList.toggle("signup", mode === "signup");
+      tabs.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.mode === mode); });
+      document.getElementById("title").textContent = TEXT[mode].title;
+      document.getElementById("sub").textContent = TEXT[mode].sub;
+      document.getElementById("submitText").textContent = TEXT[mode].submit;
+      document.getElementById("fine").textContent = TEXT[mode].fine;
+      pw.autocomplete = mode === "signup" ? "new-password" : "current-password";
+      confirmInput.required = mode === "signup";
+      confirmInput.tabIndex = mode === "signup" ? 0 : -1;
+      var err = form.querySelector(".error");
+      if (err && !keepError) err.remove();
+    }
+    tabs.addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setMode(b.dataset.mode); });
+    setMode(modeInput.value, true);  // keep the server's error message on first load
+
+    form.querySelectorAll(".eye").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var input = document.getElementById(btn.dataset.for), show = input.type === "password";
+        input.type = show ? "text" : "password";
+        btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        btn.style.color = show ? "var(--neon)" : "";
+      });
+    });
+
+    // Password strength meter (sign-up only): length and variety.
+    var bars = document.getElementById("strength").children;
+    pw.addEventListener("input", function () {
+      var v = pw.value, score = 0;
+      if (v.length >= 8) score++;
+      if (v.length >= 12) score++;
+      if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
+      if (/\d/.test(v) && /[^A-Za-z0-9]/.test(v)) score++;
+      var colours = ["#ff7a6e", "#f5b945", "#9be05a", "#45e07c"];
+      for (var i = 0; i < bars.length; i++) bars[i].style.background = i < score ? colours[score - 1] : "";
+    });
+
+    form.addEventListener("submit", function (e) {
+      if (modeInput.value === "signup" && pw.value !== confirmInput.value) {
+        e.preventDefault();
+        showError("The two passwords don't match.");
+        return;
+      }
+      document.getElementById("submit").classList.add("busy");
+    });
+    function showError(msg) {
+      var old = form.querySelector(".error");
+      if (old) old.remove();
+      var box = document.createElement("div");
+      box.className = "error"; box.setAttribute("role", "alert");
+      box.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/></svg>';
+      var span = document.createElement("span"); span.textContent = msg; box.appendChild(span);
+      tabs.after(box);
+    }
+    (form.querySelector(".error") ? pw : document.getElementById("username")).focus({ preventScroll: true });
+
+    // Small looping tracking demo: players drift, a scan line boxes them in team colours.
+    var canvas = document.getElementById("mini");
+    if (!canvas || getComputedStyle(canvas.parentNode).display === "none") return;
+    var ctx = canvas.getContext("2d"), W = 0, H = 0, dots = [];
+    for (var i = 0; i < 14; i++) dots.push({ t: i % 2, x: 0.15 + (i % 7) * 0.11 + (i % 2) * 0.05, y: 0.2 + Math.floor(i / 7) * 0.45 + (i % 3) * 0.08, p: Math.random() * 6.28 });
+    function size() {
+      var r = canvas.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+      W = r.width; H = r.height; canvas.width = W * d; canvas.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    }
+    function draw(ms) {
+      var t = ms / 1000, c = t % 6, scan = c < 3 ? c / 3 * W : W + 1, s = H * 0.1;
+      for (var k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? "#236b40" : "#277547"; ctx.fillRect(k * W / 8, 0, W / 8 + 1, H); }
+      ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1.5;
+      [0.25, 0.5, 0.75].forEach(function (f) { ctx.beginPath(); ctx.moveTo(f * W, 0); ctx.lineTo(f * W, H); ctx.stroke(); });
+      dots.forEach(function (d) {
+        var x = (d.x + 0.02 * Math.sin(t * 0.8 + d.p)) * W, y = (d.y + 0.03 * Math.cos(t * 0.6 + d.p)) * H;
+        ctx.fillStyle = d.t ? "#2c6fd1" : "#d83a3a";
+        ctx.beginPath(); ctx.arc(x, y, s * 0.4, 0, 6.28); ctx.fill();
+        if (x < scan && c < 5.5) {
+          ctx.strokeStyle = d.t ? "#4f9bff" : "#ff5a5a"; ctx.lineWidth = 2;
+          ctx.strokeRect(x - s * 0.7, y - s * 0.75, s * 1.4, s * 1.5);
+        }
+      });
+      if (scan <= W) {
+        ctx.save(); ctx.shadowColor = "#45e07c"; ctx.shadowBlur = 14;
+        ctx.fillStyle = "#b8ffd4"; ctx.fillRect(scan - 1.5, 0, 3, H); ctx.restore();
+      }
+    }
+    size(); draw(3000);
+    addEventListener("resize", function () { size(); draw(performance.now()); });
+    if (reduce) return;
+    var running = false, raf = 0;
+    function loop(ms) { draw(ms); if (running) raf = requestAnimationFrame(loop); }
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { running = false; cancelAnimationFrame(raf); }
+      else if (!running) { running = true; raf = requestAnimationFrame(loop); }
+    });
+    running = true; raf = requestAnimationFrame(loop);
+  })();
+  </script>
+  {% include "_cookie_banner.html" %}
+</body>
+</html>
