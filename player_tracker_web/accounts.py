@@ -30,6 +30,7 @@ SECRET_FILE = os.path.join(HERE, "secret.key")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
 MIN_PASSWORD = 8
 REMEMBER_DAYS = 30
+TERMS_VERSION = "2026-09-25"  # bump when the terms or privacy policy change
 MAX_FAILS = 5            # failed logins from one address...
 FAIL_WINDOW = 5 * 60     # ...within this many seconds...
 LOCKOUT = 60             # ...lock that address out for this long
@@ -37,7 +38,7 @@ LOCKOUT = 60             # ...lock that address out for this long
 # Pages and files anyone can open without logging in.
 PUBLIC_ENDPOINTS = {"login", "static"}
 # Paths the upload page calls from JavaScript: answer with JSON, not a redirect.
-API_PREFIXES = ("/analyze", "/status/", "/hide/", "/report/", "/snapshot/", "/frame/", "/video/")
+API_PREFIXES = ("/analyze", "/status/", "/hide/", "/delete/", "/report/", "/snapshot/", "/frame/", "/video/")
 
 _users_lock = threading.Lock()  # one sign-up/login at a time touches users.json
 _fails_lock = threading.Lock()
@@ -164,10 +165,15 @@ def init_accounts(app):
                     return fail(f"Use a password of at least {MIN_PASSWORD} characters.")
                 if password != request.form.get("confirm", ""):
                     return fail("The two passwords don't match.")
+                if not request.form.get("terms"):
+                    return fail("Please confirm you're 16 or older and accept the terms of use and privacy policy.")
+                now = int(time.time())
                 users[key] = {
                     "name": username,
                     "password": generate_password_hash(password),
-                    "created": int(time.time()),
+                    "created": now,
+                    # Proof of what was accepted and when (GDPR accountability).
+                    "terms_accepted": {"version": TERMS_VERSION, "at": now},
                 }
                 _save_users(users)
             else:
@@ -180,6 +186,23 @@ def init_accounts(app):
         session["user"] = key
         session.permanent = bool(request.form.get("remember"))
         return redirect(nxt)
+
+    @app.route("/account/delete", methods=["POST"])
+    def delete_account():
+        """Right to erasure: remove the logged-in user's account after a password check."""
+        back = url_for("legal_page", doc="privacy")
+        if not secrets.compare_digest(request.form.get("csrf", ""), session.get("csrf", "")):
+            return redirect(back + "?error=expired#delete")
+        key = current_user()
+        with _users_lock:
+            users = _load_users()
+            user = users.get(key)
+            if not user or not check_password_hash(user["password"], request.form.get("password", "")):
+                return redirect(back + "?error=password#delete")
+            del users[key]
+            _save_users(users)
+        session.clear()
+        return redirect(back + "?deleted=1#delete")
 
     @app.route("/logout", methods=["POST"])
     def logout():

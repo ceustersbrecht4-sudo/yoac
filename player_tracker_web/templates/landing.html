@@ -317,6 +317,9 @@
 
 
     footer { padding: 44px 0 120px; color: var(--muted); font-size: .88rem; text-align: center; }
+    footer .legal-links { margin-top: 14px; }
+    footer .legal-links a { color: var(--muted); }
+    footer .legal-links a:hover { color: var(--neon); }
     footer img { width: 220px; max-width: 60%; height: auto; display: block; margin: 0 auto 14px; }
 
     .paused, .paused *, .paused *::before, .paused *::after { animation-play-state: paused !important; }
@@ -644,6 +647,13 @@
   <footer>
     <img src="{{ url_for('static', filename='brand/yoac-wordmark.png') }}" alt="YOAC, Your Online AI Coach">
     Player Tracker runs on your own laptop. Your videos stay on it.
+    <p class="legal-links">
+      <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
+      <a href="{{ url_for('legal_page', doc='cookies') }}">Cookies</a> ·
+      <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
+      <a href="{{ url_for('legal_page', doc='notice') }}">Legal notice</a> ·
+      <a href="{{ url_for('legal_page', doc='licences') }}">Licences &amp; source</a>
+    </p>
   </footer>
 
   <script>

@@ -25,6 +25,7 @@ import cv2
 
 import analysis
 from accounts import init_accounts
+from legal import init_legal, retention_days
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
 
@@ -44,6 +45,7 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
 app.config["TEMPLATES_AUTO_RELOAD"] = True  # page edits show up without a restart
 init_accounts(app)  # every page needs a logged-in user; see accounts.py
+init_legal(app)     # privacy / cookies / terms / legal notice / licences, and /source
 
 # job_id -> {status, done, total, message, teams, colors, hidden, version,
 #            filename, input, output, started}
@@ -169,6 +171,8 @@ def analyze():
     file = request.files.get("video")
     if not file or not file.filename:
         return jsonify(error="No video uploaded."), 400
+    if request.form.get("rights") != "1":
+        return jsonify(error="Please confirm you're allowed to use this video before analysing it."), 400
 
     name = secure_filename(file.filename) or "video.mp4"
     base, ext = os.path.splitext(name)
@@ -196,6 +200,70 @@ def analyze():
         }
     job_queue.put(("analyze", job_id, None))
     return jsonify(job_id=job_id)
+
+
+def _job_files(job_id, job):
+    files = set(glob.glob(os.path.join(OUTPUT_DIR, f"{job_id}*")))
+    files.update(glob.glob(os.path.join(UPLOAD_DIR, f"{job_id}*")))
+    for key in ("input", "output"):
+        if job.get(key):
+            files.add(job[key])
+    return files
+
+
+def _delete_job(job_id):
+    """Remove a job and every file made from it: upload, tracked video(s),
+    detections and saved metadata."""
+    with jobs_lock:
+        job = jobs.pop(job_id, None)
+    if job is None:
+        return False
+    with _prepared_lock:
+        _prepared.pop(job_id, None)
+    for path in _job_files(job_id, job):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    return True
+
+
+@app.route("/delete/<job_id>", methods=["POST"])
+def delete(job_id):
+    """Right to erasure: delete a video and everything the app made from it."""
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if not job:
+            abort(404)
+        if job["status"] not in ("done", "error"):
+            return jsonify(error="This video is still being processed. Delete it once it's finished."), 409
+    _delete_job(job_id)
+    return jsonify(ok=True)
+
+
+def _purge_old_jobs():
+    """Storage limitation: delete finished videos older than the retention
+    period set in legal_info.json (0 = keep until deleted by hand)."""
+    days = retention_days()
+    if not days:
+        return
+    cutoff = time.time() - days * 86400
+    with jobs_lock:
+        old = [jid for jid, j in jobs.items() if j["status"] in ("done", "error")
+               and os.path.exists(j.get("output") or "") and os.path.getmtime(j["output"]) < cutoff]
+    for jid in old:
+        _delete_job(jid)
+    if old:
+        print(f"Deleted {len(old)} video(s) older than {days} days.")
+
+
+def _purge_loop():
+    while True:
+        try:
+            _purge_old_jobs()
+        except Exception:
+            traceback.print_exc()
+        time.sleep(6 * 3600)
 
 
 @app.route("/hide/<job_id>", methods=["POST"])
@@ -473,6 +541,7 @@ def lan_ip():
 
 _load_saved_jobs()
 threading.Thread(target=worker, daemon=True).start()
+threading.Thread(target=_purge_loop, daemon=True).start()
 
 if __name__ == "__main__":
     port = 5000

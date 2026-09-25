@@ -149,6 +149,14 @@
   .file-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
   .fact { font-size: .82rem; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
   .fact.warn { color: var(--warn); border-color: currentColor; }
+  .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); font-size: .88rem; color: var(--muted); cursor: pointer; }
+  .consent input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: var(--accent); }
+  .consent a { color: var(--accent); }
+  .btn-danger { background: transparent; color: #ffb4ab; border-color: rgba(255, 122, 110, .45); }
+  .btn-danger:hover:not(:disabled) { background: var(--issue-soft); }
+  .legal-links { max-width: 820px; margin: 0 auto; padding: 0 16px 90px; text-align: center; font-size: .82rem; color: var(--muted); }
+  .legal-links a { color: var(--muted); }
+  .legal-links a:hover { color: var(--accent); }
   .tips { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
   .tips li { display: flex; gap: 8px; font-size: .88rem; color: var(--muted); }
   .tips li::before { content: "•"; color: var(--accent); font-weight: 700; }
@@ -349,6 +357,11 @@
         </label>
         <input type="file" id="file" name="video" accept="video/*">
         <div class="error-box" id="fileError" style="margin-top:12px" hidden></div>
+        <label class="consent">
+          <input type="checkbox" id="rights">
+          <span>I'm allowed to use this video for coaching analysis, and players (and parents of players under 16) know matches are filmed and analysed.
+            <a href="{{ url_for('legal_page', doc='terms') }}" target="_blank" rel="noopener">Terms</a></span>
+        </label>
         <button type="submit" class="btn btn-primary btn-block" id="analyzeBtn" style="margin-top:14px" disabled>Analyse video</button>
       </form>
       <ul class="tips">
@@ -402,6 +415,7 @@
             Download
           </a>
           <button type="button" class="btn btn-ghost" id="retry2">New video</button>
+          <button type="button" class="btn btn-danger" id="deleteBtn" title="Delete this video and everything made from it">Delete video</button>
         </div>
       </div>
     </div>
@@ -459,6 +473,14 @@
   </section>
 </main>
 
+<p class="legal-links">
+  <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
+  <a href="{{ url_for('legal_page', doc='cookies') }}">Cookies</a> ·
+  <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
+  <a href="{{ url_for('legal_page', doc='notice') }}">Legal notice</a> ·
+  <a href="{{ url_for('legal_page', doc='licences') }}">Licences &amp; source</a>
+</p>
+
 <script>
 const $ = id => document.getElementById(id);
 const fileInput = $("file"), drop = $("drop"), btn = $("analyzeBtn");
@@ -511,8 +533,13 @@ function show(which) {
 function loadRecent() {
   try { return JSON.parse(localStorage.getItem("recentJobs") || "[]"); } catch { return []; }
 }
+// Optional storage: only kept if the user pressed OK in the cookie banner.
+const recentAllowed = () => /(?:^|;\s*)cookie_consent=accepted/.test(document.cookie);
 function saveRecent(list) {
-  try { localStorage.setItem("recentJobs", JSON.stringify(list.slice(0, 8))); } catch {}
+  try {
+    if (recentAllowed()) localStorage.setItem("recentJobs", JSON.stringify(list.slice(0, 8)));
+    else localStorage.removeItem("recentJobs");
+  } catch {}
 }
 function rememberJob(id, name) {
   const list = loadRecent().filter(j => j.id !== id);
@@ -536,7 +563,9 @@ function renderRecent() {
 
 // ------------------------------------------------------------------ upload
 
-let chosenFile = null;
+let chosenFile = null, fileOk = false;
+function updateAnalyseBtn() { btn.disabled = !(chosenFile && fileOk && $("rights").checked); }
+$("rights").addEventListener("change", updateAnalyseBtn);
 function setFile(f) {
   if (!f) return;
   chosenFile = f;
@@ -547,11 +576,12 @@ function setFile(f) {
   const mb = f.size / 1024 / 1024;
   facts.append(el("span", { class: "fact" }, mb >= 1024 ? (mb / 1024).toFixed(2) + " GB" : mb.toFixed(1) + " MB"));
   const tooBig = f.size > MAX_BYTES;
+  fileOk = !tooBig;
   $("fileError").hidden = !tooBig;
   $("fileError").textContent = tooBig
     ? `This file is ${(f.size / 1024 ** 3).toFixed(1)} GB - the limit is 2 GB. Trim it to a shorter clip first (most phones can trim in the gallery's edit button).`
     : "";
-  btn.disabled = tooBig;
+  updateAnalyseBtn();
 
   // Read the length in the browser to estimate processing time up front.
   const url = URL.createObjectURL(f);
@@ -618,7 +648,7 @@ function fail(msg) {
 function reset() {
   history.replaceState(null, "", location.pathname);
   currentJob = null; clearTimeout(pollTimer);
-  fileInput.value = ""; chosenFile = null; btn.disabled = true;
+  fileInput.value = ""; chosenFile = null; fileOk = false; btn.disabled = true;
   drop.classList.remove("has-file");
   $("fileName").textContent = "Choose a match video";
   $("fileHint").textContent = "Tap to pick from your gallery or files · MP4, MOV, AVI, MKV, WEBM";
@@ -628,6 +658,23 @@ function reset() {
   show(["uploadCard"]);
 }
 $("retry1").onclick = reset; $("retry2").onclick = reset;
+
+$("deleteBtn").onclick = async () => {
+  if (!result || !confirm("Delete this video, the tracked video and its report for good?")) return;
+  $("deleteBtn").disabled = true;
+  try {
+    const r = await fetch(`/delete/${result.jobId}`, { method: "POST" });
+    if (r.status === 401) return toLogin();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Could not delete the video.");
+    saveRecent(loadRecent().filter(j => j.id !== result.jobId));
+    reset();
+  } catch (e) {
+    alert(e.message || "Can't reach the laptop.");
+  } finally {
+    $("deleteBtn").disabled = false;
+  }
+};
 
 // ---------------------------------------------------------------- progress
 
@@ -705,7 +752,7 @@ function updateLive(jobId, s, key) {
 
 $("form").addEventListener("submit", ev => {
   ev.preventDefault();
-  const f = chosenFile; if (!f || f.size > MAX_BYTES) return;
+  const f = chosenFile; if (!f || f.size > MAX_BYTES || !$("rights").checked) return;
   resetLive();
   show(["progressCard"]);
   setStage("Uploading your video…", "upload");
@@ -731,7 +778,7 @@ $("form").addEventListener("submit", ev => {
     poll(data.job_id);
   };
   xhr.onerror = () => fail("The upload failed. Check that the laptop is on, on the same Wi-Fi and running the app. If your phone locked during the upload, try again and keep the screen on until it reaches 100%.");
-  const fd = new FormData(); fd.append("video", f); xhr.send(fd);
+  const fd = new FormData(); fd.append("rights", "1"); fd.append("video", f); xhr.send(fd);
 });
 
 let pollTimer = null, currentJob = null, failures = 0;

@@ -6,7 +6,7 @@
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/a0eb1c99522eece07c576b001a541e56d330f351/player_tracker_web"
-$files = @("app.py", "teams.py", "accounts.py", "templates/login.html", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
+$files = @("app.py", "teams.py", "accounts.py", "legal.py", "templates/legal.html", "templates/login.html", "templates/index.html", "templates/landing.html", "templates/_cookie_banner.html",
            "static/brand/yoac-logo.png", "static/brand/yoac-wordmark.png", "static/brand/yoac-icon-64.png", "static/brand/yoac-icon-192.png",
            "static/brand/yoac-outline.png", "static/brand/yoac-stencil.png", "static/brand/yoac-y-icon.png", "static/brand/yoac-icon-italic-320.png",
            "static/fonts/barlow-condensed-800.woff2", "static/fonts/barlow-condensed-900-italic.woff2", "static/fonts/LICENSE-barlow-condensed.txt")
@@ -18,6 +18,18 @@ if (-not (Test-Path (Join-Path $root "app.py"))) {
 
 # Stop the running app so the new version is the one that answers.
 Stop-Process -Name python, py -Force -ErrorAction SilentlyContinue
+
+# Files the owner fills in: only added when they don't exist yet, never overwritten.
+$ownerFiles = @("legal_info.json")
+foreach ($f in $ownerFiles) {
+    $target = Join-Path $root $f
+    if (-not (Test-Path $target)) {
+        Invoke-WebRequest "$base/$f" -OutFile $target -UseBasicParsing
+        Write-Host "OK  $f (new - fill in your details with Notepad)" -ForegroundColor Green
+    } else {
+        Write-Host "OK  $f kept (your details are not overwritten)" -ForegroundColor Green
+    }
+}
 
 # Download everything first; only replace files once all downloads worked.
 $tmp = Join-Path $env:TEMP "player_tracker_update"

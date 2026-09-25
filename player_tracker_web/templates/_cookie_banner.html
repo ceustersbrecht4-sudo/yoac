@@ -1,10 +1,11 @@
-<div id="cookie-banner" role="region" aria-label="Cookie consent" hidden>
+<div id="cookie-banner" role="region" aria-label="Cookie choice" hidden>
   <p>
-    We use cookies to keep the site working and to remember your preferences.
+    We only use essential cookies to keep you logged in. With your OK, we also remember your recent videos on this device.
+    <a href="{{ url_for('legal_page', doc='cookies') }}">Cookie policy</a>
   </p>
   <div class="cookie-actions">
-    <button type="button" data-consent="declined">Decline</button>
-    <button type="button" data-consent="accepted" class="cookie-accept">Accept</button>
+    <button type="button" data-consent="declined">Only essential</button>
+    <button type="button" data-consent="accepted" class="cookie-accept">OK</button>
   </div>
 </div>
 
@@ -14,7 +15,7 @@
     left: 16px;
     right: 16px;
     bottom: 16px;
-    max-width: 640px;
+    max-width: 680px;
     margin: 0 auto;
     display: flex;
     flex-wrap: wrap;
@@ -22,39 +23,41 @@
     justify-content: space-between;
     gap: 12px;
     padding: 16px 20px;
-    background: #1a2129;
-    color: #e8edf2;
-    border: 1px solid #2c3640;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    background: #0f1f17;
+    color: #eaf3ee;
+    border: 1px solid #1d3a2b;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    line-height: 1.45;
     z-index: 1000;
   }
   #cookie-banner[hidden] { display: none; }
-  #cookie-banner p { margin: 0; flex: 1 1 240px; }
+  #cookie-banner p { margin: 0; flex: 1 1 260px; }
+  #cookie-banner a { color: #45e07c; }
   #cookie-banner .cookie-actions { display: flex; gap: 8px; }
   #cookie-banner button {
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     padding: 8px 18px;
     border-radius: 999px;
-    border: 1px solid #4a5561;
+    border: 1px solid #2c5a42;
     background: transparent;
     color: inherit;
     cursor: pointer;
   }
   #cookie-banner button.cookie-accept {
-    background: #2ecc71;
-    border-color: #2ecc71;
-    color: #0f1419;
+    background: #45e07c;
+    border-color: #45e07c;
+    color: #03140a;
   }
 </style>
 
 <script>
   (function () {
     var banner = document.getElementById("cookie-banner");
-    if (!/(?:^|;\s*)cookie_consent=/.test(document.cookie)) {
+    if (!/(?:^|;\s*)cookie_consent=(accepted|declined)/.test(document.cookie)) {
       banner.hidden = false;
     }
     banner.addEventListener("click", function (e) {
@@ -62,6 +65,8 @@
       if (!choice) return;
       document.cookie = "cookie_consent=" + choice +
         "; max-age=" + 60 * 60 * 24 * 365 + "; path=/; SameSite=Lax";
+      // "Only essential": forget anything optional that was already saved.
+      if (choice === "declined") { try { localStorage.removeItem("recentJobs"); } catch (err) {} }
       banner.hidden = true;
     });
   })();

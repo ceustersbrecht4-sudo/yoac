@@ -106,7 +106,7 @@
     .field input:focus + label, .field input:not(:placeholder-shown) + label { transform: translateY(-10px); font-size: .74rem; color: var(--neon); }
     .field .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
     .field .eye:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
-    .field .hint { margin: 6px 2px 0; font-size: .78rem; color: var(--muted); }
+    .hint { margin: 6px 2px 0; font-size: .78rem; color: var(--muted); }
     .confirm { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s var(--ease), opacity .3s; opacity: 0; }
     .confirm > div { overflow: hidden; }
     .signup-mode .confirm { grid-template-rows: 1fr; opacity: 1; }
@@ -131,6 +131,10 @@
     .error svg { flex: none; color: var(--issue); margin-top: 2px; }
     @keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
     .fine { margin: 18px 0 0; text-align: center; color: var(--muted); font-size: .82rem; }
+    .check.terms { align-items: flex-start; font-size: .86rem; color: var(--muted); margin: 2px 2px 16px; line-height: 1.45; }
+    .check.terms input { margin-top: 1px; flex: none; }
+    .legal-links { margin: 16px 0 0; text-align: center; font-size: .78rem; color: var(--muted); }
+    .legal-links a { color: var(--muted); }
 
     @media (max-width: 900px) {
       body { grid-template-columns: 1fr; }
@@ -227,7 +231,10 @@
             </button>
           </div>
           <div class="strength" id="strength" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-          <p class="field hint" style="margin-bottom:16px">At least 8 characters. Longer is stronger.</p>
+          <p class="field hint" style="margin-bottom:14px">At least 8 characters. Longer is stronger.</p>
+          <label class="check terms"><input type="checkbox" name="terms" value="1" id="terms">
+            <span>I'm 16 or older and accept the <a href="{{ url_for('legal_page', doc='terms') }}" target="_blank" rel="noopener">terms of use</a>
+            and <a href="{{ url_for('legal_page', doc='privacy') }}" target="_blank" rel="noopener">privacy policy</a>.</span></label>
         </div>
       </div>
 
@@ -237,6 +244,12 @@
 
       <button type="submit" class="submit" id="submit"><span class="spin"></span><span id="submitText">{{ 'Create account' if mode == 'signup' else 'Log in' }}</span></button>
       <p class="fine" id="fine">{{ 'Already have an account? Use the Log in tab.' if mode == 'signup' else 'New here? Create an account in a few seconds.' }}</p>
+      <p class="legal-links">
+        <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
+        <a href="{{ url_for('legal_page', doc='cookies') }}">Cookies</a> ·
+        <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
+        <a href="{{ url_for('legal_page', doc='notice') }}">Legal notice</a>
+      </p>
     </form>
   </main>
 
@@ -262,6 +275,7 @@
       document.getElementById("fine").textContent = TEXT[mode].fine;
       pw.autocomplete = mode === "signup" ? "new-password" : "current-password";
       confirmInput.required = mode === "signup";
+      document.getElementById("terms").tabIndex = mode === "signup" ? 0 : -1;
       confirmInput.tabIndex = mode === "signup" ? 0 : -1;
       var err = form.querySelector(".error");
       if (err && !keepError) err.remove();
@@ -294,6 +308,11 @@
       if (modeInput.value === "signup" && pw.value !== confirmInput.value) {
         e.preventDefault();
         showError("The two passwords don't match.");
+        return;
+      }
+      if (modeInput.value === "signup" && !document.getElementById("terms").checked) {
+        e.preventDefault();
+        showError("Please confirm you're 16 or older and accept the terms of use and privacy policy.");
         return;
       }
       document.getElementById("submit").classList.add("busy");
