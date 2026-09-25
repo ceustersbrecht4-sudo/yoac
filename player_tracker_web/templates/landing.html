@@ -3,269 +3,468 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0b2a1d">
+  <meta name="theme-color" content="#050b08">
   <title>YOAC Player Tracker</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
   <style>
     :root {
-      --bg: #08140f;
-      --bg-2: #0b2a1d;
-      --surface: #11231a;
-      --border: #1f3a2c;
-      --text: #e8f0ec;
-      --muted: #97aaa1;
+      --bg: #050b08;
+      --bg-2: #0a1a12;
+      --surface: #0f1f17;
+      --surface-2: #132a1f;
+      --border: #1d3a2b;
+      --text: #eaf3ee;
+      --muted: #93a89d;
       --accent: #3fb07a;
-      --accent-bright: #5cd69a;
+      --neon: #45e07c;
+      --neon-soft: rgba(69, 224, 124, .14);
       --red: #ef4b4b;
       --blue: #3b8cf6;
+      --white-kit: #eef1ef;
+      --ease: cubic-bezier(.2, .7, .2, 1);
+      --mx: 50%;
+      --my: 30%;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
+      margin: 0; background: var(--bg); color: var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.6;
-      overflow-x: hidden;
+      line-height: 1.6; overflow-x: hidden;
     }
+    body.locked { overflow: hidden; }
     a { color: inherit; }
-    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+    img { max-width: 100%; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-    /* ---------- nav ---------- */
-    nav {
-      position: sticky; top: 0; z-index: 50;
-      background: color-mix(in srgb, var(--bg) 80%, transparent);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    /* ================================================== intro loader */
+    #intro {
+      position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+      background: radial-gradient(600px 400px at 50% 45%, #0d2419, #030605 70%);
+      transition: clip-path 1s var(--ease), opacity .4s;
+      clip-path: inset(0 0 0 0);
     }
-    nav .wrap { display: flex; align-items: center; gap: 12px; height: 64px; }
+    #intro.out { clip-path: inset(0 0 100% 0); }
+    #intro.gone { display: none; }
+    .intro-inner { display: grid; justify-items: center; gap: 22px; width: min(560px, 84vw); }
+    .intro-mark { width: 92px; height: 92px; }
+    .intro-mark rect { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 1s var(--ease) .1s forwards; }
+    .intro-mark polygon { fill: #fff; opacity: 0; transform-origin: 84px 90px; transform: scale(.6); animation: pop .5s var(--ease) .75s forwards; }
+    .intro-word { position: relative; width: 100%; }
+    .intro-word img { display: block; width: 100%; clip-path: inset(0 100% 0 0); animation: wipe 1s var(--ease) 1s forwards; filter: drop-shadow(0 0 18px rgba(69, 224, 124, .35)); }
+    .intro-tag { font-size: clamp(.9rem, 2.4vw, 1.15rem); letter-spacing: .32em; text-transform: uppercase; color: #cfe2d8; min-height: 1.6em; white-space: nowrap; }
+    .intro-tag b { color: var(--neon); font-weight: 600; }
+    .intro-tag .caret { display: inline-block; width: 2px; height: 1em; background: var(--neon); vertical-align: -2px; margin-left: 4px; animation: blink .8s steps(1) infinite; }
+    .intro-skip { position: absolute; bottom: 24px; right: 24px; background: none; border: 1px solid var(--border); color: var(--muted); font: inherit; font-size: .85rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    @keyframes pop { to { opacity: 1; transform: scale(1); } }
+    @keyframes wipe { to { clip-path: inset(0 0 0 0); } }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ================================================== chrome */
+    #progress { position: fixed; top: 0; left: 0; height: 3px; width: 100%; z-index: 60; background: linear-gradient(90deg, var(--accent), var(--neon)); transform-origin: left; transform: scaleX(0); }
+    nav {
+      position: sticky; top: 0; z-index: 50; transition: background .3s, border-color .3s;
+      border-bottom: 1px solid transparent;
+    }
+    nav.solid { background: rgba(5, 11, 8, .82); backdrop-filter: blur(12px); border-color: rgba(29, 58, 43, .7); }
+    nav .wrap { display: flex; align-items: center; gap: 12px; height: 68px; }
     .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; }
     .brand img { height: 26px; width: auto; display: block; }
-    .brand-sub {
-      padding-left: 12px; border-left: 1px solid var(--border);
-      font-weight: 600; font-size: .92rem; color: var(--muted); white-space: nowrap;
-    }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 22px; border-radius: 999px; font-weight: 700;
-      text-decoration: none; border: 1px solid transparent; white-space: nowrap;
-    }
-    .btn-primary { background: var(--accent); color: #04110a; }
-    .btn-primary:hover { background: var(--accent-bright); }
-    .btn-ghost { border-color: var(--border); color: var(--text); }
-    .btn-ghost:hover { border-color: var(--accent); }
-    nav .btn { padding: 8px 18px; font-size: .95rem; }
+    .brand-sub { padding-left: 12px; border-left: 1px solid var(--border); font-weight: 600; font-size: .92rem; color: var(--muted); white-space: nowrap; }
+    .nav-links { display: flex; gap: 22px; margin-right: 10px; }
+    .nav-links a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; }
+    .nav-links a:hover { color: var(--text); }
 
-    /* ---------- hero ---------- */
-    .hero {
-      position: relative; overflow: hidden;
-      padding: 72px 0 88px;
+    .btn {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 24px; border-radius: 999px; font-weight: 700; text-decoration: none;
+      border: 1px solid transparent; white-space: nowrap; transition: background .2s, border-color .2s, transform .2s var(--ease);
+    }
+    .btn-primary { background: var(--neon); color: #03140a; box-shadow: 0 8px 30px rgba(69, 224, 124, .25); }
+    .btn-primary:hover { background: #6cf09a; }
+    .btn-ghost { border-color: var(--border); background: rgba(255, 255, 255, .02); }
+    .btn-ghost:hover { border-color: var(--neon); }
+    nav .btn { padding: 9px 18px; font-size: .95rem; }
+    .btn svg { transition: transform .25s var(--ease); }
+    .btn:hover svg { transform: translateX(3px); }
+
+    /* ================================================== hero */
+    .hero { position: relative; overflow: hidden; padding: 64px 0 96px; margin-top: -68px; padding-top: 132px; }
+    .hero-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
       background:
-        radial-gradient(900px 500px at 85% 10%, rgba(63, 176, 122, .18), transparent 60%),
-        radial-gradient(700px 400px at 0% 100%, rgba(59, 140, 246, .10), transparent 60%),
+        radial-gradient(520px 380px at var(--mx) var(--my), rgba(69, 224, 124, .16), transparent 70%),
+        radial-gradient(900px 520px at 90% 0%, rgba(63, 176, 122, .16), transparent 60%),
+        radial-gradient(700px 420px at 0% 100%, rgba(59, 140, 246, .10), transparent 60%),
         linear-gradient(180deg, var(--bg-2), var(--bg));
     }
-    .hero .wrap { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
+    .hero-grid { position: absolute; inset: -40px; z-index: 0; pointer-events: none; opacity: .5;
+      background-image: linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+      animation: grid-drift 24s linear infinite;
+    }
+    @keyframes grid-drift { to { transform: translate(64px, 64px); } }
+    .orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .5; z-index: 0; pointer-events: none; animation: float 14s ease-in-out infinite; }
+    .orb.o1 { width: 280px; height: 280px; background: #1f7a4d; top: 8%; left: -80px; }
+    .orb.o2 { width: 220px; height: 220px; background: #1d4ea0; bottom: 0; right: 30%; animation-delay: -6s; opacity: .35; }
+    @keyframes float { 50% { transform: translate(40px, -30px) scale(1.1); } }
+    .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
     .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: .85rem; font-weight: 700; color: var(--accent-bright);
-      background: rgba(63, 176, 122, .12); border: 1px solid rgba(63, 176, 122, .3);
-      padding: 4px 12px; border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; color: var(--neon);
+      background: var(--neon-soft); border: 1px solid rgba(69, 224, 124, .3); padding: 5px 13px; border-radius: 999px;
     }
-    .eyebrow .live { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-bright); animation: blink 1.4s ease-in-out infinite; }
-    @keyframes blink { 50% { opacity: .25; } }
-    h1 {
-      font-size: clamp(2.4rem, 5.5vw, 4rem); line-height: 1.05; letter-spacing: -.03em;
-      margin: 18px 0 18px;
-    }
-    h1 .grad {
-      background: linear-gradient(90deg, var(--accent-bright), #b5f5d4 40%, var(--accent-bright) 80%);
-      background-size: 200% 100%;
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      animation: shine 6s linear infinite;
-    }
+    .eyebrow .live { width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 10px var(--neon); animation: blink 1.4s ease-in-out infinite; }
+    h1 { font-size: clamp(2.5rem, 4.7vw, 4.1rem); line-height: 1.02; letter-spacing: -.035em; margin: 20px 0; font-weight: 800; }
+    h1 .line { display: block; overflow: hidden; padding-bottom: .06em; white-space: nowrap; }
+    h1 .w { display: inline-block; transform: translateY(110%); animation: rise .9s var(--ease) forwards; }
+    h1 .grad { background: linear-gradient(90deg, var(--neon), #c9ffe0 40%, var(--neon) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rise .9s var(--ease) forwards, shine 6s linear 1.5s infinite; }
+    @keyframes rise { to { transform: none; } }
     @keyframes shine { to { background-position: -200% 0; } }
     .lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 30px; max-width: 34em; }
     .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+    .fade-up { opacity: 0; transform: translateY(16px); animation: fade-up .9s var(--ease) forwards; }
+    @keyframes fade-up { to { opacity: 1; transform: none; } }
+    .hero-trust { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 28px; color: var(--muted); font-size: .88rem; }
+    .hero-trust span { display: inline-flex; align-items: center; gap: 6px; }
+    .hero-trust svg { color: var(--neon); }
 
-    /* staggered entrance */
-    .enter { opacity: 0; transform: translateY(18px); animation: enter .8s cubic-bezier(.2, .7, .2, 1) forwards; }
-    .enter.d1 { animation-delay: .08s; } .enter.d2 { animation-delay: .2s; }
-    .enter.d3 { animation-delay: .32s; } .enter.d4 { animation-delay: .44s; }
-    @keyframes enter { to { opacity: 1; transform: none; } }
-
-    /* live pitch demo */
+    /* pitch demo */
+    .stage { position: relative; perspective: 1200px; }
     .screen {
-      position: relative; border-radius: 18px; overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .03) inset;
-      background: #1d5a36; aspect-ratio: 16 / 10;
+      position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16 / 10;
+      border: 1px solid rgba(69, 224, 124, .25); background: #1d5a36;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .03) inset, 0 0 60px rgba(69, 224, 124, .12);
+      transform-style: preserve-3d; transition: transform .5s var(--ease);
     }
     .screen canvas { display: block; width: 100%; height: 100%; }
-    .screen .chip {
-      position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px;
-      font-size: .78rem; font-weight: 700; background: rgba(4, 12, 8, .72); pointer-events: none;
-    }
-    .screen .chip-l { left: 12px; color: var(--accent-bright); }
+    .screen .chip { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(3, 10, 6, .75); pointer-events: none; backdrop-filter: blur(4px); }
+    .screen .chip-l { left: 12px; color: var(--neon); }
     .screen .chip-r { right: 12px; color: #fff; font-variant-numeric: tabular-nums; }
-    .screen-caption { margin-top: 12px; font-size: .88rem; color: var(--muted); text-align: center; }
+    .screen .rec { position: absolute; bottom: 12px; left: 12px; font-size: .72rem; font-weight: 700; color: #ffd0d0; display: flex; align-items: center; gap: 6px; background: rgba(3, 10, 6, .7); padding: 2px 9px; border-radius: 999px; pointer-events: none; }
+    .screen .rec::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #ff4d4d; animation: blink 1s steps(1) infinite; }
+    .float-card {
+      position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px;
+      background: rgba(10, 22, 16, .88); backdrop-filter: blur(10px); border: 1px solid var(--border);
+      padding: 10px 14px; border-radius: 14px; font-size: .86rem; box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+      opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .5s var(--ease), transform .5s var(--ease);
+      pointer-events: none;
+    }
+    .float-card.show { opacity: 1; transform: none; }
+    .float-card strong { display: block; font-size: .92rem; }
+    .float-card small { color: var(--muted); }
+    .float-card .sw { width: 26px; height: 26px; border-radius: 8px; flex: none; }
+    .fc1 { left: -28px; top: 18%; }
+    .fc2 { right: -24px; top: 44%; }
+    .fc3 { left: 8%; bottom: -22px; }
+    .stage-caption { margin-top: 64px; font-size: .85rem; color: var(--muted); text-align: center; }
 
-    /* ---------- sections ---------- */
-    section { padding: 96px 0; }
-    .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
-    .section-head h2 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); letter-spacing: -.02em; line-height: 1.15; margin: 0 0 12px; }
-    .section-head p { color: var(--muted); margin: 0; font-size: 1.05rem; }
-    .kicker { color: var(--accent-bright); font-weight: 700; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; }
+    /* ================================================== marquee */
+    .marquees { overflow: hidden; padding: 24px 0; }
+    .marquee { position: relative; overflow: hidden; border-block: 1px solid var(--border); background: #07110c; padding: 18px 0; transform: rotate(-1.2deg); margin: 10px -20px; }
+    .marquee.alt { transform: rotate(1deg); background: var(--neon); color: #03140a; border: 0; margin-top: -8px; }
+    .track { display: flex; width: max-content; gap: 34px; animation: scroll-x 38s linear infinite; }
+    .marquee.alt .track { animation-direction: reverse; animation-duration: 44s; }
+    .track span { display: inline-flex; align-items: center; gap: 34px; font-size: clamp(1.1rem, 2.4vw, 1.6rem); font-weight: 800; letter-spacing: -.01em; text-transform: uppercase; white-space: nowrap; }
+    .track svg { width: 26px; height: 26px; flex: none; }
+    .marquee:not(.alt) .track svg polygon { fill: var(--neon); }
+    .marquee.alt .track svg polygon { fill: #03140a; }
+    @keyframes scroll-x { to { transform: translateX(-50%); } }
 
-    /* scroll reveal */
-    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.2, .7, .2, 1), transform .8s cubic-bezier(.2, .7, .2, 1); }
+    /* ================================================== sections */
+    section { position: relative; padding: 110px 0; }
+    .section-head { text-align: center; max-width: 680px; margin: 0 auto 54px; }
+    .section-head h2 { font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.03em; line-height: 1.1; margin: 10px 0 14px; }
+    .section-head p { color: var(--muted); margin: 0; font-size: 1.08rem; }
+    .kicker { display: inline-flex; align-items: center; gap: 8px; color: var(--neon); font-weight: 800; font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; }
+    .kicker::before { content: ""; width: 22px; height: 2px; background: var(--neon); }
+    .reveal { opacity: 0; transform: translateY(34px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
     .reveal.in { opacity: 1; transform: none; }
     .reveal.s1 { transition-delay: .1s; } .reveal.s2 { transition-delay: .2s; } .reveal.s3 { transition-delay: .3s; }
 
-    /* before / after on real footage */
-    .compare {
-      --pos: 50%;
-      position: relative; overflow: hidden; border-radius: 16px;
-      border: 1px solid var(--border); background: var(--surface);
-      aspect-ratio: 16 / 9; max-width: 900px; margin: 0 auto; touch-action: pan-y;
-    }
+    /* ================================================== team sort demo */
+    .sorter { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: center; }
+    .sort-box { position: relative; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); background: radial-gradient(circle at 50% 40%, #16452c, #0c2518); aspect-ratio: 4 / 3; }
+    .sort-box canvas { display: block; width: 100%; height: 100%; }
+    .sort-status { position: absolute; top: 14px; left: 14px; font-size: .8rem; font-weight: 700; padding: 3px 11px; border-radius: 999px; background: rgba(3, 10, 6, .75); color: var(--neon); }
+    .sort-copy h3 { font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 12px; }
+    .sort-copy p { color: var(--muted); margin: 0 0 18px; }
+    .legend { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 10px; }
+    .legend li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); opacity: .35; transform: translateX(-10px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
+    .legend li.on { opacity: 1; transform: none; }
+    .legend .sw { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .25); }
+    .legend strong { flex: 1; }
+    .legend small { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .legend li.ref strong { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+
+    /* ================================================== real footage slider */
+    .compare { --pos: 50%; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); aspect-ratio: 16 / 9; max-width: 960px; margin: 0 auto; touch-action: pan-y; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
     .compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
     .compare .tracked { clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
-    .compare .handle {
-      position: absolute; top: 0; bottom: 0; left: var(--pos); width: 3px; margin-left: -1.5px;
-      background: var(--accent-bright); box-shadow: 0 0 16px var(--accent-bright); pointer-events: none;
-    }
-    .compare .handle::after {
-      content: "\2194"; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px;
-      border-radius: 50%; background: var(--accent-bright); color: #04110a; font-weight: 800; line-height: 42px; text-align: center;
-    }
-    .compare .tag { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(4, 12, 8, .75); font-size: .8rem; font-weight: 700; pointer-events: none; }
-    .compare .tag-tracked { left: 12px; color: var(--accent-bright); }
+    .compare .handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 3px; margin-left: -1.5px; background: var(--neon); box-shadow: 0 0 18px var(--neon); pointer-events: none; }
+    .compare .handle::after { content: "\2194"; position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--neon); color: #03140a; font-weight: 800; line-height: 46px; text-align: center; box-shadow: 0 0 0 6px rgba(69, 224, 124, .25); }
+    .compare .tag { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(3, 10, 6, .75); font-size: .8rem; font-weight: 700; pointer-events: none; }
+    .compare .tag-tracked { left: 12px; color: var(--neon); }
     .compare .tag-raw { right: 12px; }
     .compare input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
     #real[hidden] { display: none; }
 
-    /* how it works */
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; position: relative; list-style: none; margin: 0; padding: 0; }
-    .steps::before {
-      content: ""; position: absolute; top: 34px; left: 16%; right: 16%; height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-      transform: scaleX(0); transform-origin: left; transition: transform 1.4s cubic-bezier(.2, .7, .2, 1) .3s;
-    }
-    .steps.in::before { transform: scaleX(1); }
+    /* ================================================== how it works */
+    .steps-wrap { position: relative; }
+    .steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; list-style: none; margin: 0; padding: 0; }
+    .steps-line { position: absolute; top: 40px; left: 16%; right: 16%; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .steps-line i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), var(--neon)); transform-origin: left; transform: scaleX(var(--p, 0)); box-shadow: 0 0 12px var(--neon); }
     .step { text-align: center; padding: 0 12px; }
     .step .num {
-      position: relative; z-index: 1; width: 68px; height: 68px; margin: 0 auto 18px; border-radius: 50%;
-      display: grid; place-items: center; background: var(--surface); border: 2px solid var(--accent);
-      color: var(--accent-bright); box-shadow: 0 0 0 8px var(--bg);
+      position: relative; z-index: 1; width: 82px; height: 82px; margin: 0 auto 20px; border-radius: 24px;
+      display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border);
+      color: var(--neon); box-shadow: 0 0 0 10px var(--bg); transition: border-color .5s, box-shadow .5s;
     }
-    .step h3 { margin: 0 0 6px; font-size: 1.2rem; }
+    .step.lit .num { border-color: var(--neon); box-shadow: 0 0 0 10px var(--bg), 0 0 30px rgba(69, 224, 124, .35); }
+    .step svg path, .step svg rect, .step svg circle { stroke-dasharray: 80; stroke-dashoffset: 80; transition: stroke-dashoffset 1.2s var(--ease) .2s; }
+    .step.lit svg path, .step.lit svg rect, .step.lit svg circle { stroke-dashoffset: 0; }
+    .step h3 { margin: 0 0 6px; font-size: 1.25rem; }
     .step p { margin: 0; color: var(--muted); }
 
-    /* features */
+    /* ================================================== report preview */
+    .report { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
+    .report-copy h3 { font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 12px; }
+    .report-copy p { color: var(--muted); }
+    .rcard { position: relative; border-radius: 20px; border: 1px solid var(--border); background: linear-gradient(180deg, var(--surface), #0b1812); padding: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+    .rcard .rhead { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 3px solid var(--blue); }
+    .rcard .rhead .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); }
+    .rcard .rhead h4 { margin: 0; flex: 1; font-size: 1.1rem; }
+    .rcard .phase { font-size: .72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .rstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .rstat { background: var(--surface-2); border-radius: 10px; padding: 10px; }
+    .rstat .v { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .rstat .k { font-size: .72rem; color: var(--muted); line-height: 1.25; }
+    .rpoint { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px 12px 18px; margin-top: 10px; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+    .rpoint::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--kc); }
+    .rpoint.issue { --kc: #f07a6e; } .rpoint.good { --kc: var(--neon); }
+    .rpoint .t { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--kc); }
+    .rpoint h5 { margin: 2px 0 8px; font-size: .98rem; }
+    .moments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .moment { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: repeating-linear-gradient(90deg, #236b40 0 18px, #277547 18px 36px); }
+    .moment i { position: absolute; width: 7px; height: 14px; border-radius: 3px; }
+    .moment b { position: absolute; border: 2px solid #ff3b3b; border-radius: 3px; box-shadow: 0 0 10px rgba(255, 59, 59, .7); opacity: 0; transition: opacity .4s; }
+    .moment span { position: absolute; left: 5px; bottom: 5px; font-size: .62rem; font-weight: 700; background: rgba(0, 0, 0, .7); padding: 1px 6px; border-radius: 999px; }
+    .rcard.in .rpoint { opacity: 1; transform: none; }
+    .rcard.in .rpoint.issue { transition-delay: .5s; }
+    .rcard.in .rpoint.good { transition-delay: .9s; }
+    .rcard.in .moment b { opacity: 1; transition-delay: 1.3s; }
+    .rnote { margin-top: 12px; font-size: .75rem; color: var(--muted); text-align: right; }
+
+    /* ================================================== features */
     .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature {
-      background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 60%, var(--bg)));
-      border: 1px solid var(--border); border-radius: 18px; padding: 26px; position: relative; overflow: hidden;
+      position: relative; overflow: hidden; border-radius: 20px; padding: 28px; border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface), #0a1711); transform-style: preserve-3d; transition: transform .4s var(--ease), border-color .3s;
     }
-    .feature .ic { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: rgba(63, 176, 122, .14); color: var(--accent-bright); margin-bottom: 16px; }
-    .feature h3 { margin: 0 0 6px; font-size: 1.15rem; }
-    .feature p { margin: 0; color: var(--muted); font-size: .98rem; }
-    .swatches { display: flex; gap: 6px; margin-top: 16px; }
-    .swatches span { height: 8px; flex: 1; border-radius: 4px; transform: scaleX(0); transform-origin: left; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
-    .feature.in .swatches span { transform: scaleX(1); }
-    .feature.in .swatches span:nth-child(2) { transition-delay: .15s; }
-    .feature.in .swatches span:nth-child(3) { transition-delay: .3s; }
+    .feature::before { content: ""; position: absolute; inset: 0; background: radial-gradient(260px circle at var(--fx, 50%) var(--fy, 0%), rgba(69, 224, 124, .16), transparent 60%); opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .feature:hover { border-color: rgba(69, 224, 124, .45); }
+    .feature:hover::before { opacity: 1; }
+    .feature .ic { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--neon-soft); color: var(--neon); margin-bottom: 18px; }
+    .feature h3 { margin: 0 0 8px; font-size: 1.2rem; }
+    .feature p { margin: 0; color: var(--muted); }
 
-    /* final CTA */
-    .cta-band {
-      text-align: center; padding: 72px 24px; border-radius: 24px;
-      background:
-        radial-gradient(600px 300px at 50% 0%, rgba(92, 214, 154, .25), transparent 70%),
-        linear-gradient(180deg, #0f3d2a, #0b2a1d);
-      border: 1px solid #1f5a3d;
-    }
-    .cta-band h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); letter-spacing: -.02em; margin: 0 0 10px; }
-    .cta-band p { color: #b7cfc3; margin: 0 0 28px; }
-    .cta-band .btn { font-size: 1.1rem; padding: 16px 34px; animation: pulse 2.6s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(92, 214, 154, .45); }
-      50% { box-shadow: 0 0 0 14px rgba(92, 214, 154, 0); }
-    }
+    /* ================================================== brand family */
+    .family { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: center; }
+    .tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 22px; border: 1px solid var(--border); background: var(--surface); padding: 22px; animation: bob 6s ease-in-out infinite; }
+    .tile:nth-child(2) { animation-delay: -1.5s; } .tile:nth-child(3) { animation-delay: -3s; } .tile:nth-child(4) { animation-delay: -4.5s; }
+    .tile.light { background: #f1f3f2; }
+    .tile img { width: 100%; height: auto; }
+    .tile img.icon { width: 64%; border-radius: 22%; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+    @keyframes bob { 50% { transform: translateY(-10px); } }
 
-    footer { padding: 32px 0 110px; color: var(--muted); font-size: .88rem; text-align: center; }
+    /* ================================================== CTA */
+    .cta-band { position: relative; overflow: hidden; text-align: center; padding: 84px 24px; border-radius: 28px; background: linear-gradient(180deg, #0f3d2a, #08241a); }
+    .cta-band::before { content: ""; position: absolute; inset: -60%; background: conic-gradient(from 0deg, transparent 0 70%, rgba(69, 224, 124, .55) 80%, transparent 90%); animation: spin 7s linear infinite; }
+    .cta-band::after { content: ""; position: absolute; inset: 2px; border-radius: 26px; background: radial-gradient(600px 300px at 50% 0%, rgba(69, 224, 124, .22), transparent 70%), linear-gradient(180deg, #0f3d2a, #08241a); }
+    .cta-band > * { position: relative; z-index: 1; }
+    .cta-band img { width: min(360px, 70%); height: auto; margin-bottom: 18px; filter: drop-shadow(0 0 22px rgba(69, 224, 124, .35)); }
+    .cta-band h2 { font-size: clamp(2rem, 4.5vw, 3.2rem); letter-spacing: -.03em; margin: 0 0 10px; }
+    .cta-band p { color: #b7cfc3; margin: 0 0 30px; }
+    .cta-band .btn { font-size: 1.1rem; padding: 17px 36px; animation: pulse 2.6s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(69, 224, 124, .5); } 50% { box-shadow: 0 0 0 16px rgba(69, 224, 124, 0); } }
+
+    footer { padding: 44px 0 120px; color: var(--muted); font-size: .88rem; text-align: center; }
     footer img { width: 220px; max-width: 60%; height: auto; display: block; margin: 0 auto 14px; }
 
+    /* cursor glow */
+    #glow { position: fixed; z-index: 1; left: 0; top: 0; width: 380px; height: 380px; margin: -190px 0 0 -190px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(69, 224, 124, .07), transparent 65%); transform: translate(-999px, -999px); }
+
+    /* ================================================== responsive */
+    @media (max-width: 960px) {
+      .hero .wrap, .sorter, .report { grid-template-columns: 1fr; }
+      .hero .wrap { gap: 64px; }
+      .fc1 { left: 6px; } .fc2 { right: 6px; }
+      .report-copy { order: -1; }
+    }
     @media (max-width: 860px) {
-      .hero { padding: 44px 0 64px; }
-      .hero .wrap { grid-template-columns: 1fr; gap: 36px; }
+      .nav-links { display: none; }
       .steps, .features { grid-template-columns: 1fr; }
-      .steps { gap: 36px; }
-      .steps::before { top: 0; bottom: 0; left: 50%; right: auto; width: 2px; height: auto; transform: scaleY(0); transform-origin: top; }
-      .steps.in::before { transform: scaleY(1); }
-      section { padding: 72px 0; }
+      .steps { gap: 40px; }
+      .steps-line { top: 0; bottom: 0; left: 50%; right: auto; width: 3px; height: auto; }
+      .steps-line i { transform-origin: top; transform: scaleY(var(--p, 0)); height: 100%; }
+      .family { grid-template-columns: repeat(2, 1fr); }
+      section { padding: 80px 0; }
     }
     @media (max-width: 480px) {
       .brand img { height: 22px; }
       .brand-sub { display: none; }
-      .hero-ctas .btn { flex: 1; justify-content: center; }
+      h1 .line { white-space: normal; }
+      .hero-ctas .btn { flex: 1; }
+      .rstats { grid-template-columns: repeat(2, 1fr); }
+      .float-card { font-size: .78rem; padding: 8px 10px; }
+      .fc3 { display: none; }
     }
+    @media (hover: none) { #glow { display: none; } }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       *, *::before, *::after { animation: none !important; transition: none !important; }
-      .enter, .reveal { opacity: 1; transform: none; }
-      .steps::before { transform: none; }
-      .swatches span { transform: none; }
+      #intro { display: none; }
+      h1 .w, h1 .grad, .fade-up, .reveal, .rpoint, .legend li { opacity: 1; transform: none; }
+      .intro-word img { clip-path: none; }
+      .step svg path, .step svg rect, .step svg circle { stroke-dashoffset: 0; }
+      .steps-line i { transform: none; }
+      .float-card { opacity: 1; transform: none; }
+      .rcard .moment b { opacity: 1; }
     }
   </style>
 </head>
 <body>
-  <nav>
+  <!-- One shared shape for the YOAC "Y" mark (recreated from the app icon). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <g id="ymark">
+        <polygon points="31,57 55,57 78,83 71,90"/>
+        <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
+      </g>
+    </defs>
+  </svg>
+
+  <div id="intro" aria-hidden="true">
+    <div class="intro-inner">
+      <svg class="intro-mark" viewBox="18 18 132 132">
+        <rect x="22" y="22" width="124" height="124" rx="30"/>
+        <polygon points="31,57 55,57 78,83 71,90"/>
+        <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
+      </svg>
+      <div class="intro-word"><img src="{{ url_for('static', filename='brand/yoac-outline.png') }}" alt=""></div>
+      <div class="intro-tag" id="introTag"><span class="caret"></span></div>
+    </div>
+    <button type="button" class="intro-skip" id="introSkip">Skip</button>
+  </div>
+
+  <div id="progress"></div>
+  <div id="glow"></div>
+
+  <nav id="nav">
     <div class="wrap">
       <a class="brand" href="{{ url_for('landing') }}">
         <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
         <span class="brand-sub">Player Tracker</span>
       </a>
-      <a class="btn btn-primary" href="{{ url_for('index') }}">Get Started</a>
+      <div class="nav-links">
+        <a href="#teams">Teams</a>
+        <a href="#how">How it works</a>
+        <a href="#report">Coach report</a>
+      </div>
+      <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">Get Started</a>
     </div>
   </nav>
 
-  <header class="hero">
+  <header class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="orb o1"></div><div class="orb o2"></div>
     <div class="wrap">
       <div>
-        <span class="eyebrow enter"><span class="live"></span>Rugby match analysis for coaches</span>
-        <h1 class="enter d1">See every player.<br><span class="grad">Every phase.</span></h1>
-        <p class="lead enter d2">
-          Upload your match footage and Player Tracker follows every player through the video,
-          sorts them into teams by shirt colour, and builds a coach report with the moments worth reviewing.
+        <span class="eyebrow fade-up" style="animation-delay:.1s"><span class="live"></span>Rugby match analysis for coaches</span>
+        <h1>
+          <span class="line"><span class="w" style="animation-delay:.15s">See</span> <span class="w" style="animation-delay:.23s">every</span> <span class="w" style="animation-delay:.31s">player.</span></span>
+          <span class="line"><span class="w grad" style="animation-delay:.42s">Every phase.</span></span>
+        </h1>
+        <p class="lead fade-up" style="animation-delay:.6s">
+          Upload your match footage and YOAC Player Tracker follows every player through the video,
+          sorts them into their two teams by shirt colour, and builds a coach report with the moments worth reviewing.
         </p>
-        <div class="hero-ctas enter d3">
-          <a class="btn btn-primary" href="{{ url_for('index') }}">
+        <div class="hero-ctas fade-up" style="animation-delay:.75s">
+          <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">
             Get Started
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </a>
-          <a class="btn btn-ghost" href="#how">How it works</a>
+          <a class="btn btn-ghost" href="#teams">See it sort teams</a>
+        </div>
+        <div class="hero-trust fade-up" style="animation-delay:.9s">
+          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>No tagging by hand</span>
+          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Works on phone footage</span>
+          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Videos stay on your laptop</span>
         </div>
       </div>
-      <div class="enter d4">
-        <div class="screen">
-          <canvas id="pitch" aria-label="Animation: players on a rugby pitch being picked up by tracking boxes in their team colours"></canvas>
-          <span class="chip chip-l" id="pitchMode">Scanning…</span>
+
+      <div class="stage fade-up" style="animation-delay:.5s">
+        <div class="screen tilt" id="screen">
+          <canvas id="pitch" aria-label="Animation: two rugby teams being picked up by tracking boxes in their team colours while the referee is left untracked"></canvas>
+          <span class="chip chip-l" id="pitchMode">Raw footage</span>
           <span class="chip chip-r" id="pitchCount">0 players</span>
+          <span class="rec">LIVE ANALYSIS</span>
         </div>
-        <div class="screen-caption">Illustration. Your own footage gets the same treatment.</div>
+        <div class="float-card fc1" id="fc1"><span class="sw" style="background:var(--red)"></span><div><strong>Red · 10 tracked</strong><small>Attack</small></div></div>
+        <div class="float-card fc2" id="fc2"><span class="sw" style="background:var(--blue)"></span><div><strong>Blue · 10 tracked</strong><small>Defence</small></div></div>
+        <div class="float-card fc3" id="fc3"><span class="sw" style="background:#e6c229;opacity:.5"></span><div><strong>Referee · not tracked</strong><small>Left out of the report</small></div></div>
+        <div class="stage-caption">Illustration. Your own footage gets the same treatment.</div>
       </div>
     </div>
   </header>
 
+  <div class="marquees" aria-hidden="true">
+    <div class="marquee"><div class="track" id="track1"></div></div>
+    <div class="marquee alt"><div class="track" id="track2"></div></div>
+  </div>
+
+  <!-- ============================== two teams -->
+  <section id="teams">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">Two teams. No guesswork.</div>
+        <h2>Every player lands in one of two teams</h2>
+        <p>A match has two teams, so that's all YOAC looks for. Shirts in shade or floodlight still count as their team, and the referee is left out.</p>
+      </div>
+      <div class="sorter">
+        <div class="sort-box reveal s1">
+          <canvas id="sorter" aria-label="Animation: mixed shirt colours sorting into two teams, with the referees set aside"></canvas>
+          <span class="sort-status" id="sortStatus">Reading shirt colours…</span>
+        </div>
+        <div class="sort-copy reveal s2">
+          <h3>From a jumble of colours to two clean teams</h3>
+          <p>Every shirt pixel votes for a kit colour, and each player keeps one team for the whole video. Close calls still get a team, so nobody is left out of the report.</p>
+          <ul class="legend">
+            <li id="lgW"><span class="sw" style="background:var(--white-kit)"></span><strong>White</strong><small id="lgWn">13 players</small></li>
+            <li id="lgR"><span class="sw" style="background:var(--red)"></span><strong>Red</strong><small id="lgRn">13 players</small></li>
+            <li id="lgO" class="ref"><span class="sw" style="background:#e6c229"></span><strong>Officials</strong><small>not tracked</small></li>
+          </ul>
+          <button type="button" class="btn btn-ghost" id="sortAgain">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 01-14 5.3L4 15"/><path d="M4 20v-5h5"/></svg>
+            Mix them up and sort again
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== real footage -->
   <section id="real" hidden>
     <div class="wrap">
       <div class="section-head reveal">
         <div class="kicker">Your footage</div>
         <h2>Drag to see what changes</h2>
-        <p>A frame from your latest analysed match. Left is what Player Tracker gives back, right is what you uploaded.</p>
+        <p>A frame from your latest analysed match. Left is what YOAC gives back, right is what you uploaded.</p>
       </div>
       <div class="compare reveal s1" id="compare">
         <img class="raw" src="/demo/raw.jpg" alt="Raw match footage">
@@ -278,6 +477,7 @@
     </div>
   </section>
 
+  <!-- ============================== how it works -->
   <section id="how">
     <div class="wrap">
       <div class="section-head reveal">
@@ -285,26 +485,65 @@
         <h2>From phone video to coach report</h2>
         <p>No tagging, no setup. Just the footage you already film.</p>
       </div>
-      <ol class="steps reveal" id="steps">
-        <li class="step reveal s1">
-          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></div>
+      <div class="steps-wrap" id="steps">
+      <div class="steps-line" aria-hidden="true"><i></i></div>
+      <ol class="steps">
+        <li class="step">
+          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></div>
           <h3>1. Upload</h3>
           <p>Pick a match video from your phone or laptop. Wide shots of the pitch work best.</p>
         </li>
-        <li class="step reveal s2">
-          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><path d="M7.5 16v4M16.5 4v4"/></svg></div>
+        <li class="step">
+          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="10" rx="1.5"/><rect x="13" y="10" width="8" height="10" rx="1.5"/><circle cx="7" cy="9" r="1.5"/><circle cx="17" cy="15" r="1.5"/></svg></div>
           <h3>2. Track</h3>
-          <p>Every player is found and followed frame by frame, then sorted into teams by shirt colour.</p>
+          <p>Every player is found and followed frame by frame, then sorted into the two teams by shirt colour.</p>
         </li>
-        <li class="step reveal s3">
-          <div class="num"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <li class="step">
+          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></div>
           <h3>3. Review</h3>
           <p>Watch the tracked video and read the coach report, with each moment one tap away.</p>
         </li>
       </ol>
+      </div>
     </div>
   </section>
 
+  <!-- ============================== report preview -->
+  <section id="report">
+    <div class="wrap report">
+      <div class="report-copy reveal">
+        <div class="kicker">Coach report</div>
+        <h3 style="margin-top:12px">Pointers, not just pictures</h3>
+        <p>YOAC measures line gaps, dog-legs, numbers in the line and players at the breakdown, in attack or defence. Every point links to the moments to review, with the problem circled in red.</p>
+        <a class="btn btn-ghost" href="{{ url_for('index') }}" style="margin-top:10px">Try it on your footage</a>
+      </div>
+      <div class="rcard reveal s1" id="rcard">
+        <div class="rhead"><span class="dot"></span><h4>Blue</h4><span class="phase">Defence</span></div>
+        <div class="rstats">
+          <div class="rstat"><div class="v" data-to="11.4">0</div><div class="k">players in view</div></div>
+          <div class="rstat"><div class="v" data-to="8.2">0</div><div class="k">standing in the line</div></div>
+          <div class="rstat"><div class="v" data-to="2.1">0</div><div class="k">per ruck / maul</div></div>
+          <div class="rstat"><div class="v" data-to="1.6">0</div><div class="k">usual spacing (body lengths)</div></div>
+        </div>
+        <div class="rpoint issue">
+          <div class="t">Work on</div>
+          <h5>Holes in the defensive line</h5>
+          <div class="moments">
+            <div class="moment"><i style="left:18%;top:40%;background:#2c6fd1"></i><i style="left:34%;top:46%;background:#2c6fd1"></i><i style="left:70%;top:42%;background:#2c6fd1"></i><b style="left:30%;top:28%;width:48%;height:40%"></b><span>0:42</span></div>
+            <div class="moment"><i style="left:12%;top:52%;background:#2c6fd1"></i><i style="left:58%;top:48%;background:#2c6fd1"></i><i style="left:76%;top:50%;background:#2c6fd1"></i><b style="left:10%;top:36%;width:54%;height:38%"></b><span>1:15</span></div>
+            <div class="moment"><i style="left:22%;top:38%;background:#2c6fd1"></i><i style="left:40%;top:44%;background:#2c6fd1"></i><i style="left:84%;top:40%;background:#2c6fd1"></i><b style="left:38%;top:24%;width:52%;height:40%"></b><span>2:03</span></div>
+          </div>
+        </div>
+        <div class="rpoint good">
+          <div class="t">Going well</div>
+          <h5>Numbers matched in defence</h5>
+        </div>
+        <div class="rnote">Example report. Illustrative numbers.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== features -->
   <section>
     <div class="wrap">
       <div class="section-head reveal">
@@ -312,19 +551,18 @@
         <h2>Everything a coach needs from the video</h2>
       </div>
       <div class="features">
-        <div class="feature reveal s1">
-          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></div>
+        <div class="feature tilt reveal s1">
+          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></div>
           <h3>Tracked video</h3>
           <p>Your footage back with every player boxed and numbered. Download it or watch it on your phone.</p>
         </div>
-        <div class="feature reveal s2">
-          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/></svg></div>
-          <h3>Teams by colour</h3>
-          <p>Players are grouped by shirt colour automatically. Hide referees or anyone else with one tap.</p>
-          <div class="swatches" aria-hidden="true"><span style="background:var(--red)"></span><span style="background:var(--blue)"></span><span style="background:#a0a0a0"></span></div>
+        <div class="feature tilt reveal s2">
+          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/></svg></div>
+          <h3>Two teams, sorted</h3>
+          <p>Players are split into the two teams by shirt colour automatically, and the referee isn't tracked.</p>
         </div>
-        <div class="feature reveal s3">
-          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+        <div class="feature tilt reveal s3">
+          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
           <h3>Coach report</h3>
           <p>Line structure, spacing and ruck numbers in attack or defence, with the moments to review.</p>
         </div>
@@ -332,12 +570,30 @@
     </div>
   </section>
 
+  <!-- ============================== brand family -->
+  <section>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">YOAC</div>
+        <h2>Your Online AI Coach</h2>
+        <p>Player Tracker is part of YOAC.</p>
+      </div>
+      <div class="family">
+        <div class="tile reveal"><img class="icon" src="{{ url_for('static', filename='brand/yoac-y-icon.png') }}" alt="YOAC Y icon"></div>
+        <div class="tile reveal s1"><img src="{{ url_for('static', filename='brand/yoac-outline.png') }}" alt="YOAC outline logo"></div>
+        <div class="tile light reveal s2"><img src="{{ url_for('static', filename='brand/yoac-stencil.png') }}" alt="YOAC stencil logo"></div>
+        <div class="tile reveal s3"><img class="icon" src="{{ url_for('static', filename='brand/yoac-icon-italic-320.png') }}" alt="YOAC app icon"></div>
+      </div>
+    </div>
+  </section>
+
   <section>
     <div class="wrap">
       <div class="cta-band reveal">
+        <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
         <h2>Ready when your footage is.</h2>
         <p>Start with a short 10–30 second clip to see it work.</p>
-        <a class="btn btn-primary" href="{{ url_for('index') }}">Get Started</a>
+        <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">Get Started</a>
       </div>
     </div>
   </section>
@@ -348,64 +604,137 @@
   </footer>
 
   <script>
-    // ---------------------------------------------------------- scroll reveal
+  (function () {
+    "use strict";
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    function $(id) { return document.getElementById(id); }
+    function store(get, key, val) {
+      try { return get ? sessionStorage.getItem(key) : sessionStorage.setItem(key, val); } catch (e) { return null; }
+    }
+    // Run fn while el is on screen, pause it when it isn't.
+    function whenVisible(el, on, off) {
+      if (!("IntersectionObserver" in window)) { on(); return; }
+      new IntersectionObserver(function (en) { en[0].isIntersecting ? on() : off && off(); }, { threshold: 0.05 }).observe(el);
+    }
+
+    // ------------------------------------------------------------ intro
+    (function () {
+      var intro = $("intro"), tag = $("introTag");
+      if (reduce || store(true, "yoacIntro")) { intro.classList.add("gone"); return; }
+      document.body.classList.add("locked");
+      var text = "Your Online AI Coach", i = 0, done = false;
+      function finish() {
+        if (done) return; done = true;
+        store(false, "yoacIntro", "1");
+        intro.classList.add("out");
+        document.body.classList.remove("locked");
+        setTimeout(function () { intro.classList.add("gone"); }, 1000);
+      }
+      function type() {
+        if (done) return;
+        if (i <= text.length) {
+          var shown = text.slice(0, i);
+          tag.innerHTML = shown.replace("AI", "<b>AI</b>") + '<span class="caret"></span>';
+          i++;
+          setTimeout(type, 42);
+        } else {
+          setTimeout(finish, 650);
+        }
+      }
+      setTimeout(type, 1700);
+      $("introSkip").addEventListener("click", finish);
+      intro.addEventListener("click", finish);
+      setTimeout(finish, 5000);  // never hold the page longer than this
+    })();
+
+    // ------------------------------------------------------------ nav + progress + cursor
+    (function () {
+      var nav = $("nav"), bar = $("progress"), glow = $("glow"), hero = $("hero");
+      var ticking = false;
+      function onScroll() {
+        if (ticking) return; ticking = true;
+        requestAnimationFrame(function () {
+          var h = document.documentElement.scrollHeight - innerHeight;
+          bar.style.transform = "scaleX(" + (h > 0 ? scrollY / h : 0) + ")";
+          nav.classList.toggle("solid", scrollY > 20);
+          ticking = false;
+        });
+      }
+      addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+      if (!finePointer || reduce) return;
+      addEventListener("pointermove", function (e) {
+        glow.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
+        var r = hero.getBoundingClientRect();
+        if (e.clientY < r.bottom) {
+          hero.style.setProperty("--mx", (e.clientX - r.left) + "px");
+          hero.style.setProperty("--my", (e.clientY - r.top) + "px");
+        }
+      }, { passive: true });
+    })();
+
+    // ------------------------------------------------------------ scroll reveal
     (function () {
       var items = document.querySelectorAll(".reveal");
-      if (!("IntersectionObserver" in window)) { items.forEach(function (e) { e.classList.add("in"); }); return; }
+      if (!("IntersectionObserver" in window) || reduce) { items.forEach(function (e) { e.classList.add("in"); }); return; }
       var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
-        });
+        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
       }, { threshold: 0.15 });
       items.forEach(function (e) { io.observe(e); });
     })();
 
-    // ------------------------------------------------ real before/after slider
+    // ------------------------------------------------------------ tilt, spotlight, magnetic
     (function () {
-      var section = document.getElementById("real");
-      var compare = document.getElementById("compare");
-      var imgs = compare.querySelectorAll("img");
-      var loaded = 0;
-      // Only shown once both frames exist, i.e. after a first analysed video.
-      function onLoad() { if (++loaded === imgs.length) section.hidden = false; }
-      imgs.forEach(function (img) {
-        if (img.complete && img.naturalWidth) return onLoad();
-        img.addEventListener("load", onLoad);
-        img.addEventListener("error", function () { section.hidden = true; });
+      if (!finePointer || reduce) return;
+      document.querySelectorAll(".tilt").forEach(function (el) {
+        var max = el.id === "screen" ? 7 : 5;
+        el.addEventListener("pointermove", function (e) {
+          var r = el.getBoundingClientRect();
+          var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+          el.style.transform = "rotateY(" + ((x - .5) * max * 2) + "deg) rotateX(" + ((.5 - y) * max * 2) + "deg)";
+          el.style.setProperty("--fx", (x * 100) + "%");
+          el.style.setProperty("--fy", (y * 100) + "%");
+        });
+        el.addEventListener("pointerleave", function () { el.style.transform = ""; });
       });
-      compare.querySelector("input").addEventListener("input", function (e) {
-        compare.style.setProperty("--pos", e.target.value + "%");
+      document.querySelectorAll(".magnetic").forEach(function (el) {
+        el.addEventListener("pointermove", function (e) {
+          var r = el.getBoundingClientRect();
+          el.style.transform = "translate(" + ((e.clientX - r.left - r.width / 2) * .22) + "px," + ((e.clientY - r.top - r.height / 2) * .3) + "px)";
+        });
+        el.addEventListener("pointerleave", function () { el.style.transform = ""; });
       });
     })();
 
-    // ------------------------------------------------------ live pitch demo
-    // Two teams move in formation; a scan line sweeps across and tracking
-    // boxes lock onto each player as it passes, then the cycle repeats.
+    // ------------------------------------------------------------ marquees
     (function () {
-      var canvas = document.getElementById("pitch");
-      var ctx = canvas.getContext("2d");
-      var modeChip = document.getElementById("pitchMode");
-      var countChip = document.getElementById("pitchCount");
-      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      var TEAMS = [{ color: "#ef4b4b", shirt: "#d83a3a" }, { color: "#3b8cf6", shirt: "#2c6fd1" }];
-      var CYCLE = 10, SCAN_START = 1.2, SCAN_END = 4.2, FADE_START = 9.2;
-      var W = 0, H = 0, dpr = 1;
+      var y = '<svg viewBox="26 52 110 76"><use href="#ymark"/></svg>';
+      function fill(el, words) {
+        var one = words.map(function (w) { return "<span>" + w + y + "</span>"; }).join("");
+        el.innerHTML = one + one;  // doubled so the loop is seamless
+      }
+      fill($("track1"), ["Track every player", "Two teams by shirt colour", "Referee left out", "Find the holes in the line", "Coach report in minutes"]);
+      fill($("track2"), ["Your Online AI Coach", "Rugby match analysis", "Upload · Track · Review", "Videos stay on your laptop"]);
+    })();
 
-      // 10 attackers (red) in a flat line, 10 defenders (blue) facing them.
+    // ------------------------------------------------------------ hero pitch demo
+    (function () {
+      var canvas = $("pitch"), ctx = canvas.getContext("2d");
+      var modeChip = $("pitchMode"), countChip = $("pitchCount");
+      var cards = [$("fc1"), $("fc2"), $("fc3")];
+      var TEAMS = [{ color: "#ff5a5a", shirt: "#d83a3a" }, { color: "#4f9bff", shirt: "#2c6fd1" }];
+      var CYCLE = 11, SCAN_START = 1.2, SCAN_END = 4.2, FADE_START = 10.2;
+      var W = 0, H = 0, dpr = 1;
+      var nums = [9, 10, 12, 13, 11, 14, 15, 7, 6, 8];
       var players = [];
       for (var t = 0; t < 2; t++) {
         for (var i = 0; i < 10; i++) {
-          players.push({
-            team: t,
-            num: t === 0 ? [9, 10, 12, 13, 11, 14, 15, 7, 6, 8][i] : [9, 10, 12, 13, 11, 14, 15, 7, 6, 8][9 - i],
-            lane: 0.1 + i * 0.087,
-            depth: (i % 3) * 0.025 + (t ? 0.07 : 0),
-            ph: Math.random() * 6.28,
-            sp: 0.6 + Math.random() * 0.6,
-            x: 0, y: 0
-          });
+          players.push({ team: t, num: t === 0 ? nums[i] : nums[9 - i], lane: 0.1 + i * 0.087,
+            depth: (i % 3) * 0.025 + (t ? 0.07 : 0), ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 0.6, x: 0, y: 0 });
         }
       }
+      var ref = { team: -1, x: 0, y: 0 };
 
       function resize() {
         var r = canvas.getBoundingClientRect();
@@ -414,126 +743,281 @@
         canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-
       function drawPitch() {
-        var stripes = 10;
-        for (var s = 0; s < stripes; s++) {
-          ctx.fillStyle = s % 2 ? "#236b40" : "#277547";
-          ctx.fillRect(s * W / stripes, 0, W / stripes + 1, H);
-        }
-        ctx.strokeStyle = "rgba(255,255,255,.75)";
-        ctx.lineWidth = 2;
-        [0.06, 0.28, 0.5, 0.72, 0.94].forEach(function (fx) {
-          ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke();
-        });
+        for (var s = 0; s < 10; s++) { ctx.fillStyle = s % 2 ? "#236b40" : "#277547"; ctx.fillRect(s * W / 10, 0, W / 10 + 1, H); }
+        ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 2;
+        [0.06, 0.28, 0.5, 0.72, 0.94].forEach(function (fx) { ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke(); });
         ctx.setLineDash([8, 10]);
-        [0.39, 0.61].forEach(function (fx) {
-          ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke();
-        });
+        [0.39, 0.61].forEach(function (fx) { ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke(); });
         ctx.setLineDash([]);
       }
-
       function place(time) {
-        // The contact line surges forward and back like phases of play.
         var front = 0.44 + 0.1 * Math.sin(time * 0.35) + 0.03 * Math.sin(time * 0.9);
         players.forEach(function (p) {
-          var wobbleX = 0.012 * Math.sin(time * p.sp + p.ph);
-          var wobbleY = 0.01 * Math.cos(time * p.sp * 0.8 + p.ph);
           var x = p.team === 0 ? front - p.depth - 0.02 : front + p.depth + 0.02;
-          p.x = (x + wobbleX) * W;
-          p.y = (p.lane + wobbleY + 0.02 * Math.sin(time * 0.3 + p.lane * 4)) * H;
+          p.x = (x + 0.012 * Math.sin(time * p.sp + p.ph)) * W;
+          p.y = (p.lane + 0.01 * Math.cos(time * p.sp * 0.8 + p.ph) + 0.02 * Math.sin(time * 0.3 + p.lane * 4)) * H;
         });
+        ref.x = (front + 0.03 + 0.02 * Math.sin(time * 0.5)) * W;
+        ref.y = (0.05 + 0.02 * Math.sin(time * 0.7)) * H + H * 0.9 * (0.5 + 0.45 * Math.sin(time * 0.21));
       }
-
-      function drawPlayer(p, s) {
-        // Top-down player: shadow, shirt, head.
+      function drawPerson(p, s, shirt) {
         ctx.fillStyle = "rgba(0,0,0,.25)";
         ctx.beginPath(); ctx.ellipse(p.x + s * 0.15, p.y + s * 0.5, s * 0.45, s * 0.18, 0, 0, 6.28); ctx.fill();
-        ctx.fillStyle = TEAMS[p.team].shirt;
+        ctx.fillStyle = shirt;
         ctx.beginPath(); ctx.ellipse(p.x, p.y, s * 0.42, s * 0.3, 0, 0, 6.28); ctx.fill();
         ctx.fillStyle = "#f1d1b5";
         ctx.beginPath(); ctx.arc(p.x, p.y, s * 0.17, 0, 6.28); ctx.fill();
       }
-
       function drawBox(p, s, alpha, pop) {
-        var c = TEAMS[p.team].color;
-        var bw = s * 1.2 * pop, bh = s * 1.3 * pop;
+        var c = TEAMS[p.team].color, bw = s * 1.2 * pop, bh = s * 1.3 * pop;
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = c; ctx.lineWidth = 2;
         ctx.strokeRect(p.x - bw / 2, p.y - bh / 2, bw, bh);
-        // number tag above the box
         var label = "#" + p.num;
         ctx.font = "700 " + Math.max(9, s * 0.42) + "px system-ui, sans-serif";
         var tw = ctx.measureText(label).width + 8, th = Math.max(12, s * 0.55);
-        ctx.fillStyle = c;
-        ctx.fillRect(p.x - bw / 2, p.y - bh / 2 - th, tw, th);
-        ctx.fillStyle = "#fff";
-        ctx.fillText(label, p.x - bw / 2 + 4, p.y - bh / 2 - th * 0.25);
+        ctx.fillStyle = c; ctx.fillRect(p.x - bw / 2, p.y - bh / 2 - th, tw, th);
+        ctx.fillStyle = "#fff"; ctx.fillText(label, p.x - bw / 2 + 4, p.y - bh / 2 - th * 0.25);
         ctx.globalAlpha = 1;
       }
-
-      function ballCarrier(time) {
-        var attackers = players.filter(function (p) { return p.team === 0; });
-        var k = Math.floor(time / 2.2) % attackers.length;
-        var n = (k + 1) % attackers.length;
-        var f = Math.min(1, (time % 2.2) / 0.6);  // pass travels for 0.6 s
-        var a = attackers[k], b = attackers[n];
-        return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      function ballAt(time) {
+        var a = players.filter(function (p) { return p.team === 0; });
+        var k = Math.floor(time / 2.2) % a.length, n = (k + 1) % a.length, f = Math.min(1, (time % 2.2) / 0.6);
+        return { x: a[k].x + (a[n].x - a[k].x) * f, y: a[k].y + (a[n].y - a[k].y) * f };
       }
-
+      var lastState = "";
       function frame(ms) {
-        var time = ms / 1000;
-        var c = reduce ? 6 : time % CYCLE;
-        var s = Math.max(12, H * 0.055);
+        var time = ms / 1000, c = reduce ? 6 : time % CYCLE, s = Math.max(12, H * 0.055);
         if (!W) resize();
         drawPitch();
         place(reduce ? 3 : time);
-
         var scanX = c < SCAN_START ? -1 : c < SCAN_END ? (c - SCAN_START) / (SCAN_END - SCAN_START) * W : W + 1;
         var fade = c > FADE_START ? 1 - (c - FADE_START) / (CYCLE - FADE_START) : 1;
         var tracked = 0;
-
-        players.forEach(function (p) { drawPlayer(p, s); });
-        var ball = ballCarrier(reduce ? 3 : time);
+        players.forEach(function (p) { drawPerson(p, s, TEAMS[p.team].shirt); });
+        drawPerson(ref, s, "#e6c229");
+        var ball = ballAt(reduce ? 3 : time);
         ctx.fillStyle = "#fff5d6";
         ctx.beginPath(); ctx.ellipse(ball.x + s * 0.35, ball.y, s * 0.2, s * 0.13, 0.6, 0, 6.28); ctx.fill();
-
         players.forEach(function (p) {
           if (p.x > scanX) return;
           tracked++;
-          var since = (scanX - p.x) / W * (SCAN_END - SCAN_START);   // seconds since the scan passed
-          var pop = c < SCAN_END ? 1 + Math.max(0, 0.35 - since) : 1;  // quick lock-on pulse
-          drawBox(p, s, fade, pop);
+          var since = (scanX - p.x) / W * (SCAN_END - SCAN_START);
+          drawBox(p, s, fade, c < SCAN_END ? 1 + Math.max(0, 0.35 - since) : 1);
         });
-
-        if (scanX >= 0 && scanX <= W) {
-          var g = ctx.createLinearGradient(scanX - 60, 0, scanX, 0);
-          g.addColorStop(0, "rgba(92,214,154,0)");
-          g.addColorStop(1, "rgba(92,214,154,.35)");
-          ctx.fillStyle = g; ctx.fillRect(scanX - 60, 0, 60, H);
-          ctx.fillStyle = "#5cd69a"; ctx.fillRect(scanX - 1.5, 0, 3, H);
+        // The referee is recognised and deliberately left untracked.
+        if (ref.x <= scanX) {
+          ctx.globalAlpha = 0.55 * fade;
+          ctx.setLineDash([4, 4]); ctx.strokeStyle = "#cfd6d2"; ctx.lineWidth = 1.5;
+          ctx.strokeRect(ref.x - s * 0.6, ref.y - s * 0.65, s * 1.2, s * 1.3);
+          ctx.setLineDash([]);
+          ctx.font = "700 " + Math.max(9, s * 0.38) + "px system-ui, sans-serif";
+          ctx.fillStyle = "#cfd6d2"; ctx.fillText("REF · not tracked", ref.x - s * 0.6, ref.y + s * 1.1);
+          ctx.globalAlpha = 1;
         }
-
-        modeChip.textContent = c < SCAN_START ? "Raw footage" : c < SCAN_END ? "Tracking…" : "Tracked";
+        if (scanX >= 0 && scanX <= W) {
+          var g = ctx.createLinearGradient(scanX - 70, 0, scanX, 0);
+          g.addColorStop(0, "rgba(69,224,124,0)"); g.addColorStop(1, "rgba(69,224,124,.38)");
+          ctx.fillStyle = g; ctx.fillRect(scanX - 70, 0, 70, H);
+          ctx.fillStyle = "#45e07c"; ctx.fillRect(scanX - 1.5, 0, 3, H);
+        }
+        var state = c < SCAN_START ? "raw" : c < SCAN_END ? "scan" : c < FADE_START ? "done" : "fade";
+        modeChip.textContent = state === "raw" ? "Raw footage" : state === "scan" ? "Tracking…" : "Tracked";
         countChip.textContent = tracked + " players";
+        if (state !== lastState) {
+          lastState = state;
+          cards.forEach(function (el, k) {
+            clearTimeout(el._t);
+            if (state === "done") el._t = setTimeout(function () { el.classList.add("show"); }, k * 350);
+            else el.classList.remove("show");
+          });
+        }
       }
-
       var running = false, raf = 0;
       function loop(ms) { frame(ms); if (running) raf = requestAnimationFrame(loop); }
-      function start() { if (!running && !reduce) { running = true; raf = requestAnimationFrame(loop); } }
-      function stop() { running = false; cancelAnimationFrame(raf); }
-
-      // Resizing clears the canvas, so redraw straight away even when paused.
-      window.addEventListener("resize", function () { resize(); frame(reduce ? 0 : performance.now()); });
-      resize();
-      frame(0);
-      // Only animate while visible: the laptop also runs the analysis.
-      if ("IntersectionObserver" in window) {
-        new IntersectionObserver(function (en) { en[0].isIntersecting ? start() : stop(); }).observe(canvas);
-      } else {
-        start();
-      }
+      addEventListener("resize", function () { resize(); frame(reduce ? 0 : performance.now()); });
+      resize(); frame(0);
+      if (reduce) { cards.forEach(function (el) { el.classList.add("show"); }); return; }
+      whenVisible(canvas, function () { if (!running) { running = true; raf = requestAnimationFrame(loop); } },
+                          function () { running = false; cancelAnimationFrame(raf); });
     })();
+
+    // ------------------------------------------------------------ two-team sorter
+    (function () {
+      var canvas = $("sorter"), ctx = canvas.getContext("2d"), status = $("sortStatus");
+      var legend = [$("lgW"), $("lgR"), $("lgO")];
+      var W = 0, H = 0, dpr = 1, dots = [], t0 = 0, running = false, raf = 0, started = false;
+      // Raw shirt colours as the camera sees them: whites (some in shade),
+      // reds (some darker), and yellow-shirted officials.
+      function build() {
+        dots = [];
+        for (var i = 0; i < 13; i++) dots.push({ team: 0, raw: i < 5 ? "#9aa29d" : "#eef1ef", final: "#eef1ef" });
+        for (var j = 0; j < 13; j++) dots.push({ team: 1, raw: j < 4 ? "#a8322f" : "#ef4b4b", final: "#ef4b4b" });
+        for (var k = 0; k < 3; k++) dots.push({ team: 2, raw: "#e6c229", final: "#e6c229" });
+        dots.sort(function () { return Math.random() - 0.5; });
+        var idx = [0, 0, 0];
+        dots.forEach(function (d) {
+          d.sx = 0.08 + Math.random() * 0.84; d.sy = 0.12 + Math.random() * 0.76;
+          d.ph = Math.random() * 6.28; d.slot = idx[d.team]++; d.delay = Math.random() * 0.6;
+        });
+      }
+      function target(d) {
+        if (d.team === 2) return { x: 0.38 + d.slot * 0.12, y: 0.9 };
+        var col = d.slot % 3, row = Math.floor(d.slot / 3);
+        var baseX = d.team === 0 ? 0.1 : 0.62;
+        return { x: baseX + col * 0.1 + (row % 2) * 0.03, y: 0.3 + row * 0.12 };
+      }
+      function resize() {
+        var r = canvas.getBoundingClientRect();
+        dpr = Math.min(2, window.devicePixelRatio || 1);
+        W = r.width; H = r.height;
+        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      function ease(x) { return x < 0 ? 0 : x > 1 ? 1 : 1 - Math.pow(1 - x, 3); }
+      function mix(a, b, f) {
+        var pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+        var r = Math.round(((pa >> 16) & 255) * (1 - f) + ((pb >> 16) & 255) * f);
+        var g = Math.round(((pa >> 8) & 255) * (1 - f) + ((pb >> 8) & 255) * f);
+        var bl = Math.round((pa & 255) * (1 - f) + (pb & 255) * f);
+        return "rgb(" + r + "," + g + "," + bl + ")";
+      }
+      function draw(el) {
+        ctx.clearRect(0, 0, W, H);
+        var r = Math.max(7, Math.min(W, H) * 0.028);
+        // phase 1 (0-1.6s): colours are read, a scan ring passes each dot
+        // phase 2 (1.6-3.6s): dots fly to their team; shade merges into the kit colour
+        var move = (el - 1.6) / 2;
+        ["White", "Red"].forEach(function (name, t) {
+          var a = ease((el - 3.2) / 0.6);
+          if (a <= 0) return;
+          ctx.globalAlpha = a;
+          ctx.font = "800 " + Math.max(12, r * 1.4) + "px system-ui, sans-serif";
+          ctx.fillStyle = t === 0 ? "#eef1ef" : "#ff6b6b";
+          ctx.fillText(name + " · 13", (t === 0 ? 0.1 : 0.62) * W - r, 0.2 * H);
+          ctx.globalAlpha = 1;
+        });
+        dots.forEach(function (d) {
+          var tg = target(d), f = ease((move - d.delay * 0.4) / 0.8);
+          var wob = (1 - f) * 0.008;
+          var x = (d.sx + (tg.x - d.sx) * f + Math.sin(el * 2 + d.ph) * wob) * W;
+          var y = (d.sy + (tg.y - d.sy) * f + Math.cos(el * 2.3 + d.ph) * wob) * H;
+          var officialFade = d.team === 2 ? 1 - 0.6 * ease((el - 3.4) / 0.6) : 1;
+          var colour = mix(d.raw, d.final, ease((move - 0.6) / 0.6));
+          ctx.globalAlpha = officialFade;
+          ctx.fillStyle = "rgba(0,0,0,.3)";
+          ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.9, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill();
+          ctx.fillStyle = colour;
+          ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill();
+          ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+          // scanning ring during phase 1
+          var scanAt = d.sx * 1.3;
+          if (el > scanAt && el < scanAt + 0.35) {
+            ctx.strokeStyle = "#45e07c"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(x, y, r + 4 + (el - scanAt) * 20, 0, 6.28); ctx.stroke();
+          }
+          // officials get crossed out once they're set aside
+          if (d.team === 2 && el > 3.4) {
+            ctx.strokeStyle = "#cfd6d2"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        });
+        if (el > 3.6) {
+          ctx.globalAlpha = ease((el - 3.6) / 0.5);
+          ctx.font = "700 " + Math.max(11, r * 1.1) + "px system-ui, sans-serif";
+          ctx.fillStyle = "#cfd6d2";
+          ctx.fillText("Officials · not tracked", 0.38 * W - r, 0.9 * H - r * 2.2);
+          ctx.globalAlpha = 1;
+        }
+        status.textContent = el < 1.6 ? "Reading shirt colours…" : el < 3.6 ? "Sorting into two teams…" : "2 teams · officials set aside";
+        legend[0].classList.toggle("on", el > 3.2);
+        legend[1].classList.toggle("on", el > 3.4);
+        legend[2].classList.toggle("on", el > 3.7);
+      }
+      function loop(ms) {
+        if (!t0) t0 = ms;
+        var el = (ms - t0) / 1000;
+        draw(el);
+        if (el < 4.4 && running) raf = requestAnimationFrame(loop);
+        else running = false;
+      }
+      function play() {
+        build(); t0 = 0; running = true; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+      }
+      resize(); build(); draw(reduce ? 10 : 0);
+      addEventListener("resize", function () { resize(); if (!running) draw(started ? 10 : 0); });
+      $("sortAgain").addEventListener("click", function () { started = true; reduce ? (build(), draw(10)) : play(); });
+      if (reduce) return;
+      whenVisible(canvas, function () { if (!started) { started = true; setTimeout(play, 300); } });
+    })();
+
+    // ------------------------------------------------------------ real before/after slider
+    (function () {
+      var section = $("real"), compare = $("compare"), input = compare.querySelector("input");
+      var imgs = compare.querySelectorAll("img"), loaded = 0, touched = false;
+      function set(v) { input.value = v; compare.style.setProperty("--pos", v + "%"); }
+      function hint() {
+        if (reduce || touched) return;
+        var start = performance.now(), path = [50, 78, 22, 50];
+        (function step(now) {
+          if (touched) return;
+          var p = Math.min(1, (now - start) / 2400), seg = Math.min(2, Math.floor(p * 3)), f = p * 3 - seg;
+          f = f < .5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
+          set(path[seg] + (path[seg + 1] - path[seg]) * f);
+          if (p < 1) requestAnimationFrame(step);
+        })(start);
+      }
+      function onLoad() {
+        if (++loaded !== imgs.length) return;
+        section.hidden = false;
+        var once = false;
+        whenVisible(compare, function () { if (!once) { once = true; setTimeout(hint, 700); } });
+      }
+      imgs.forEach(function (img) {
+        if (img.complete && img.naturalWidth) return onLoad();
+        img.addEventListener("load", onLoad);
+        img.addEventListener("error", function () { section.hidden = true; });
+      });
+      input.addEventListener("input", function () { touched = true; compare.style.setProperty("--pos", input.value + "%"); });
+      input.addEventListener("pointerdown", function () { touched = true; });
+    })();
+
+    // ------------------------------------------------------------ how-it-works progress
+    (function () {
+      var wrap = $("steps"), line = wrap.querySelector(".steps-line"), steps = wrap.querySelectorAll(".step");
+      var ticking = false;
+      function update() {
+        ticking = false;
+        var r = wrap.getBoundingClientRect();
+        // 0 when the steps enter the bottom of the screen, 1 when they reach 40% from the top.
+        var p = Math.max(0, Math.min(1, (innerHeight - r.top) / (innerHeight * 0.6 + r.height * 0.5)));
+        if (reduce) p = 1;
+        line.style.setProperty("--p", p);
+        steps.forEach(function (s, i) { s.classList.toggle("lit", p >= i / (steps.length - 1) - 0.02); });
+      }
+      addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+      addEventListener("resize", update);
+      update();
+    })();
+
+    // ------------------------------------------------------------ report counters
+    (function () {
+      var card = $("rcard"), vals = card.querySelectorAll(".v[data-to]"), done = false;
+      function count() {
+        if (done) return; done = true;
+        card.classList.add("in");
+        var start = performance.now();
+        (function step(now) {
+          var p = reduce ? 1 : Math.min(1, (now - start) / 1400), e = 1 - Math.pow(1 - p, 3);
+          vals.forEach(function (v) { v.textContent = (parseFloat(v.dataset.to) * e).toFixed(1); });
+          if (p < 1) requestAnimationFrame(step);
+        })(start);
+      }
+      whenVisible(card, function () { setTimeout(count, 250); });
+    })();
+  })();
   </script>
 
   {% include "_cookie_banner.html" %}
