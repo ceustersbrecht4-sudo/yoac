@@ -1,6 +1,7 @@
 {
-  "_help": "Usage limits per plan. Edit the numbers with Notepad; changes apply straight away. The owner chooses each account's plan on the Account page. storage_gb = space for videos kept on this laptop; minutes_per_month = video minutes that can be analysed each calendar month.",
-  "free": {"name": "Free", "storage_gb": 5, "minutes_per_month": 120, "price": "Free"},
-  "plus": {"name": "Plus", "storage_gb": 25, "minutes_per_month": 600, "price": "Coming soon"},
-  "pro": {"name": "Pro", "storage_gb": 100, "minutes_per_month": 3000, "price": "Coming soon"}
+  "_help": "Usage limits per plan. Edit the numbers with Notepad; changes apply straight away. The owner chooses each account's plan on the Account page. storage_gb = space for videos kept; minutes_per_month = video minutes that can be analysed each calendar month; transfer_gb_per_month = GB of video streaming and downloads each calendar month (what hosting companies charge for); keep_days = videos are deleted automatically after this many days (0 = only the retention period in legal_info.json applies).",
+  "_server": {"_help": "Limits for the whole server. max_total_storage_gb = all accounts together (0 = no limit); min_free_disk_gb = uploads pause when the disk has less free space than this.", "max_total_storage_gb": 0, "min_free_disk_gb": 5},
+  "free": {"name": "Free", "storage_gb": 2, "minutes_per_month": 120, "transfer_gb_per_month": 10, "keep_days": 30, "price": "Free"},
+  "plus": {"name": "Plus", "storage_gb": 25, "minutes_per_month": 600, "transfer_gb_per_month": 100, "keep_days": 180, "price": "Coming soon"},
+  "pro": {"name": "Pro", "storage_gb": 100, "minutes_per_month": 3000, "transfer_gb_per_month": 400, "keep_days": 365, "price": "Coming soon"}
 }

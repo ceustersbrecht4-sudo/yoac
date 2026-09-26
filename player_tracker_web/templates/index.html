@@ -427,6 +427,7 @@
           <button type="button" class="btn btn-danger" id="deleteBtn" title="Delete this video and everything made from it">Delete video</button>
         </div>
       </div>
+      <div class="error-box" id="transferError" style="margin:0 14px 14px" hidden></div>
     </div>
 
     <div class="tabs" role="tablist">
@@ -691,6 +692,7 @@ $("deleteBtn").onclick = async () => {
 
 const ANALYSE_STAGES = [
   ["upload", "Upload video"],
+  ["shrink", "Shrink the video to save space"],
   ["track", "Find and track players"],
   ["teams", "Sort players into teams"],
   ["draw", "Draw the tracked video"],
@@ -698,6 +700,7 @@ const ANALYSE_STAGES = [
 function stageKey(message) {
   const m = (message || "").toLowerCase();
   if (m.includes("upload")) return "upload";
+  if (m.includes("shrinking")) return "shrink";
   if (m.includes("sorting")) return "teams";
   if (m.includes("drawing") || m.includes("finishing")) return "draw";
   if (m.includes("updating")) return "update";
@@ -879,7 +882,12 @@ function showResult(jobId, s, reveal = false) {
   applied = new Set(s.hidden || []); pending = new Set(applied);
   const v = `?v=${s.version || 0}`;
   const src = `/video/${jobId}${v}`;
-  if ($("player").getAttribute("src") !== src) $("player").src = src;
+  // This month's streaming/downloads used up: say so instead of a broken player.
+  $("transferError").hidden = !s.transfer_blocked;
+  $("transferError").textContent = s.transfer_blocked || "";
+  $("downloadBtn").hidden = !!s.transfer_blocked;
+  if (s.transfer_blocked) reveal = false;
+  else if ($("player").getAttribute("src") !== src) $("player").src = src;
   if (reveal) playReveal(jobId); else hideReveal();
   $("downloadBtn").href = `/video/${jobId}${v}&download=1`;
   const known = loadRecent().find(j => j.id === jobId);

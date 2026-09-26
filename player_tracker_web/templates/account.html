@@ -258,7 +258,7 @@
           </form>
           {% endif %}
         </td>
-        <td class="hide-sm" style="font-size:.84rem;color:var(--muted)">{% if u.usage %}{{ u.usage.storage_gb_used }} GB · {{ u.usage.minutes_used }} min{% endif %}</td>
+        <td class="hide-sm" style="font-size:.84rem;color:var(--muted)">{% if u.usage %}{{ u.usage.storage_gb_used }} GB · {{ u.usage.minutes_used }} min · {{ u.usage.transfer_gb_used }} GB out{% endif %}</td>
         <td class="hide-sm">{{ 'On' if u.totp else 'Off' }}</td>
         <td style="text-align:right;white-space:nowrap">
           {% if u.key != me_key %}

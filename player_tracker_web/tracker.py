@@ -108,7 +108,7 @@ def _to_browser_mp4(src, dst):
     cmd = [
         ffmpeg, "-y", "-loglevel", "error", "-i", src,
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
-        "-crf", "23", "-movflags", "+faststart", dst,
+        "-crf", "26", "-movflags", "+faststart", dst,
     ]
     result = subprocess.run(cmd, capture_output=True)
     return result.returncode == 0 and os.path.exists(dst)

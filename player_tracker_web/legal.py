@@ -15,11 +15,13 @@ included.
 import io
 import json
 import os
+import threading
 import zipfile
 
 from flask import abort, render_template, request, send_file
 
 import accounts
+from security import Throttle
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INFO_FILE = os.path.join(HERE, "legal_info.json")
@@ -73,6 +75,22 @@ def _source_zip():
     return buf
 
 
+_zip_cache = {"key": None, "data": b""}
+_zip_lock = threading.Lock()
+source_downloads = Throttle(10, 3600)  # per network address: it's public, so keep it cheap
+
+
+def _source_bytes():
+    """The source zip, built once and rebuilt only when a file changes."""
+    import glob
+    key = max((os.path.getmtime(p) for pattern in ("*.py", "templates/*") for p in glob.glob(os.path.join(HERE, pattern))),
+              default=0)
+    with _zip_lock:
+        if _zip_cache["key"] != key:
+            _zip_cache.update(key=key, data=_source_zip().getvalue())
+        return _zip_cache["data"]
+
+
 def init_legal(app):
     accounts.PUBLIC_ENDPOINTS.update({"legal_page", "source_code"})
 
@@ -93,7 +111,11 @@ def init_legal(app):
 
     @app.route("/source")
     def source_code():
-        return send_file(_source_zip(), mimetype="application/zip", as_attachment=True,
+        ip = request.remote_addr or "?"
+        if source_downloads.wait(ip):
+            return "Too many downloads from your network. Please try again in an hour.", 429
+        source_downloads.hit(ip)
+        return send_file(io.BytesIO(_source_bytes()), mimetype="application/zip", as_attachment=True,
                          download_name="yoac-player-tracker-source.zip")
 
     @app.context_processor

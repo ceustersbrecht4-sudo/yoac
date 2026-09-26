@@ -68,10 +68,12 @@ def _own_names():
 def init_security_headers(app):
     app.jinja_env.globals["csp_nonce"] = csp_nonce
 
-    @app.before_request
     def _check_host():
         if not _host_allowed(request.host or ""):
             abort(400)
+    # First of all checks, before the login redirect (which would otherwise
+    # build a link with the foreign host name in it).
+    app.before_request_funcs.setdefault(None, []).insert(0, _check_host)
 
     @app.after_request
     def _headers(resp):
@@ -96,6 +98,41 @@ def init_security_headers(app):
         resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         if resp.mimetype == "text/html":
             resp.headers["Cache-Control"] = "no-store"  # pages show account data
+        return resp
+
+
+# ------------------------------------------------------------------ online
+
+def _env_on(name):
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def init_online(app):
+    """Settings for when the app is put online. Off by default (Wi-Fi use).
+
+    YOAC_BEHIND_PROXY=1  the app runs behind a web server (Caddy, nginx, a
+                         hosting platform) that handles HTTPS. Then the
+                         visitor's real address is taken from that server's
+                         X-Forwarded-For header, so rate limits work per
+                         visitor. Never set this without such a server in
+                         front: anyone could fake the header.
+    YOAC_HTTPS=1         the site is only reached over HTTPS: the login
+                         cookie is only ever sent encrypted, and browsers are
+                         told to always use HTTPS (HSTS).
+    YOAC_ALLOWED_HOSTS   your domain name(s), e.g. tracker.yoac.be (see
+                         _host_allowed).
+    """
+    if _env_on("YOAC_BEHIND_PROXY"):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    https = _env_on("YOAC_HTTPS")
+    if https:
+        app.config.update(SESSION_COOKIE_SECURE=True, PREFERRED_URL_SCHEME="https")
+
+    @app.after_request
+    def _hsts(resp):
+        if https:
+            resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return resp
 
 
@@ -128,8 +165,14 @@ class Throttle:
         return 0
 
     def hit(self, key):
+        now = time.time()
         with self._lock:
-            self._hits.setdefault(key, []).append(time.time())
+            self._hits.setdefault(key, []).append(now)
+            # Online, many different addresses pass by: forget the old ones
+            # so the list can't grow without end.
+            if len(self._hits) > 5000:
+                for k in list(self._hits):
+                    self._recent(k, now)
 
     def clear(self, key):
         with self._lock:

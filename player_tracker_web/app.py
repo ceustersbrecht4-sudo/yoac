@@ -12,6 +12,7 @@ import glob
 import json
 import os
 import queue
+import shutil
 import socket
 import threading
 import time
@@ -25,11 +26,12 @@ import cv2
 
 import accounts
 import analysis
+import compact
 import quota
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
-from security import Throttle, init_security_headers
+from security import Throttle, init_online, init_security_headers
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
 
@@ -49,6 +51,11 @@ HIDDEN_BY_DEFAULT = ["other"]
 MAX_ACTIVE_JOBS = 3                     # videos queued or being analysed at once
 uploads_per_day = Throttle(20, 86400)   # uploads in 24 hours
 rejects_per_day = Throttle(3, 86400)    # uploads refused by the content check in 24 hours
+image_requests = Throttle(300, 60)      # video frames and snapshots per minute (each one decodes video)
+report_requests = Throttle(30, 60)      # coach reports per minute
+redraws_per_hour = Throttle(20, 3600)   # "Update video" redraws per hour
+# Pages that send video or images back: counted against the monthly transfer.
+TRANSFER_ENDPOINTS = {"video", "frame", "snapshot", "demo"}
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
@@ -56,6 +63,7 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True  # page edits show up without a resta
 init_accounts(app)  # every page needs a logged-in user; see accounts.py
 init_legal(app)     # privacy / cookies / terms / legal notice / licences, and /source
 init_security_headers(app)  # Content Security Policy and other protective headers
+init_online(app)            # HTTPS cookies, HSTS and the real visitor address behind a proxy (when online)
 
 # job_id -> {status, done, total, message, teams, colors, hidden, version,
 #            filename, input, output, started}
@@ -77,7 +85,7 @@ def _save_meta(job_id):
     with jobs_lock:
         job = jobs[job_id]
         meta = {k: job.get(k) for k in ("filename", "input", "output", "teams", "colors", "hidden", "version",
-                                        "owner", "uploaded", "original_name")}
+                                        "owner", "uploaded", "original_name", "seconds")}
     with open(_meta_path(job_id), "w") as f:
         json.dump(meta, f)
 
@@ -125,7 +133,25 @@ def _progress(job_id, message):
     return lambda done, total: _update(job_id, done=done, total=total)
 
 
+def _shrink(job_id):
+    """Replace the upload with a much smaller copy (see compact.py)."""
+    job = jobs[job_id]
+    src = job["input"]
+    dst = os.path.join(UPLOAD_DIR, f"{job_id}.small.mp4")
+    if not compact.shrink(src, dst, job.get("seconds", 0), progress=_progress(job_id, "Shrinking the video to save space...")):
+        return
+    if os.path.getsize(dst) >= os.path.getsize(src):
+        os.remove(dst)  # it was already small: keep the original
+        return
+    _update(job_id, input=dst)
+    try:
+        os.remove(src)
+    except OSError:
+        pass
+
+
 def _analyze(job_id):
+    _shrink(job_id)
     job = jobs[job_id]
     detections = detect_players(job["input"], progress=_progress(job_id, "Tracking players..."))
     check_players(detections)  # no match in it -> ContentRejected
@@ -222,6 +248,42 @@ def _usage(user_key):
     return quota.summary(user_key, _storage_used(user_key))
 
 
+def _folder_bytes(*folders):
+    total = 0
+    for folder in folders:
+        for entry in os.scandir(folder) if os.path.isdir(folder) else ():
+            try:
+                if entry.is_file():
+                    total += entry.stat().st_size
+            except OSError:
+                pass
+    return total
+
+
+@app.before_request
+def _transfer_limit():
+    """Stop sending video and images once this month's transfer is used up,
+    and don't let one account hammer the pages that decode video."""
+    if request.endpoint not in TRANSFER_ENDPOINTS or not accounts.current_user():
+        return None
+    user = accounts.current_user()
+    problem = _transfer_blocked(user)
+    if problem:
+        return jsonify(error=problem, limit="transfer"), 429
+    if request.endpoint in ("frame", "snapshot", "demo"):
+        if image_requests.wait(user):
+            return jsonify(error="Too many requests. Wait a minute and try again."), 429
+        image_requests.hit(user)
+    return None
+
+
+@app.after_request
+def _count_transfer(resp):
+    if request.endpoint in TRANSFER_ENDPOINTS and resp.status_code in (200, 206):
+        quota.record_sent(accounts.current_user(), resp.content_length or 0)
+    return resp
+
+
 @app.route("/upload")
 def index():
     return render_template("index.html", usage=_usage(accounts.current_user()))
@@ -250,11 +312,17 @@ def analyze():
         active = sum(1 for j in jobs.values() if j.get("owner") == user and j["status"] in ("queued", "processing"))
     if active >= MAX_ACTIVE_JOBS:
         return jsonify(error=f"You already have {active} videos waiting or being analysed. Wait for one to finish."), 429
+    incoming = request.content_length or 0
     usage = _usage(user)
-    # Tracked video + data take roughly as much room again as the upload.
-    problem = quota.storage_problem(usage, 2 * (request.content_length or 0))
+    # While it's being prepared the upload needs its full size; it's shrunk
+    # before analysis, so what stays is usually far smaller.
+    problem = quota.storage_problem(usage, incoming)
     if problem:
         return jsonify(error=problem, limit="storage"), 403
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    problem = quota.server_problem(incoming, _folder_bytes(UPLOAD_DIR, OUTPUT_DIR), shutil.disk_usage(UPLOAD_DIR).free)
+    if problem:
+        return jsonify(error=problem, limit="server"), 507
 
     job_id = uuid.uuid4().hex[:12]
     input_path = os.path.join(UPLOAD_DIR, f"{job_id}{ext.lower()}")
@@ -337,29 +405,59 @@ def delete(job_id):
     return jsonify(ok=True)
 
 
+def _keep_days(owner):
+    """Days a video is kept: the shortest of the retention period in
+    legal_info.json and the uploader's plan (0 = no limit)."""
+    limits = [d for d in (retention_days(), quota.keep_days_for(owner) if owner else 0) if d]
+    return min(limits) if limits else 0
+
+
 def _purge_old_jobs():
     """Storage limitation: delete finished videos older than the retention
-    period set in legal_info.json (0 = keep until deleted by hand)."""
-    days = retention_days()
-    if not days:
-        return
-    cutoff = time.time() - days * 86400
+    period in legal_info.json or the uploader's plan, whichever is shorter."""
+    now = time.time()
     with jobs_lock:
-        old = [jid for jid, j in jobs.items() if j["status"] in ("done", "error")
-               and os.path.exists(j.get("output") or "") and os.path.getmtime(j["output"]) < cutoff]
+        done = [(jid, dict(j)) for jid, j in jobs.items() if j["status"] in ("done", "error")]
+    old = []
+    for jid, job in done:
+        days = _keep_days(job.get("owner"))
+        born = job.get("uploaded") or (os.path.getmtime(job["output"]) if os.path.exists(job.get("output") or "") else now)
+        if days and born < now - days * 86400:
+            old.append(jid)
     for jid in old:
         _delete_job(jid)
     if old:
-        print(f"Deleted {len(old)} video(s) older than {days} days.")
+        print(f"Deleted {len(old)} video(s) past their keep time.")
+
+
+def _clean_stray_files():
+    """Files no job knows about (left by a crash mid-upload or mid-render)
+    are removed after a day, so they can't slowly fill the disk."""
+    with jobs_lock:
+        known = set(jobs)
+    cutoff = time.time() - 86400
+    for folder in (UPLOAD_DIR, OUTPUT_DIR):
+        for entry in os.scandir(folder) if os.path.isdir(folder) else ():
+            job_id = entry.name[:12]
+            try:
+                if entry.is_file() and job_id not in known and entry.stat().st_mtime < cutoff:
+                    os.remove(entry.path)
+            except OSError:
+                pass
 
 
 def _purge_loop():
+    last = 0
     while True:
         try:
-            _purge_old_jobs()
+            quota.flush_sent()
+            if time.time() - last > 3600:
+                last = time.time()
+                _purge_old_jobs()
+                _clean_stray_files()
         except Exception:
             traceback.print_exc()
-        time.sleep(6 * 3600)
+        time.sleep(60)
 
 
 @app.route("/hide/<job_id>", methods=["POST"])
@@ -371,16 +469,25 @@ def hide(job_id):
             return jsonify(error="This video is still being processed."), 409
         if not os.path.exists(_detections_path(job_id)):
             return jsonify(error="This video was analysed before removing colours was possible. Please analyse it again."), 409
+        if redraws_per_hour.wait(accounts.current_user()):
+            return jsonify(error="You've redrawn videos a lot in the last hour. Try again later."), 429
         body = request.get_json(silent=True, force=True)
         wanted = body.get("hidden", []) if isinstance(body, dict) else []
         hidden = sorted({b for b in wanted if isinstance(b, str) and b in (job["teams"] or {})})
         job.update(status="queued", message="Waiting in queue...")
+    redraws_per_hour.hit(accounts.current_user())
     job_queue.put(("render", job_id, hidden))
     return jsonify(ok=True)
 
 
+def _transfer_blocked(user_key):
+    # Storage isn't needed to answer this, so skip measuring it.
+    return quota.transfer_problem(quota.summary(user_key, 0))
+
+
 @app.route("/status/<job_id>")
 def status(job_id):
+    blocked = _transfer_blocked(accounts.current_user())
     with jobs_lock:
         job = _job_or_404(job_id)
         queued_ahead = sum(
@@ -398,6 +505,7 @@ def status(job_id):
             can_hide=os.path.exists(_detections_path(job_id)),
             elapsed=(time.time() - job["started"]) if job["started"] else 0,
             queued_ahead=max(0, queued_ahead),
+            transfer_blocked=blocked,
         )
 
 
@@ -441,6 +549,9 @@ def report(job_id):
         abort(404)
     if not os.path.exists(_detections_path(job_id)):
         return jsonify(error="This video was analysed before reports existed. Please analyse it again."), 409
+    if report_requests.wait(accounts.current_user()):
+        return jsonify(error="Too many reports at once. Wait a minute and try again."), 429
+    report_requests.hit(accounts.current_user())
 
     main = _main_teams(job)
     if len(main) < 2:
@@ -478,7 +589,7 @@ def snapshot(job_id):
     if not os.path.exists(_detections_path(job_id)):
         abort(404)
     try:
-        frame_no = max(0, int(request.args.get("f", 0)))
+        frame_no = min(10_000_000, max(0, int(request.args.get("f", 0))))
     except ValueError:
         abort(400)
     team, opp = request.args.get("team", ""), request.args.get("opp", "")
@@ -502,7 +613,7 @@ def snapshot(job_id):
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (160, 160, 160), 1)
 
     red = (0, 0, 255)
-    for part in request.args.get("hl", "").split(";"):
+    for part in request.args.get("hl", "")[:2000].split(";")[:40]:
         kind, _, nums = part.partition(":")
         try:
             v = [int(float(n)) for n in nums.split(",")]
@@ -546,7 +657,7 @@ def frame(job_id):
     teams are known."""
     job = _job_or_404(job_id)
     try:
-        frame_no = max(0, int(request.args.get("f", 0)))
+        frame_no = min(10_000_000, max(0, int(request.args.get("f", 0))))
         width = min(960, max(120, int(request.args.get("w", 480))))
     except ValueError:
         abort(400)
@@ -658,7 +769,10 @@ threading.Thread(target=worker, daemon=True).start()
 threading.Thread(target=_purge_loop, daemon=True).start()
 
 if __name__ == "__main__":
-    port = 5000
+    port = int(os.environ.get("YOAC_PORT", "5000"))
+    # 0.0.0.0 = reachable from other devices on the same Wi-Fi. Online, behind
+    # a web server that handles HTTPS, set YOAC_HOST=127.0.0.1.
+    host = os.environ.get("YOAC_HOST", "0.0.0.0")
     ip = lan_ip()
     print("\n" + "=" * 56)
     print(f"  On this laptop:  http://127.0.0.1:{port}")
@@ -666,12 +780,10 @@ if __name__ == "__main__":
         print(f"  On your phone:   http://{ip}:{port}")
         print("  (phone must be on the same Wi-Fi as this laptop)")
     print("=" * 56 + "\n")
-    # 0.0.0.0 = reachable from other devices on the same Wi-Fi, not just
-    # this laptop. It is still not reachable from the internet.
     try:
         from waitress import serve  # production-grade server, if installed
     except ImportError:
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+        app.run(host=host, port=port, debug=False, threaded=True)
     else:
-        serve(app, host="0.0.0.0", port=port, threads=8,
+        serve(app, host=host, port=port, threads=8, connection_limit=200, channel_timeout=120,
               max_request_body_size=app.config["MAX_CONTENT_LENGTH"] + 1024 * 1024)

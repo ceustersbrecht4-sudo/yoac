@@ -30,12 +30,48 @@ automatically (0 = keep until deleted by hand).
 
 ## Plans and usage limits
 
-Every account has a plan with a **storage** limit (GB of videos kept) and a monthly limit
-on **minutes of video analysed**. Defaults: Free 5 GB / 120 min, Plus 25 GB / 600 min,
-Pro 100 GB / 3000 min. Change the numbers in **plans.json** with Notepad (applies straight
-away) and pick each account's plan on the Account page. The owner has no limits. Uploads
-over a limit are refused with a message; minutes of videos refused by the content check
-are given back. Online payments can be connected later, once the app is hosted.
+Every account has a plan with four limits, the things that cost money once the app is online:
+
+| | Free | Plus | Pro |
+|---|---|---|---|
+| Storage (videos kept) | 2 GB | 25 GB | 100 GB |
+| Video analysed per month | 120 min | 600 min | 3000 min |
+| Watching + downloading per month | 10 GB | 100 GB | 400 GB |
+| Videos deleted automatically after | 30 days | 180 days | 365 days |
+
+Change the numbers in **plans.json** with Notepad (applies straight away) and pick each
+account's plan on the Account page. The owner has no limits. Uploads over a limit are refused
+with a message; minutes of videos refused by the content check are given back. When the
+monthly watching/download allowance is used up, videos and reports stay, but videos can't be
+played or downloaded until the 1st of next month. Online payments can be connected later.
+
+**Space saving:** every upload is shrunk before it's analysed (at most 1280 pixels wide, 30
+frames a second, no sound). Phone footage usually becomes 5 to 15 times smaller and the
+analysis gets faster; the original file is deleted. Tracked videos are saved compactly too.
+
+**Whole server:** `"_server"` in plans.json pauses uploads for everyone when the disk has
+less than `min_free_disk_gb` free (default 5 GB), or when all videos together would pass
+`max_total_storage_gb` (0 = no limit). Leftover files from a crash are cleaned up after a day.
+
+If you already had a plans.json, it is kept: the new limits use the defaults above until
+you add them to your file.
+
+## Putting it online
+
+The app is built for the Wi-Fi first. To put it on the internet, run it behind a web server
+that provides HTTPS (for example Caddy, which gets certificates automatically) and set:
+
+| Setting | Value | Why |
+|---|---|---|
+| `YOAC_HOST` | `127.0.0.1` | Only the web server in front can reach the app |
+| `YOAC_PORT` | e.g. `5000` | Port the web server forwards to |
+| `YOAC_ALLOWED_HOSTS` | your domain, e.g. `tracker.yoac.be` | Requests for other names are refused |
+| `YOAC_BEHIND_PROXY` | `1` | Rate limits see each visitor's real address |
+| `YOAC_HTTPS` | `1` | Login cookie only sent encrypted; browsers always use HTTPS |
+
+Only set `YOAC_BEHIND_PROXY` when there really is a web server in front, otherwise anyone
+could fake their address. Example Caddyfile: `tracker.yoac.be { reverse_proxy 127.0.0.1:5000 }`.
+Also allow uploads of 2 GB in that web server, and read SECURITY.md first.
 
 ## Security
 
@@ -95,7 +131,8 @@ and set your Wi-Fi network to **Private** in Windows settings.
 | `accounts.py` | Log in, invite-only sign-up, 2FA, account page and owner admin (hashes in `users.json`) |
 | `security.py` | Security headers/CSP, host check, rate limits, password rules + breach check, TOTP codes |
 | `content_check.py` | Refuses uploads that aren't match footage (no pitch / no players) |
-| `quota.py`, `plans.json` | Plans and usage limits (storage and monthly analysis minutes) |
+| `quota.py`, `plans.json` | Plans and usage limits (storage, monthly minutes, monthly watching/downloads, keep time) |
+| `compact.py` | Shrinks each upload before analysis to save space |
 | `legal.py`, `legal_info.json` | Privacy, cookie, terms, legal notice and licence pages; your details; source download |
 | `tracker.py` | Finds and tracks players with YOLO, draws the tracked video |
 | `teams.py` | Sorts players into the two teams by shirt colour, sets officials aside |

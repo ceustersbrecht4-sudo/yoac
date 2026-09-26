@@ -19,6 +19,22 @@ Date: 25 September 2026. Scope: every route in `app.py`, `accounts.py`, `legal.p
 | 10 | Flask's development server was used | Low | The app uses Waitress (a production web server) when installed; it is in `requirements.txt`. |
 | 11 | Uploads failed if the uploads folder was deleted while the app was running | Low | The folders are recreated when needed. |
 
+## Getting ready to go online (26 September 2026)
+
+| # | Issue | Risk | Fix |
+|---|---|---|---|
+| 12 | Nothing limited outgoing traffic: one account could stream or download the same video endlessly (hosting companies charge per GB) | Medium | Monthly watching/download allowance per plan, counted on every video, frame and snapshot sent (partial requests count what was really sent). Over the limit, those requests get a 429 and the page explains why. |
+| 13 | Pages that decode video (frames, snapshots, reports, redraws) could be called in a loop to burn CPU | Medium | Per account: 300 frames/snapshots a minute, 30 reports a minute, 20 redraws an hour. A snapshot's highlight list is capped (40 items). |
+| 14 | The public source-code download rebuilt a zip on every request (easy CPU/bandwidth drain for strangers) | Medium | Built once and cached; 10 downloads per hour per address. |
+| 15 | The disk could fill up however the plans were set | Medium | Uploads pause below a minimum of free disk space or above a server-wide storage cap (`_server` in plans.json). Files left behind by a crash are removed after a day. |
+| 16 | Behind a proxy, every visitor would share the proxy's address, so one person could lock everyone out of logging in | Medium (online) | `YOAC_BEHIND_PROXY=1` takes the real address from the proxy (only then, so it can't be faked without a proxy). |
+| 17 | Login cookie could be sent over plain HTTP once online | Medium (online) | `YOAC_HTTPS=1`: Secure cookie + HSTS. |
+| 18 | A request for a foreign host name got a login redirect before being refused | Low | The host check now runs first. |
+| 19 | Rate-limit memory grew with every new address | Low | Old addresses are forgotten. |
+
+Uploads are now re-encoded before analysis (`compact.py`): sound and metadata (GPS location,
+phone model) are dropped, so they are no longer stored at all.
+
 ## Already in place (from the earlier review)
 
 - Login: HttpOnly + SameSite session cookie (not readable by scripts), signed with a random key.
@@ -47,9 +63,13 @@ server: 0 errors, 0 Content Security Policy violations.
   upload is linked to an account, videos are private to the uploader, and the owner can
   review, delete and remove accounts.
 - **Plain HTTP on the Wi-Fi.** Traffic between the phone and the laptop isn't encrypted.
-  Only use trusted networks. Putting the app online properly (HTTPS) would fix this.
+  Only use trusted networks. Online, use HTTPS as described in the README.
 - **The laptop itself.** Anyone with access to the laptop's files can read the videos and
   `users.json` (passwords are hashed). Use a Windows password and disk encryption (BitLocker).
 - **Video decoding.** Uploads are decoded by FFmpeg/OpenCV. Keep them updated
   (`py -m pip install --upgrade opencv-python imageio-ffmpeg ultralytics`).
 - Rate limits are kept in memory and reset when the app restarts.
+- Watching/download counts are written to disk once a minute; a crash can lose up to a
+  minute of counting.
+- Online, put the app behind a web server with HTTPS (see README, "Putting it online").
+  Waitress alone does not do HTTPS.
