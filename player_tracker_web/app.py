@@ -255,7 +255,8 @@ def worker():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html")
+    public_plans = {k: v for k, v in quota.plans().items() if not k.startswith("_")}
+    return render_template("landing.html", plans=public_plans)
 
 
 def _storage_used(user_key):

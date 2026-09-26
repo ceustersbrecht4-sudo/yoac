@@ -3,1118 +3,438 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#050b08">
-  <title>YOAC Player Tracker</title>
+  <meta name="theme-color" content="#0f1613">
+  <title>YOAC Player Tracker · Rugby match analysis for coaches</title>
+  <meta name="description" content="Upload your rugby match video. YOAC tracks every player, splits them into both teams and shows the moments in attack and defence worth reviewing.">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
   <style>
-    /* Barlow Condensed (SIL OFL), served from the app so it works offline. */
     @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap;
       src: url("{{ url_for('static', filename='fonts/barlow-condensed-800.woff2') }}") format("woff2"); }
-    @font-face { font-family: "Barlow Condensed"; font-style: italic; font-weight: 900; font-display: swap;
-      src: url("{{ url_for('static', filename='fonts/barlow-condensed-900-italic.woff2') }}") format("woff2"); }
     :root {
-      --bg: #050b08;
-      --bg-2: #0a1a12;
-      --surface: #0f1f17;
-      --surface-2: #132a1f;
-      --border: #1d3a2b;
-      --text: #eaf3ee;
-      --muted: #93a89d;
-      --accent: #3fb07a;
-      --neon: #45e07c;
-      --neon-soft: rgba(69, 224, 124, .14);
-      --red: #ef4b4b;
-      --blue: #3b8cf6;
-      --white-kit: #eef1ef;
-      --ease: cubic-bezier(.2, .7, .2, 1);
-      --mx: 50%;
-      --my: 30%;
-      --display: "Barlow Condensed", system-ui, sans-serif;
+      --ink: #111a15;
+      --ink-2: #3c4a42;
+      --muted: #66756c;
+      --paper: #f6f5f0;
+      --card: #ffffff;
+      --line: #e2e2d9;
+      --dark: #0f1613;
+      --dark-2: #18221d;
+      --dark-line: #2a362f;
+      --green: #1d7a48;        /* the one accent colour */
+      --green-dark: #155c36;
+      --red: #d64545;
+      --blue: #2f6fd6;
+      --head: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body {
-      margin: 0; background: var(--bg); color: var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.6; overflow-x: hidden;
-    }
-    body.locked { overflow: hidden; }
-    a { color: inherit; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--green); }
     img { max-width: 100%; }
-    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
-    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    h1, h2, h3 { font-family: var(--head); font-weight: 800; letter-spacing: -.005em; line-height: 1.02; margin: 0; }
+    h2 { font-size: clamp(2.1rem, 4vw, 3rem); }
+    h3 { font-size: 1.5rem; }
+    p { margin: 0 0 1em; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 8px; font-weight: 700; font-size: 1rem;
+      text-decoration: none; border: 1px solid transparent; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .15s, border-color .15s; }
+    .btn-primary { background: var(--green); color: #fff; }
+    .btn-primary:hover { background: var(--green-dark); }
+    .btn-light { background: transparent; color: #fff; border-color: #4a5a51; }
+    .btn-light:hover { border-color: #fff; }
+    .btn-outline { background: transparent; color: var(--ink); border-color: var(--line); }
 
-    /* ================================================== intro loader */
-    #intro {
-      position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center;
-      background: radial-gradient(600px 400px at 50% 45%, #0d2419, #030605 70%);
-      transition: clip-path 1s var(--ease), opacity .4s;
-      clip-path: inset(0 0 0 0);
-    }
-    #intro.out { clip-path: inset(0 0 100% 0); }
-    #intro.gone { display: none; }
-    .intro-inner { display: grid; justify-items: center; gap: 22px; width: min(560px, 84vw); }
-    .intro-mark { width: 92px; height: 92px; }
-    .intro-mark rect { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 1s var(--ease) .1s forwards; }
-    .intro-mark polygon { fill: #fff; opacity: 0; transform-origin: 84px 90px; transform: scale(.6); animation: pop .5s var(--ease) .75s forwards; }
-    .intro-word { position: relative; width: 100%; }
-    .intro-word img { display: block; width: 100%; clip-path: inset(0 100% 0 0); animation: wipe 1s var(--ease) 1s forwards; filter: drop-shadow(0 0 18px rgba(69, 224, 124, .35)); }
-    .intro-tag { font-size: clamp(.9rem, 2.4vw, 1.15rem); letter-spacing: .32em; text-transform: uppercase; color: #cfe2d8; min-height: 1.6em; white-space: nowrap; }
-    .intro-tag b { color: var(--neon); font-weight: 600; }
-    .intro-tag .caret { display: inline-block; width: 2px; height: 1em; background: var(--neon); vertical-align: -2px; margin-left: 4px; animation: blink .8s steps(1) infinite; }
-    .intro-skip { position: absolute; bottom: 24px; right: 24px; background: none; border: 1px solid var(--border); color: var(--muted); font: inherit; font-size: .85rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
-    @keyframes draw { to { stroke-dashoffset: 0; } }
-    @keyframes pop { to { opacity: 1; transform: scale(1); } }
-    @keyframes wipe { to { clip-path: inset(0 0 0 0); } }
-    @keyframes blink { 50% { opacity: 0; } }
+    /* ---------- header + hero (dark, where the logo lives) ---------- */
+    .top { background: var(--dark); color: #fff; }
+    nav { display: flex; align-items: center; gap: 28px; height: 68px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #c9d3cd; font-weight: 600; font-size: .92rem; margin-right: auto; }
+    .brand img { height: 24px; display: block; }
+    .brand span { padding-left: 12px; border-left: 1px solid var(--dark-line); }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { color: #c9d3cd; text-decoration: none; font-size: .95rem; }
+    .nav-links a:hover { color: #fff; }
+    nav .btn { padding: 9px 16px; font-size: .92rem; }
+    .me { display: flex; align-items: center; gap: 8px; }
+    .me a.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--dark-2); color: #fff;
+      border: 1px solid var(--dark-line); font-weight: 700; text-decoration: none; text-transform: uppercase; }
+    .me form { margin: 0; }
+    .me button { background: none; border: 0; color: #9fb0a6; font: inherit; font-size: .88rem; cursor: pointer; padding: 4px; }
+    .me button:hover { color: #fff; }
 
-    /* ================================================== chrome */
-    #progress { position: fixed; top: 0; left: 0; height: 3px; width: 100%; z-index: 60; background: linear-gradient(90deg, var(--accent), var(--neon)); transform-origin: left; transform: scaleX(0); }
-    nav {
-      position: sticky; top: 0; z-index: 50; transition: background .3s, border-color .3s;
-      border-bottom: 1px solid transparent;
-    }
-    nav.solid { background: rgba(5, 11, 8, .82); backdrop-filter: blur(12px); border-color: rgba(29, 58, 43, .7); }
-    nav .wrap { display: flex; align-items: center; gap: 12px; height: 68px; }
-    .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; }
-    .brand img { height: 26px; width: auto; display: block; }
-    .brand-sub { padding-left: 12px; border-left: 1px solid var(--border); font-weight: 600; font-size: .92rem; color: var(--muted); white-space: nowrap; }
-    .nav-links { display: flex; gap: 22px; margin-right: 10px; }
-    .logout { margin: 0; }
-    .acct { text-decoration: none; display: inline-flex; border-radius: 50%; }
-    .acct:hover .avatar { box-shadow: 0 0 0 2px var(--neon); }
-    .logout button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, .03); color: var(--muted); cursor: pointer; font: inherit; }
-    .logout button:hover { border-color: var(--neon); color: var(--text); }
-    .logout .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--neon-soft); color: var(--neon); font-weight: 800; text-transform: uppercase; }
-    .nav-links a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; }
-    .nav-links a:hover { color: var(--text); }
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; padding: 56px 0 72px; }
+    .hero h1 { font-size: clamp(2.8rem, 5.2vw, 4.4rem); margin-bottom: 20px; }
+    .hero p.lead { font-size: 1.15rem; color: #c3cec8; max-width: 32em; margin-bottom: 28px; }
+    .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero .small { margin-top: 18px; font-size: .88rem; color: #8fa197; }
+    .shot { border-radius: 10px; overflow: hidden; background: #1c5a36; border: 1px solid var(--dark-line); }
+    .shot canvas, .shot .compare { display: block; width: 100%; aspect-ratio: 16 / 9; }
+    .shot-cap { margin-top: 10px; font-size: .82rem; color: #8fa197; }
 
-    .btn {
-      position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 13px 24px; border-radius: 999px; font-weight: 700; text-decoration: none;
-      border: 1px solid transparent; white-space: nowrap; transition: background .2s, border-color .2s, transform .2s var(--ease);
-      font: inherit; font-weight: 700; color: inherit; cursor: pointer;
-    }
-    .btn-primary { background: var(--neon); color: #03140a; box-shadow: 0 8px 30px rgba(69, 224, 124, .25); }
-    .btn-primary:hover { background: #6cf09a; }
-    .btn-ghost { border-color: var(--border); background: rgba(255, 255, 255, .02); }
-    .btn-ghost:hover { border-color: var(--neon); }
-    nav .btn { padding: 9px 18px; font-size: .95rem; }
-    .btn svg { transition: transform .25s var(--ease); }
-    .btn:hover svg { transform: translateX(3px); }
-
-    /* ================================================== hero */
-    .hero { position: relative; overflow: hidden; padding: 64px 0 96px; margin-top: -68px; padding-top: 132px; }
-    .hero-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-      background:
-        radial-gradient(520px 380px at var(--mx) var(--my), rgba(69, 224, 124, .16), transparent 70%),
-        radial-gradient(900px 520px at 90% 0%, rgba(63, 176, 122, .16), transparent 60%),
-        radial-gradient(700px 420px at 0% 100%, rgba(59, 140, 246, .10), transparent 60%),
-        linear-gradient(180deg, var(--bg-2), var(--bg));
-    }
-    .hero-grid { position: absolute; inset: -40px; z-index: 0; pointer-events: none; opacity: .5;
-      background-image: linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px);
-      background-size: 64px 64px;
-      mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
-      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
-      animation: grid-drift 24s linear infinite;
-    }
-    @keyframes grid-drift { to { transform: translate(64px, 64px); } }
-    .orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .5; z-index: 0; pointer-events: none; animation: float 14s ease-in-out infinite; }
-    .orb.o1 { width: 280px; height: 280px; background: #1f7a4d; top: 8%; left: -80px; }
-    .orb.o2 { width: 220px; height: 220px; background: #1d4ea0; bottom: 0; right: 30%; animation-delay: -6s; opacity: .35; }
-    @keyframes float { 50% { transform: translate(40px, -30px) scale(1.1); } }
-    .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; color: var(--neon);
-      background: var(--neon-soft); border: 1px solid rgba(69, 224, 124, .3); padding: 5px 13px; border-radius: 999px;
-    }
-    .eyebrow .live { width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 10px var(--neon); animation: blink 1.4s ease-in-out infinite; }
-    h1 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(3rem, 4.7vw, 4.7rem); line-height: .95; letter-spacing: -.01em; margin: 20px 0 22px; }
-    h1 .grad { text-shadow: 0 0 40px rgba(69, 224, 124, .25); }
-    h1 .line { display: block; overflow: hidden; padding: 0 .08em .06em 0; }
-    h1 .w { display: inline-block; transform: translateY(110%); animation: rise .9s var(--ease) forwards; }
-    h1 .grad { background: linear-gradient(90deg, var(--neon), #c9ffe0 40%, var(--neon) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rise .9s var(--ease) forwards, shine 6s linear 1.5s infinite; }
-    @keyframes rise { to { transform: none; } }
-    @keyframes shine { to { background-position: -200% 0; } }
-    .lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 30px; max-width: 34em; }
-    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-    .fade-up { opacity: 0; transform: translateY(16px); animation: fade-up .9s var(--ease) forwards; }
-    @keyframes fade-up { to { opacity: 1; transform: none; } }
-    .hero-trust { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 28px; color: var(--muted); font-size: .88rem; }
-    .hero-trust span { display: inline-flex; align-items: center; gap: 6px; }
-    .hero-trust svg { color: var(--neon); }
-
-    /* pitch demo */
-    .stage { position: relative; perspective: 1200px; }
-    .screen {
-      position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16 / 10;
-      border: 1px solid rgba(69, 224, 124, .25); background: #1d5a36;
-      box-shadow: 0 40px 100px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .03) inset, 0 0 60px rgba(69, 224, 124, .12);
-      transform-style: preserve-3d; transition: transform .6s var(--ease);
-      transform: rotateY(-7deg) rotateX(3deg);
-    }
-    .screen canvas { display: block; width: 100%; height: 100%; }
-    .screen .bar { position: absolute; top: 0; left: 0; right: 0; height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: rgba(3, 10, 6, .82); backdrop-filter: blur(6px); font-size: .76rem; color: #b9cbc1; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none; }
-    .screen .bar i { width: 9px; height: 9px; border-radius: 50%; background: #2c3b33; }
-    .screen .bar i:first-child { background: #ff5f57; } .screen .bar i:nth-child(2) { background: #febc2e; } .screen .bar i:nth-child(3) { background: #28c840; }
-    .screen .bar b { margin-left: 8px; font-weight: 600; color: #e3efe8; }
-    .screen .bar span { margin-left: auto; }
-    .screen .scrub { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0, 0, 0, .45); z-index: 2; pointer-events: none; }
-    .screen .scrub i { display: block; height: 100%; width: 100%; background: var(--neon); transform-origin: left; transform: scaleX(0); box-shadow: 0 0 10px var(--neon); }
-    .screen .chip { position: absolute; top: 46px; padding: 3px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(3, 10, 6, .75); pointer-events: none; backdrop-filter: blur(4px); }
-    .screen .chip-l { left: 12px; color: var(--neon); }
-    .screen .chip-r { right: 12px; color: #fff; font-variant-numeric: tabular-nums; }
-    .screen .rec { position: absolute; bottom: 16px; left: 12px; font-size: .72rem; font-weight: 700; color: #ffd0d0; display: flex; align-items: center; gap: 6px; background: rgba(3, 10, 6, .7); padding: 2px 9px; border-radius: 999px; pointer-events: none; }
-    .screen .rec::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #ff4d4d; animation: blink 1s steps(1) infinite; }
-    .float-card {
-      position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px;
-      background: rgba(10, 22, 16, .88); backdrop-filter: blur(10px); border: 1px solid var(--border);
-      padding: 10px 14px; border-radius: 14px; font-size: .86rem; box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
-      opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .5s var(--ease), transform .5s var(--ease);
-      pointer-events: none;
-    }
-    .float-card.show { opacity: 1; transform: none; }
-    .float-card strong { display: block; font-size: .92rem; }
-    .float-card small { color: var(--muted); }
-    .float-card .sw { width: 26px; height: 26px; border-radius: 8px; flex: none; }
-    .fc1 { left: -28px; top: 18%; }
-    .fc2 { right: -24px; top: 44%; }
-    .fc3 { right: 28px; bottom: -30px; }
-    .stage-caption { grid-column: 2; margin-top: 0; font-size: .85rem; color: var(--muted); text-align: center; }
-
-    /* ================================================== marquee */
-    .marquees { overflow: hidden; padding: 24px 0; }
-    .marquee { position: relative; overflow: hidden; border-block: 1px solid var(--border); background: #07110c; padding: 18px 0; transform: rotate(-1.2deg); margin: 10px -20px; }
-    .marquee.alt { transform: rotate(1deg); background: var(--neon); color: #03140a; border: 0; margin-top: -8px; }
-    .track { display: flex; width: max-content; gap: 34px; animation: scroll-x 38s linear infinite; }
-    .marquee.alt .track { animation-direction: reverse; animation-duration: 44s; }
-    .track span { display: inline-flex; align-items: center; gap: 34px; font-family: var(--display); font-style: italic; font-size: clamp(1.4rem, 3vw, 2.1rem); font-weight: 900; letter-spacing: .01em; text-transform: uppercase; white-space: nowrap; }
-    .track svg { width: 26px; height: 26px; flex: none; }
-    .marquee:not(.alt) .track svg polygon { fill: var(--neon); }
-    .marquee.alt .track svg polygon { fill: #03140a; }
-    @keyframes scroll-x { to { transform: translateX(-50%); } }
-
-    /* ================================================== sections */
-    section { position: relative; padding: 110px 0; }
-    .section-head { text-align: center; max-width: 680px; margin: 0 auto 54px; }
-    .section-head h2 { font-family: var(--display); font-weight: 800; font-size: clamp(2.4rem, 5vw, 3.8rem); letter-spacing: -.005em; line-height: 1; margin: 12px 0 16px; }
-    .section-head p { color: var(--muted); margin: 0; font-size: 1.08rem; }
-    .kicker { display: inline-flex; align-items: center; gap: 8px; color: var(--neon); font-weight: 800; font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; }
-    .kicker::before { content: ""; width: 22px; height: 2px; background: var(--neon); }
-    .textured { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .014) 0 90px, transparent 90px 180px), linear-gradient(180deg, #06100b, var(--bg)); }
-    .textured::before { content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, var(--neon), transparent); opacity: .5; }
-    .reveal { opacity: 0; transform: translateY(34px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
-    .reveal.in { opacity: 1; transform: none; }
-    .reveal.s1 { transition-delay: .1s; } .reveal.s2 { transition-delay: .2s; } .reveal.s3 { transition-delay: .3s; }
-
-    /* ================================================== team sort demo */
-    .sorter { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: center; }
-    .sort-box { position: relative; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); background: radial-gradient(circle at 50% 40%, #16452c, #0c2518); aspect-ratio: 4 / 3; }
-    .sort-box canvas { display: block; width: 100%; height: 100%; }
-    .sort-status { position: absolute; top: 14px; left: 14px; font-size: .8rem; font-weight: 700; padding: 3px 11px; border-radius: 999px; background: rgba(3, 10, 6, .75); color: var(--neon); }
-    .sort-copy h3 { font-family: var(--display); font-weight: 800; font-size: 2.1rem; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 12px; }
-    .sort-copy p { color: var(--muted); margin: 0 0 18px; }
-    .legend { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 10px; }
-    .legend li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); opacity: .35; transform: translateX(-10px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
-    .legend li.on { opacity: 1; transform: none; }
-    .legend .sw { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .25); }
-    .legend strong { flex: 1; }
-    .legend small { color: var(--muted); font-variant-numeric: tabular-nums; }
-    .legend li.ref strong { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
-
-    /* ================================================== real footage slider */
-    .compare { --pos: 50%; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); aspect-ratio: 16 / 9; max-width: 960px; margin: 0 auto; touch-action: pan-y; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
-    .compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
+    /* before/after on your own footage */
+    .compare { --pos: 50%; position: relative; touch-action: pan-y; }
+    .compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
     .compare .tracked { clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
-    .compare .handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 3px; margin-left: -1.5px; background: var(--neon); box-shadow: 0 0 18px var(--neon); pointer-events: none; }
-    .compare .handle::after { content: "\2194"; position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--neon); color: #03140a; font-weight: 800; line-height: 46px; text-align: center; box-shadow: 0 0 0 6px rgba(69, 224, 124, .25); }
-    .compare .tag { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(3, 10, 6, .75); font-size: .8rem; font-weight: 700; pointer-events: none; }
-    .compare .tag-tracked { left: 12px; color: var(--neon); }
-    .compare .tag-raw { right: 12px; }
-    .compare input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
-    #real[hidden] { display: none; }
+    .compare .handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
+    .compare .handle::after { content: "\2194"; position: absolute; top: 50%; left: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px;
+      border-radius: 50%; background: #fff; color: var(--ink); font-weight: 800; line-height: 36px; text-align: center; }
+    .compare .tag { position: absolute; top: 10px; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.65); color: #fff; font-size: .75rem; font-weight: 700; pointer-events: none; }
+    .compare .tag-l { left: 10px; } .compare .tag-r { right: 10px; }
+    .compare input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
 
-    /* ================================================== how it works */
-    .steps-wrap { position: relative; }
-    .steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; list-style: none; margin: 0; padding: 0; }
-    .steps-line { position: absolute; top: 40px; left: 16%; right: 16%; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-    .steps-line i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), var(--neon)); transform-origin: left; transform: scaleX(var(--p, 0)); box-shadow: 0 0 12px var(--neon); }
-    .step { text-align: center; padding: 0 12px; }
-    .step .num {
-      position: relative; z-index: 1; width: 82px; height: 82px; margin: 0 auto 20px; border-radius: 24px;
-      display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border);
-      color: var(--neon); box-shadow: 0 0 0 10px var(--bg); transition: border-color .5s, box-shadow .5s;
-    }
-    .step.lit .num { border-color: var(--neon); box-shadow: 0 0 0 10px var(--bg), 0 0 30px rgba(69, 224, 124, .35); }
-    .step svg path, .step svg rect, .step svg circle { stroke-dasharray: 80; stroke-dashoffset: 80; transition: stroke-dashoffset 1.2s var(--ease) .2s; }
-    .step.lit svg path, .step.lit svg rect, .step.lit svg circle { stroke-dashoffset: 0; }
-    .step h3 { margin: 0 0 6px; font-size: 1.25rem; }
-    .step p { margin: 0; color: var(--muted); }
+    .facts { border-top: 1px solid var(--dark-line); display: grid; grid-template-columns: repeat(3, 1fr); }
+    .facts div { padding: 22px 0; color: #c3cec8; font-size: .95rem; }
+    .facts div + div { padding-left: 24px; border-left: 1px solid var(--dark-line); }
+    .facts strong { display: block; color: #fff; font-size: 1rem; }
 
-    /* ================================================== report preview */
-    .report { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
-    .report-copy h3 { font-family: var(--display); font-weight: 800; font-size: 2.3rem; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 12px; }
-    .report-copy p { color: var(--muted); }
-    .rcard { position: relative; border-radius: 20px; border: 1px solid var(--border); background: linear-gradient(180deg, var(--surface), #0b1812); padding: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
-    .rcard .rhead { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 3px solid var(--blue); }
-    .rcard .rhead .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--blue); }
-    .rcard .rhead h4 { margin: 0; flex: 1; font-size: 1.1rem; }
-    .rcard .phase { font-size: .72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-    .rstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
-    .rstat { background: var(--surface-2); border-radius: 10px; padding: 10px; }
-    .rstat .v { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .rstat .k { font-size: .72rem; color: var(--muted); line-height: 1.25; }
-    .rpoint { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px 12px 18px; margin-top: 10px; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
-    .rpoint::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--kc); }
-    .rpoint.issue { --kc: #f07a6e; } .rpoint.good { --kc: var(--neon); }
-    .rpoint .t { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--kc); }
-    .rpoint h5 { margin: 2px 0 8px; font-size: .98rem; }
-    .moments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .moment { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: repeating-linear-gradient(90deg, #236b40 0 18px, #277547 18px 36px); }
-    .moment i { position: absolute; width: 7px; height: 14px; border-radius: 3px; }
-    .moment b { position: absolute; border: 2px solid #ff3b3b; border-radius: 3px; box-shadow: 0 0 10px rgba(255, 59, 59, .7); opacity: 0; transition: opacity .4s; }
-    .moment span { position: absolute; left: 5px; bottom: 5px; font-size: .62rem; font-weight: 700; background: rgba(0, 0, 0, .7); padding: 1px 6px; border-radius: 999px; }
-    .rcard.in .rpoint { opacity: 1; transform: none; }
-    .rcard.in .rpoint.issue { transition-delay: .5s; }
-    .rcard.in .rpoint.good { transition-delay: .9s; }
-    .rcard.in .moment b { opacity: 1; transition-delay: 1.3s; }
-    .rnote { margin-top: 12px; font-size: .75rem; color: var(--muted); text-align: right; }
+    /* ---------- light sections ---------- */
+    section { padding: 88px 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .intro { max-width: 640px; margin-bottom: 44px; }
+    .intro p { color: var(--ink-2); font-size: 1.08rem; }
+    .eyebrow { font-size: .85rem; font-weight: 700; color: var(--green); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .06em; }
 
-    /* ================================================== features */
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .feature {
-      position: relative; overflow: hidden; border-radius: 20px; padding: 28px; border: 1px solid var(--border);
-      background: linear-gradient(180deg, var(--surface), #0a1711); transform-style: preserve-3d; transition: opacity .9s var(--ease), transform .4s var(--ease), border-color .3s;
-    }
-    .feature::before { content: ""; position: absolute; inset: 0; background: radial-gradient(260px circle at var(--fx, 50%) var(--fy, 0%), rgba(69, 224, 124, .16), transparent 60%); opacity: 0; transition: opacity .3s; pointer-events: none; }
-    .feature:hover { border-color: rgba(69, 224, 124, .45); }
-    .feature:hover::before { opacity: 1; }
-    .feature .ic { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--neon-soft); color: var(--neon); margin-bottom: 18px; }
-    .feature h3 { margin: 0 0 8px; font-size: 1.2rem; }
-    .feature p { margin: 0; color: var(--muted); }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: start; }
+    .checks { list-style: none; padding: 0; margin: 0; }
+    .checks li { padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .checks li strong { display: block; }
+    .checks li span { color: var(--ink-2); font-size: .98rem; }
+    .report { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 22px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .report .head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 3px solid var(--blue); margin-bottom: 16px; }
+    .report .head i { width: 12px; height: 12px; border-radius: 50%; background: var(--blue); }
+    .report .head b { font-size: 1.05rem; flex: 1; }
+    .report .head small { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .stat { background: var(--paper); border-radius: 6px; padding: 10px; }
+    .stat b { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: .74rem; color: var(--muted); line-height: 1.25; display: block; }
+    .point { border: 1px solid var(--line); border-left: 4px solid var(--k); border-radius: 6px; padding: 12px 14px; margin-top: 10px; }
+    .point.issue { --k: var(--red); } .point.good { --k: var(--green); }
+    .point small { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--k); }
+    .point p { margin: 2px 0 0; font-weight: 600; }
+    .point .why { font-weight: 400; color: var(--ink-2); font-size: .92rem; margin-top: 4px; }
+    .note { margin-top: 12px; font-size: .78rem; color: var(--muted); }
 
-    /* ================================================== brand family */
-    .family { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: center; }
-    .tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 22px; border: 1px solid var(--border); background: var(--surface); padding: 22px; animation: bob 6s ease-in-out infinite; }
-    .tile:nth-child(2) { animation-delay: -1.5s; } .tile:nth-child(3) { animation-delay: -3s; } .tile:nth-child(4) { animation-delay: -4.5s; }
-    .tile.light { background: #f1f3f2; }
-    .tile img { width: 100%; height: auto; }
-    .tile img.icon { width: 64%; border-radius: 22%; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
-    @keyframes bob { 50% { transform: translateY(-10px); } }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; counter-reset: s; list-style: none; padding: 0; margin: 0; }
+    .steps li { counter-increment: s; }
+    .steps li::before { content: counter(s); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--ink); font-weight: 800; margin-bottom: 14px; }
+    .steps h3 { margin-bottom: 8px; }
+    .steps p { color: var(--ink-2); }
 
-    /* ================================================== CTA */
-    .cta-band { position: relative; overflow: hidden; text-align: center; padding: 84px 24px; border-radius: 28px; background: linear-gradient(180deg, #0f3d2a, #08241a); }
-    .cta-band::before { content: ""; position: absolute; inset: -60%; background: conic-gradient(from 0deg, transparent 0 70%, rgba(69, 224, 124, .55) 80%, transparent 90%); animation: spin 7s linear infinite; }
-    .cta-band::after { content: ""; position: absolute; inset: 2px; border-radius: 26px; background: radial-gradient(600px 300px at 50% 0%, rgba(69, 224, 124, .22), transparent 70%), linear-gradient(180deg, #0f3d2a, #08241a); }
-    .cta-band > * { position: relative; z-index: 1; }
-    .cta-band img { width: min(360px, 70%); height: auto; margin-bottom: 18px; filter: drop-shadow(0 0 22px rgba(69, 224, 124, .35)); }
-    .cta-band h2 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(2.6rem, 6vw, 4.4rem); line-height: 1; letter-spacing: -.005em; margin: 0 0 12px; }
-    .cta-band p { color: #b7cfc3; margin: 0 0 30px; }
-    .cta-band .btn { font-size: 1.1rem; padding: 17px 36px; }
-    .cta-band .btn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--neon); animation: ring 2.6s ease-out infinite; pointer-events: none; }
-    @keyframes ring { from { transform: scale(1); opacity: .8; } to { transform: scale(1.35, 1.6); opacity: 0; } }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .pitch-fig { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+    .pitch-fig svg { display: block; width: 100%; height: auto; }
 
+    .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .plan { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 26px; display: flex; flex-direction: column; }
+    .plan.main { border: 2px solid var(--green); }
+    .plan h3 { font-size: 1.7rem; }
+    .plan .price { font-size: 1.05rem; font-weight: 700; margin: 6px 0 18px; color: var(--ink-2); }
+    .plan ul { list-style: none; padding: 0; margin: 0 0 22px; flex: 1; }
+    .plan li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .96rem; }
+    .plan li b { font-variant-numeric: tabular-nums; }
+    .plans-note { margin-top: 18px; color: var(--muted); font-size: .9rem; }
 
-    footer { padding: 44px 0 120px; color: var(--muted); font-size: .88rem; text-align: center; }
-    footer .legal-links { margin-top: 14px; }
-    footer .legal-links a { color: var(--muted); }
-    footer .legal-links a:hover { color: var(--neon); }
-    footer img { width: 220px; max-width: 60%; height: auto; display: block; margin: 0 auto 14px; }
+    .faq { max-width: 780px; }
+    details { border-bottom: 1px solid var(--line); padding: 18px 0; }
+    summary { cursor: pointer; font-weight: 700; font-size: 1.05rem; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; font-weight: 400; font-size: 1.4rem; line-height: 1; color: var(--muted); }
+    details[open] summary::after { content: "\2212"; }
+    details p { margin: 12px 0 0; color: var(--ink-2); }
 
-    .paused, .paused *, .paused *::before, .paused *::after { animation-play-state: paused !important; }
+    .closing { background: var(--dark); color: #fff; }
+    .closing .wrap { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-top: 56px; padding-bottom: 56px; }
+    .closing h2 { font-size: clamp(2rem, 4vw, 2.8rem); }
+    .closing p { color: #c3cec8; margin: 8px 0 0; }
+    footer { background: var(--dark); color: #8fa197; font-size: .86rem; border-top: 1px solid var(--dark-line); padding: 28px 0 110px; }
+    footer .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    footer img { height: 34px; display: block; }
+    footer a { color: #b6c3bb; }
 
-    /* cursor glow */
-    #glow { position: fixed; z-index: 1; left: 0; top: 0; width: 380px; height: 380px; margin: -190px 0 0 -190px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(69, 224, 124, .07), transparent 65%); transform: translate(-999px, -999px); }
-
-    /* ================================================== responsive */
-    @media (max-width: 960px) {
-      .hero .wrap, .sorter, .report { grid-template-columns: minmax(0, 1fr); }
-      .hero .wrap { gap: 64px; }
-      .stage-caption { grid-column: 1; margin-top: -20px; }
-      .fc1 { left: 6px; } .fc2 { right: 6px; }
-      .report-copy { order: -1; }
-    }
-    @media (max-width: 860px) {
+    @media (max-width: 900px) {
       .nav-links { display: none; }
-      .steps, .features { grid-template-columns: 1fr; }
-      .steps { gap: 40px; }
-      .steps-line { top: 0; bottom: 0; left: 40px; right: auto; width: 3px; height: auto; }
-      .step { position: relative; text-align: left; padding: 0 0 0 108px; min-height: 82px; }
-      .step .num { position: absolute; left: 0; top: 0; margin: 0; }
-      .steps-line i { transform-origin: top; transform: scaleY(var(--p, 0)); height: 100%; }
-      .family { grid-template-columns: repeat(2, 1fr); }
-      section { padding: 80px 0; }
+      .hero, .split { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+      .hero { padding-top: 36px; }
+      .steps, .plans { grid-template-columns: minmax(0, 1fr); }
+      .facts { grid-template-columns: minmax(0, 1fr); }
+      .facts div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--dark-line); }
+      section { padding: 64px 0; }
     }
-    @media (max-width: 480px) {
-      .brand img { height: 22px; }
-      .brand-sub { display: none; }
-      .hero-ctas .btn { flex: 1; }
-      .rstats { grid-template-columns: repeat(2, 1fr); }
-      .float-row { display: flex; gap: 8px; margin-top: 12px; }
-      .float-card { position: static; flex: 1; font-size: .74rem; padding: 8px 10px; }
-      .float-card .sw { width: 18px; height: 18px; }
-      .fc3 { display: none; }
+    @media (max-width: 520px) {
+      .brand span, .me button { display: none; }
+      nav { gap: 12px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .hero .ctas { flex-direction: column; }
+      .hero .ctas .btn { justify-content: center; }
+      nav .btn { padding: 8px 12px; font-size: .88rem; }
     }
-    @media (hover: none) { #glow { display: none; } }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      *, *::before, *::after { animation: none !important; transition: none !important; }
-      #intro { display: none; }
-      h1 .w, h1 .grad, .fade-up, .reveal, .rpoint, .legend li { opacity: 1; transform: none; }
-      .intro-word img { clip-path: none; }
-      .step svg path, .step svg rect, .step svg circle { stroke-dashoffset: 0; }
-      .steps-line i { transform: none; }
-      .float-card { opacity: 1; transform: none; }
-      .rcard .moment b { opacity: 1; }
-    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   </style>
 </head>
 <body>
-  <!-- One shared shape for the YOAC "Y" mark (recreated from the app icon). -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <g id="ymark">
-        <polygon points="31,57 55,57 78,83 71,90"/>
-        <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
-      </g>
-    </defs>
-  </svg>
+  <div class="top">
+    <div class="wrap">
+      <nav aria-label="Main">
+        <a class="brand" href="{{ url_for('landing') }}"><img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC"><span>Player Tracker</span></a>
+        <div class="nav-links">
+          <a href="#how">How it works</a>
+          <a href="#report">The report</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('index') }}">Analyse a match</a>
+        {% if current_user %}
+        <div class="me">
+          <a class="avatar" href="{{ url_for('account') }}" title="Your account" aria-label="Your account">{{ display_name()[:1] }}</a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit">Log out</button>
+          </form>
+        </div>
+        {% endif %}
+      </nav>
 
-  <div id="intro">
-    <div class="intro-inner" aria-hidden="true">
-      <svg class="intro-mark" viewBox="18 18 132 132">
-        <rect x="22" y="22" width="124" height="124" rx="30"/>
-        <polygon points="31,57 55,57 78,83 71,90"/>
-        <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
-      </svg>
-      <div class="intro-word"><img src="{{ url_for('static', filename='brand/yoac-outline.png') }}" alt=""></div>
-      <div class="intro-tag" id="introTag"><span class="caret"></span></div>
+      <div class="hero">
+        <div>
+          <h1>Match analysis for rugby coaches without an analyst.</h1>
+          <p class="lead">Upload the match video from your phone or camera. Player Tracker follows every player,
+            splits them into your team and the opposition, and shows the moments in attack and defence worth a second look.</p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="{{ url_for('index') }}">Analyse a match</a>
+            <a class="btn btn-light" href="#report">See an example report</a>
+          </div>
+          <p class="small">Free to start. Your videos stay on your own computer.</p>
+        </div>
+        <div>
+          <div class="shot" id="shot">
+            <canvas id="pitch" aria-label="Illustration: players on a rugby pitch, each boxed and numbered in their team colour"></canvas>
+          </div>
+          <p class="shot-cap" id="shotCap">Illustration of a tracked video. Once you've analysed a match, your own footage appears here.</p>
+        </div>
+      </div>
+
+      <div class="facts">
+        <div><strong>Both teams, sorted by shirt</strong>Every player gets one team for the whole video, even in shade or floodlight.</div>
+        <div><strong>Referee left out</strong>Officials are recognised and kept out of the video and the numbers.</div>
+        <div><strong>Private by design</strong>Each video is only visible to the coach who uploaded it.</div>
+      </div>
     </div>
-    <button type="button" class="intro-skip" id="introSkip">Skip</button>
   </div>
 
-  <div id="progress"></div>
-  <div id="glow"></div>
-
-  <nav id="nav">
-    <div class="wrap">
-      <a class="brand" href="{{ url_for('landing') }}">
-        <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
-        <span class="brand-sub">Player Tracker</span>
-      </a>
-      <div class="nav-links">
-        <a href="#teams">Teams</a>
-        <a href="#how">How it works</a>
-        <a href="#report">Coach report</a>
-      </div>
-      <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">Get Started</a>
-      {% if current_user %}
-      <a class="acct" href="{{ url_for('account') }}" title="Your account ({{ display_name() }})" aria-label="Your account"><span class="avatar" aria-hidden="true">{{ display_name()[:1] }}</span></a>
-      <form class="logout" method="post" action="{{ url_for('logout') }}">
-        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-        <button type="submit" title="Log out" aria-label="Log out">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H5a1 1 0 01-1-1V5a1 1 0 011-1h7"/></svg>
-        </button>
-      </form>
-      {% endif %}
-    </div>
-  </nav>
-
-  <header class="hero" id="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-grid"></div>
-    <div class="orb o1"></div><div class="orb o2"></div>
-    <div class="wrap">
+  <section id="report">
+    <div class="wrap split">
       <div>
-        <span class="eyebrow fade-up" style="animation-delay:.1s"><span class="live"></span>Rugby match analysis for coaches</span>
-        <h1>
-          <span class="line"><span class="w" style="animation-delay:.15s">See</span> <span class="w" style="animation-delay:.23s">every</span> <span class="w" style="animation-delay:.31s">player.</span></span>
-          <span class="line"><span class="w grad" style="animation-delay:.42s">Every phase.</span></span>
-        </h1>
-        <p class="lead fade-up" style="animation-delay:.6s">
-          Upload your match footage and YOAC Player Tracker follows every player through the video,
-          sorts them into their two teams by shirt colour, and builds a coach report with the moments worth reviewing.
-        </p>
-        <div class="hero-ctas fade-up" style="animation-delay:.75s">
-          <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">
-            Get Started
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
-          </a>
-          <a class="btn btn-ghost" href="#teams">See it sort teams</a>
-        </div>
-        <div class="hero-trust fade-up" style="animation-delay:.9s">
-          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>No tagging by hand</span>
-          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Works on phone footage</span>
-          <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Videos stay on your laptop</span>
-        </div>
+        <div class="eyebrow">The coach report</div>
+        <h2>What you get back from one match</h2>
+        <p style="margin-top:16px;color:var(--ink-2)">Pick a team and whether they were attacking or defending. The report points
+          to the moments to review, each with a still frame and the problem marked in red. Click one and the video jumps there.</p>
+        <ul class="checks">
+          <li><strong>Holes in the defensive line</strong><span>Gaps between neighbouring defenders that are much wider than their usual spacing.</span></li>
+          <li><strong>Dog-legs and flat attack</strong><span>A defender out of line, or an attack standing as flat as the defence.</span></li>
+          <li><strong>Numbers in the line</strong><span>Moments where one side has two or more extra players standing in the line.</span></li>
+          <li><strong>Rucks and ruck speed</strong><span>How many players each side commits, and how long until the ball comes out.</span></li>
+          <li><strong>Line speed in metres</strong><span>After you mark the pitch lines once: how fast the defence moves up after the ball leaves the ruck.</span></li>
+        </ul>
       </div>
-
-      <div class="stage fade-up" style="animation-delay:.5s">
-        <div class="screen tilt" id="screen">
-          <div class="bar"><i></i><i></i><i></i><b>u16_home_match.mp4</b><span id="pitchClock">00:00</span></div>
-          <canvas id="pitch" aria-label="Animation: two rugby teams being picked up by tracking boxes in their team colours while the referee is left untracked"></canvas>
-          <span class="chip chip-l" id="pitchMode">Raw footage</span>
-          <span class="chip chip-r" id="pitchCount">0 players</span>
-          <span class="rec">LIVE ANALYSIS</span>
-          <div class="scrub"><i id="pitchScrub"></i></div>
+      <div class="report" aria-label="Example report">
+        <div class="head"><i></i><b>Blue</b><small>Defence</small></div>
+        <div class="stats">
+          <div class="stat"><b>11.4</b><span>players in view</span></div>
+          <div class="stat"><b>8.2</b><span>standing in the line</span></div>
+          <div class="stat"><b>2.1</b><span>per ruck</span></div>
+          <div class="stat"><b>3.4 s</b><span>average ruck speed</span></div>
         </div>
-        <div class="float-row">
-        <div class="float-card fc1" id="fc1"><span class="sw" style="background:var(--red)"></span><div><strong>Red · 10 tracked</strong><small>Attack</small></div></div>
-        <div class="float-card fc2" id="fc2"><span class="sw" style="background:var(--blue)"></span><div><strong>Blue · 10 tracked</strong><small>Defence</small></div></div>
-        <div class="float-card fc3" id="fc3"><span class="sw" style="background:#e6c229;opacity:.5"></span><div><strong>Referee · not tracked</strong><small>Left out of the report</small></div></div>
-        </div>
-      </div>
-      <div class="stage-caption">Illustration. Your own footage gets the same treatment.</div>
-    </div>
-  </header>
-
-  <div class="marquees" aria-hidden="true">
-    <div class="marquee"><div class="track" id="track1"></div></div>
-    <div class="marquee alt"><div class="track" id="track2"></div></div>
-  </div>
-
-  <!-- ============================== two teams -->
-  <section id="teams" class="textured">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">Two teams. No guesswork.</div>
-        <h2>Every player lands in one of two teams</h2>
-        <p>A match has two teams, so that's all YOAC looks for. Shirts in shade or floodlight still count as their team, and the referee is left out.</p>
-      </div>
-      <div class="sorter">
-        <div class="sort-box reveal s1">
-          <canvas id="sorter" aria-label="Animation: mixed shirt colours sorting into two teams, with the referees set aside"></canvas>
-          <span class="sort-status" id="sortStatus">Reading shirt colours…</span>
-        </div>
-        <div class="sort-copy reveal s2">
-          <h3>From a jumble of colours to two clean teams</h3>
-          <p>Every shirt pixel votes for a kit colour, and each player keeps one team for the whole video. Close calls still get a team, so nobody is left out of the report.</p>
-          <ul class="legend">
-            <li id="lgW"><span class="sw" style="background:var(--white-kit)"></span><strong>White</strong><small id="lgWn">13 players</small></li>
-            <li id="lgR"><span class="sw" style="background:var(--red)"></span><strong>Red</strong><small id="lgRn">13 players</small></li>
-            <li id="lgO" class="ref"><span class="sw" style="background:#e6c229"></span><strong>Officials</strong><small>not tracked</small></li>
-          </ul>
-          <button type="button" class="btn btn-ghost" id="sortAgain">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 01-14 5.3L4 15"/><path d="M4 20v-5h5"/></svg>
-            Mix them up and sort again
-          </button>
-        </div>
+        <div class="point issue"><small>Work on</small><p>Holes in the defensive line</p>
+          <p class="why">3 moments where the gap between two defenders was more than twice their usual spacing (0:42, 1:15, 2:03).</p></div>
+        <div class="point issue"><small>Work on</small><p>Slow ball at the breakdown</p>
+          <p class="why">4 of 9 rucks took longer than 3 seconds.</p></div>
+        <div class="point good"><small>Going well</small><p>Numbers matched in defence</p>
+          <p class="why">Blue had enough defenders in the line to match the attack in view.</p></div>
+        <p class="note">Example report. The numbers are illustrative.</p>
       </div>
     </div>
   </section>
 
-  <!-- ============================== real footage -->
-  <section id="real" hidden>
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">Your footage</div>
-        <h2>Drag to see what changes</h2>
-        <p>A frame from your latest analysed match. Left is what YOAC gives back, right is what you uploaded.</p>
-      </div>
-      <div class="compare reveal s1" id="compare">
-        <img class="raw" src="/demo/raw.jpg" alt="Raw match footage">
-        <img class="tracked" src="/demo/tracked.jpg" alt="The same frame with every player boxed in their team colour">
-        <span class="tag tag-tracked">Tracked</span>
-        <span class="tag tag-raw">Raw footage</span>
-        <input type="range" min="0" max="100" value="50" step="0.5" aria-label="Drag to compare raw footage with tracked footage">
-        <span class="handle"></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================== how it works -->
   <section id="how">
     <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">How it works</div>
-        <h2>From phone video to coach report</h2>
-        <p>No tagging, no setup. Just the footage you already film.</p>
+      <div class="intro">
+        <div class="eyebrow">How it works</div>
+        <h2>Three steps, no tagging</h2>
       </div>
-      <div class="steps-wrap" id="steps">
-      <div class="steps-line" aria-hidden="true"><i></i></div>
       <ol class="steps">
-        <li class="step">
-          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></div>
-          <h3>1. Upload</h3>
-          <p>Pick a match video from your phone or laptop. Wide shots of the pitch work best.</p>
-        </li>
-        <li class="step">
-          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="10" rx="1.5"/><rect x="13" y="10" width="8" height="10" rx="1.5"/><circle cx="7" cy="9" r="1.5"/><circle cx="17" cy="15" r="1.5"/></svg></div>
-          <h3>2. Track</h3>
-          <p>Every player is found and followed frame by frame, then sorted into the two teams by shirt colour.</p>
-        </li>
-        <li class="step">
-          <div class="num"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></div>
-          <h3>3. Review</h3>
-          <p>Watch the tracked video and read the coach report, with each moment one tap away.</p>
-        </li>
+        <li><h3>Upload the video</h3><p>Any match or training video from a phone or camera. A wide shot from the stand works best.
+          Start with a short clip to see how it goes.</p></li>
+        <li><h3>Let it run</h3><p>The analysis runs on your computer. A 10-second clip takes a few minutes; you can follow
+          the frames it's working on and close the page in the meantime.</p></li>
+        <li><h3>Review with the team</h3><p>Watch the tracked video, open the report, and jump to each moment. Download the video
+          to show it in the next session.</p></li>
       </ol>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================== report preview -->
-  <section id="report" class="textured">
-    <div class="wrap report">
-      <div class="report-copy reveal">
-        <div class="kicker">Coach report</div>
-        <h3 style="margin-top:12px">Pointers, not just pictures</h3>
-        <p>YOAC measures line gaps, dog-legs, numbers in the line and players at the breakdown, in attack or defence. Every point links to the moments to review, with the problem circled in red.</p>
-        <a class="btn btn-ghost" href="{{ url_for('index') }}" style="margin-top:10px">Try it on your footage</a>
-      </div>
-      <div class="rcard reveal s1" id="rcard">
-        <div class="rhead"><span class="dot"></span><h4>Blue</h4><span class="phase">Defence</span></div>
-        <div class="rstats">
-          <div class="rstat"><div class="v" data-to="11.4">0</div><div class="k">players in view</div></div>
-          <div class="rstat"><div class="v" data-to="8.2">0</div><div class="k">standing in the line</div></div>
-          <div class="rstat"><div class="v" data-to="2.1">0</div><div class="k">per ruck / maul</div></div>
-          <div class="rstat"><div class="v" data-to="1.6">0</div><div class="k">usual spacing (body lengths)</div></div>
-        </div>
-        <div class="rpoint issue">
-          <div class="t">Work on</div>
-          <h5>Holes in the defensive line</h5>
-          <div class="moments">
-            <div class="moment"><i style="left:18%;top:40%;background:#2c6fd1"></i><i style="left:34%;top:46%;background:#2c6fd1"></i><i style="left:70%;top:42%;background:#2c6fd1"></i><b style="left:30%;top:28%;width:48%;height:40%"></b><span>0:42</span></div>
-            <div class="moment"><i style="left:12%;top:52%;background:#2c6fd1"></i><i style="left:58%;top:48%;background:#2c6fd1"></i><i style="left:76%;top:50%;background:#2c6fd1"></i><b style="left:10%;top:36%;width:54%;height:38%"></b><span>1:15</span></div>
-            <div class="moment"><i style="left:22%;top:38%;background:#2c6fd1"></i><i style="left:40%;top:44%;background:#2c6fd1"></i><i style="left:84%;top:40%;background:#2c6fd1"></i><b style="left:38%;top:24%;width:52%;height:40%"></b><span>2:03</span></div>
-          </div>
-        </div>
-        <div class="rpoint good">
-          <div class="t">Going well</div>
-          <h5>Numbers matched in defence</h5>
-        </div>
-        <div class="rnote">Example report. Illustrative numbers.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================== features -->
-  <section>
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">What you get</div>
-        <h2>Everything a coach needs from the video</h2>
-      </div>
-      <div class="features">
-        <div class="feature tilt reveal s1">
-          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></div>
-          <h3>Tracked video</h3>
-          <p>Your footage back with every player boxed and numbered. Download it or watch it on your phone.</p>
-        </div>
-        <div class="feature tilt reveal s2">
-          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/></svg></div>
-          <h3>Two teams, sorted</h3>
-          <p>Players are split into the two teams by shirt colour automatically, and the referee isn't tracked.</p>
-        </div>
-        <div class="feature tilt reveal s3">
-          <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
-          <h3>Coach report</h3>
-          <p>Line structure, spacing and ruck numbers in attack or defence, with the moments to review.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================== brand family -->
-  <section>
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">YOAC</div>
-        <h2>Your Online AI Coach</h2>
-        <p>Player Tracker is part of YOAC.</p>
-      </div>
-      <div class="family">
-        <div class="tile reveal"><img class="icon" src="{{ url_for('static', filename='brand/yoac-y-icon.png') }}" alt="YOAC Y icon"></div>
-        <div class="tile reveal s1"><img src="{{ url_for('static', filename='brand/yoac-outline.png') }}" alt="YOAC outline logo"></div>
-        <div class="tile light reveal s2"><img src="{{ url_for('static', filename='brand/yoac-stencil.png') }}" alt="YOAC stencil logo"></div>
-        <div class="tile reveal s3"><img class="icon" src="{{ url_for('static', filename='brand/yoac-icon-italic-320.png') }}" alt="YOAC app icon"></div>
-      </div>
     </div>
   </section>
 
   <section>
-    <div class="wrap">
-      <div class="cta-band reveal">
-        <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
-        <h2>Ready when your footage is.</h2>
-        <p>Start with a short 10–30 second clip to see it work.</p>
-        <a class="btn btn-primary magnetic" href="{{ url_for('index') }}">Get Started</a>
+    <div class="wrap split">
+      <div>
+        <div class="eyebrow">Measure in metres</div>
+        <h2>Mark the pitch once, get real distances</h2>
+        <p style="margin-top:16px;color:var(--ink-2)">Click four places where pitch lines cross, such as the 22 and the touchline.
+          From then on the app follows the camera as it pans and zooms, and turns positions into metres: ruck
+          distances, mauls that move, and how fast the defensive line comes up.</p>
+        <p style="color:var(--ink-2)">Without marking, you still get everything else, measured in body lengths.</p>
+      </div>
+      <div class="pitch-fig" aria-hidden="true">
+        <svg viewBox="0 0 400 240">
+          <rect x="0" y="0" width="400" height="240" rx="6" fill="#2d7a4b"/>
+          <g stroke="#fff" stroke-width="2" fill="none" opacity=".9">
+            <rect x="20" y="20" width="360" height="200"/>
+            <line x1="44" y1="20" x2="44" y2="220"/><line x1="356" y1="20" x2="356" y2="220"/>
+            <line x1="112" y1="20" x2="112" y2="220"/><line x1="288" y1="20" x2="288" y2="220"/>
+            <line x1="200" y1="20" x2="200" y2="220"/>
+            <line x1="160" y1="20" x2="160" y2="220" stroke-dasharray="6 6"/><line x1="240" y1="20" x2="240" y2="220" stroke-dasharray="6 6"/>
+          </g>
+          <g fill="#fff" stroke="#111a15" stroke-width="2">
+            <circle cx="112" cy="20" r="7"/><circle cx="112" cy="220" r="7"/><circle cx="200" cy="20" r="7"/><circle cx="200" cy="220" r="7"/>
+          </g>
+          <g font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#fff">
+            <text x="86" y="44">22 m</text><text x="178" y="44">halfway</text>
+          </g>
+        </svg>
       </div>
     </div>
   </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <div class="intro">
+        <div class="eyebrow">Pricing</div>
+        <h2>Start free</h2>
+        <p style="margin-top:16px">Every account starts on the free plan. Bigger plans are for clubs that analyse every match.</p>
+      </div>
+      <div class="plans">
+        {% for key, p in plans.items() %}
+        <div class="plan {{ 'main' if key == 'free' else '' }}">
+          <h3>{{ p.name }}</h3>
+          <div class="price">{{ p.price if p.price and p.price != p.name else ('€0' if key == 'free' else '') }}</div>
+          <ul>
+            <li><b>{{ p.minutes_per_month }}</b> minutes of video analysed a month</li>
+            <li><b>{{ p.storage_gb }} GB</b> of videos stored</li>
+            {% if p.keep_days %}<li>Videos kept for <b>{{ p.keep_days }}</b> days</li>{% endif %}
+          </ul>
+          {% if key == 'free' %}<a class="btn btn-primary" href="{{ url_for('index') }}">Start analysing</a>
+          {% else %}<span class="btn btn-outline" aria-disabled="true">Available soon</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <p class="plans-note">Minutes reset on the first of each month. Videos that turn out not to be match footage don't count.</p>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap faq">
+      <div class="eyebrow">FAQ</div>
+      <h2 style="margin-bottom:20px">Questions coaches ask</h2>
+      <details><summary>What footage works best?</summary>
+        <p>A wide view from the stand or a high position that shows most of the pitch. Phone footage is fine. Close-ups and
+          replays are skipped in the report because team shape can't be judged from them.</p></details>
+      <details><summary>Does it recognise players' faces or names?</summary>
+        <p>No. Players are detected as "a person", given a temporary number and grouped by shirt colour. Nobody is identified.</p></details>
+      <details><summary>Who can see my videos?</summary>
+        <p>Only you, and the owner of the app for moderation. Videos are deleted automatically after the period of your plan,
+          or earlier when you delete them. See the <a href="{{ url_for('legal_page', doc='privacy') }}">privacy policy</a>.</p></details>
+      <details><summary>How accurate is it?</summary>
+        <p>It's a guide to which moments to review, not a referee. Far-away players can be missed or land in the wrong team, and
+          without marking the pitch, distances are in body lengths. Always check a moment on the video before acting on it.</p></details>
+      <details><summary>Can I upload videos of youth teams?</summary>
+        <p>Yes, if your club's rules allow it and players and parents know matches are filmed and analysed. You confirm this with
+          each upload.</p></details>
+      <details><summary>What happens with other videos?</summary>
+        <p>Uploads are checked automatically. Anything that isn't match or training footage is refused and deleted straight away.</p></details>
+    </div>
+  </section>
+
+  <div class="closing">
+    <div class="wrap">
+      <div><h2>Bring last weekend's match.</h2><p>Start with a 10 to 30 second clip and see what it finds.</p></div>
+      <a class="btn btn-primary" href="{{ url_for('index') }}">Analyse a match</a>
+    </div>
+  </div>
 
   <footer>
-    <img src="{{ url_for('static', filename='brand/yoac-wordmark.png') }}" alt="YOAC, Your Online AI Coach">
-    Player Tracker runs on your own laptop. Your videos stay on it.
-    <p class="legal-links">
-      <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
-      <a href="{{ url_for('legal_page', doc='cookies') }}">Cookies</a> ·
-      <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
-      <a href="{{ url_for('legal_page', doc='notice') }}">Legal notice</a> ·
-      <a href="{{ url_for('legal_page', doc='licences') }}">Licences &amp; source</a>
-    </p>
+    <div class="wrap">
+      <img src="{{ url_for('static', filename='brand/yoac-wordmark.png') }}" alt="YOAC, Your Online AI Coach">
+      <span>
+        <a href="{{ url_for('legal_page', doc='privacy') }}">Privacy</a> ·
+        <a href="{{ url_for('legal_page', doc='cookies') }}">Cookies</a> ·
+        <a href="{{ url_for('legal_page', doc='terms') }}">Terms</a> ·
+        <a href="{{ url_for('legal_page', doc='notice') }}">Legal notice</a> ·
+        <a href="{{ url_for('legal_page', doc='licences') }}">Licences &amp; source</a>
+      </span>
+    </div>
   </footer>
 
   <script nonce="{{ csp_nonce() }}">
   (function () {
     "use strict";
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    function $(id) { return document.getElementById(id); }
-    function store(get, key, val) {
-      try { return get ? sessionStorage.getItem(key) : sessionStorage.setItem(key, val); } catch (e) { return null; }
+    var shot = document.getElementById("shot"), canvas = document.getElementById("pitch");
+    var ctx = canvas.getContext("2d"), W = 0, H = 0, running = false;
+
+    // Your own footage replaces the illustration once you've analysed a match.
+    var raw = new Image(), tracked = new Image(), loaded = 0;
+    function useOwn() {
+      if (++loaded < 2) return;
+      running = false;
+      shot.innerHTML = '<div class="compare" id="compare"><img class="raw" alt="Your match footage"><img class="tracked" alt="The same frame, tracked">' +
+        '<span class="tag tag-l">Tracked</span><span class="tag tag-r">Original</span>' +
+        '<input type="range" min="0" max="100" value="50" aria-label="Drag to compare original and tracked footage"><span class="handle"></span></div>';
+      var c = document.getElementById("compare");
+      c.querySelector(".raw").src = raw.src; c.querySelector(".tracked").src = tracked.src;
+      c.querySelector("input").addEventListener("input", function (e) { c.style.setProperty("--pos", e.target.value + "%"); });
+      document.getElementById("shotCap").textContent = "A frame from your latest analysed match. Drag to compare.";
     }
-    // Run fn while el is on screen, pause it when it isn't.
-    function whenVisible(el, on, off, threshold) {
-      if (!("IntersectionObserver" in window)) { on(); return; }
-      new IntersectionObserver(function (en) { en[0].isIntersecting ? on() : off && off(); }, { threshold: threshold || 0.05 }).observe(el);
+    raw.onload = tracked.onload = useOwn;
+    raw.src = "/demo/raw.jpg"; tracked.src = "/demo/tracked.jpg";
+
+    // Illustration: a broadcast-style view, players drifting slightly, boxed
+    // and labelled the way the real tracked video labels them.
+    var TEAM = [{ box: "#e04848", shirt: "#c43a3a", name: "Red" }, { box: "#3b7be0", shirt: "#2c63c4", name: "Blue" }];
+    var people = [];
+    for (var i = 0; i < 18; i++) {
+      var t = i % 2, k = Math.floor(i / 2);
+      people.push({ t: t, id: 3 + i * 2, y: 0.16 + k * 0.085, p: i * 1.7,
+        x: t ? 0.55 + Math.abs(k - 4) * 0.012 : 0.43 - Math.abs(k - 4) * 0.03 - (k % 2) * 0.025 });
     }
-    // CSS loops (marquees, glows, bobbing logos) only run while their part of the page is on screen.
-    document.querySelectorAll(".hero, .marquees, section").forEach(function (el) {
-      el.classList.add("paused");
-      whenVisible(el, function () { el.classList.remove("paused"); }, function () { el.classList.add("paused"); }, 0);
-    });
-
-    // ------------------------------------------------------------ intro
-    (function () {
-      var intro = $("intro"), tag = $("introTag");
-      if (reduce || store(true, "yoacIntro")) { intro.classList.add("gone"); return; }
-      document.body.classList.add("locked");
-      var text = "Your Online AI Coach", i = 0, done = false;
-      function finish() {
-        if (done) return; done = true;
-        store(false, "yoacIntro", "1");
-        intro.classList.add("out");
-        document.body.classList.remove("locked");
-        setTimeout(function () { intro.classList.add("gone"); }, 1000);
-      }
-      function type() {
-        if (done) return;
-        if (i <= text.length) {
-          var shown = text.slice(0, i);
-          tag.innerHTML = shown.replace("AI", "<b>AI</b>") + '<span class="caret"></span>';
-          i++;
-          setTimeout(type, 42);
-        } else {
-          setTimeout(finish, 650);
-        }
-      }
-      setTimeout(type, 1700);
-      $("introSkip").addEventListener("click", finish);
-      addEventListener("keydown", function (e) { if (e.key === "Escape") finish(); });
-      intro.addEventListener("click", finish);
-      setTimeout(finish, 5000);  // never hold the page longer than this
-    })();
-
-    // ------------------------------------------------------------ nav + progress + cursor
-    (function () {
-      var nav = $("nav"), bar = $("progress"), glow = $("glow"), hero = $("hero");
-      var ticking = false;
-      function onScroll() {
-        if (ticking) return; ticking = true;
-        requestAnimationFrame(function () {
-          var h = document.documentElement.scrollHeight - innerHeight;
-          bar.style.transform = "scaleX(" + (h > 0 ? scrollY / h : 0) + ")";
-          nav.classList.toggle("solid", scrollY > 20);
-          ticking = false;
-        });
-      }
-      addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-      if (!finePointer || reduce) return;
-      var heroBottom = 0;
-      function measure() { heroBottom = hero.offsetTop + hero.offsetHeight; }
-      measure(); addEventListener("resize", measure);
-      addEventListener("pointermove", function (e) {
-        glow.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
-        var y = e.clientY + scrollY;
-        if (y < heroBottom) {
-          hero.style.setProperty("--mx", e.clientX + "px");
-          hero.style.setProperty("--my", (y - hero.offsetTop) + "px");
-        }
-      }, { passive: true });
-    })();
-
-    // ------------------------------------------------------------ scroll reveal
-    (function () {
-      var items = document.querySelectorAll(".reveal");
-      if (!("IntersectionObserver" in window) || reduce) { items.forEach(function (e) { e.classList.add("in"); }); return; }
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
-      }, { threshold: 0.15 });
-      items.forEach(function (e) { io.observe(e); });
-    })();
-
-    // ------------------------------------------------------------ tilt, spotlight, magnetic
-    (function () {
-      if (!finePointer || reduce) return;
-      document.querySelectorAll(".tilt").forEach(function (el) {
-        var max = el.id === "screen" ? 7 : 5;
-        el.addEventListener("pointermove", function (e) {
-          var r = el.getBoundingClientRect();
-          var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-          el.style.transform = "rotateY(" + ((x - .5) * max * 2) + "deg) rotateX(" + ((.5 - y) * max * 2) + "deg)";
-          el.style.setProperty("--fx", (x * 100) + "%");
-          el.style.setProperty("--fy", (y * 100) + "%");
-        });
-        el.addEventListener("pointerleave", function () { el.style.transform = ""; });
+    function size() {
+      var r = canvas.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+      W = r.width; H = r.height; canvas.width = W * d; canvas.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    }
+    function draw(ms) {
+      if (!canvas.isConnected) return;
+      var time = ms / 1000, s = H * 0.05;
+      for (var n = 0; n < 10; n++) { ctx.fillStyle = n % 2 ? "#2a7447" : "#2f7d4d"; ctx.fillRect(n * W / 10, 0, W / 10 + 1, H); }
+      ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 2;
+      [0.08, 0.3, 0.5, 0.7, 0.92].forEach(function (f) { ctx.beginPath(); ctx.moveTo(f * W, 0); ctx.lineTo(f * W, H); ctx.stroke(); });
+      ctx.font = "600 " + Math.max(10, s * 0.42) + "px system-ui, sans-serif";
+      people.forEach(function (p) {
+        var x = (p.x + 0.008 * Math.sin(time * 0.6 + p.p)) * W, y = (p.y + 0.006 * Math.cos(time * 0.5 + p.p)) * H;
+        ctx.fillStyle = TEAM[p.t].shirt; ctx.fillRect(x - s * 0.22, y - s * 0.5, s * 0.44, s * 0.55);
+        ctx.fillStyle = "#1d2a22"; ctx.fillRect(x - s * 0.22, y + s * 0.05, s * 0.44, s * 0.4);
+        ctx.fillStyle = "#e8c8a8"; ctx.beginPath(); ctx.arc(x, y - s * 0.66, s * 0.15, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = TEAM[p.t].box; ctx.lineWidth = 2; ctx.strokeRect(x - s * 0.4, y - s * 0.9, s * 0.8, s * 1.55);
+        var label = TEAM[p.t].name + " " + p.id, tw = ctx.measureText(label).width + 6;
+        ctx.fillStyle = TEAM[p.t].box; ctx.fillRect(x - s * 0.4, y - s * 1.4, tw, s * 0.5);
+        ctx.fillStyle = "#fff"; ctx.fillText(label, x - s * 0.4 + 3, y - s * 1.03);
       });
-      document.querySelectorAll(".magnetic").forEach(function (el) {
-        el.addEventListener("pointermove", function (e) {
-          var r = el.getBoundingClientRect();
-          el.style.transform = "translate(" + ((e.clientX - r.left - r.width / 2) * .22) + "px," + ((e.clientY - r.top - r.height / 2) * .3) + "px)";
-        });
-        el.addEventListener("pointerleave", function () { el.style.transform = ""; });
-      });
-    })();
-
-    // ------------------------------------------------------------ marquees
-    (function () {
-      var y = '<svg viewBox="26 52 110 76"><use href="#ymark"/></svg>';
-      function fill(el, words) {
-        var one = words.map(function (w) { return "<span>" + w + y + "</span>"; }).join("");
-        el.innerHTML = one + one;  // doubled so the loop is seamless
-      }
-      fill($("track1"), ["Track every player", "Two teams by shirt colour", "Referee left out", "Find the holes in the line", "Coach report in minutes"]);
-      fill($("track2"), ["Your Online AI Coach", "Rugby match analysis", "Upload · Track · Review", "Videos stay on your laptop"]);
-    })();
-
-    // ------------------------------------------------------------ hero pitch demo
-    (function () {
-      var canvas = $("pitch"), ctx = canvas.getContext("2d");
-      var modeChip = $("pitchMode"), countChip = $("pitchCount"), clock = $("pitchClock"), scrub = $("pitchScrub");
-      var cards = [$("fc1"), $("fc2"), $("fc3")];
-      var TEAMS = [{ color: "#ff5a5a", shirt: "#d83a3a" }, { color: "#4f9bff", shirt: "#2c6fd1" }];
-      var CYCLE = 11, SCAN_START = 1.2, SCAN_END = 4.2, FADE_START = 10.2;
-      var W = 0, H = 0, dpr = 1;
-      var nums = [9, 10, 12, 13, 11, 14, 15, 7, 6, 8];
-      var players = [];
-      for (var t = 0; t < 2; t++) {
-        for (var i = 0; i < 10; i++) {
-          // Attack (red) forms a staggered backline that gets deeper away from
-          // the ruck; defence (blue) holds a flatter line with a couple pushing up.
-          var lane = 0.14 + i * 0.08;
-          var depth = t === 0 ? 0.03 + Math.abs(lane - 0.35) * 0.32 + (i % 2) * 0.035 : 0.05 + (i % 4 === 1 ? -0.035 : 0) + Math.abs(lane - 0.35) * 0.06;
-          players.push({ team: t, num: t === 0 ? nums[i] : nums[9 - i], lane: lane, depth: depth,
-            ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 0.6, x: 0, y: 0, trail: [] });
-        }
-      }
-      var ref = { team: -1, x: 0, y: 0 };
-
-      function resize() {
-        var r = canvas.getBoundingClientRect();
-        dpr = Math.min(2, window.devicePixelRatio || 1);
-        W = r.width; H = r.height;
-        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
-      function drawPitch() {
-        for (var s = 0; s < 10; s++) { ctx.fillStyle = s % 2 ? "#236b40" : "#277547"; ctx.fillRect(s * W / 10, 0, W / 10 + 1, H); }
-        ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 2;
-        [0.06, 0.28, 0.5, 0.72, 0.94].forEach(function (fx) { ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke(); });
-        ctx.setLineDash([8, 10]);
-        [0.39, 0.61].forEach(function (fx) { ctx.beginPath(); ctx.moveTo(fx * W, 0); ctx.lineTo(fx * W, H); ctx.stroke(); });
-        ctx.setLineDash([]);
-      }
-      function place(time) {
-        var front = 0.5 + 0.09 * Math.sin(time * 0.35) + 0.03 * Math.sin(time * 0.9);
-        players.forEach(function (p) {
-          var x = p.team === 0 ? front - p.depth - 0.015 : front + p.depth + 0.015;
-          p.x = (x + 0.012 * Math.sin(time * p.sp + p.ph)) * W;
-          p.y = (p.lane + 0.01 * Math.cos(time * p.sp * 0.8 + p.ph) + 0.02 * Math.sin(time * 0.3 + p.lane * 4)) * H;
-        });
-        ref.x = (front + 0.03 + 0.02 * Math.sin(time * 0.5)) * W;
-        ref.y = (0.05 + 0.02 * Math.sin(time * 0.7)) * H + H * 0.9 * (0.5 + 0.45 * Math.sin(time * 0.21));
-      }
-      function drawPerson(p, s, shirt) {
-        ctx.fillStyle = "rgba(0,0,0,.25)";
-        ctx.beginPath(); ctx.ellipse(p.x + s * 0.15, p.y + s * 0.5, s * 0.45, s * 0.18, 0, 0, 6.28); ctx.fill();
-        ctx.fillStyle = shirt;
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, s * 0.42, s * 0.3, 0, 0, 6.28); ctx.fill();
-        ctx.fillStyle = "#f1d1b5";
-        ctx.beginPath(); ctx.arc(p.x, p.y, s * 0.17, 0, 6.28); ctx.fill();
-      }
-      function drawTrail(p, s, alpha) {
-        var n = p.trail.length;
-        for (var k = 0; k < n; k++) {
-          ctx.globalAlpha = alpha * (k / n) * 0.35;
-          ctx.fillStyle = TEAMS[p.team].color;
-          ctx.beginPath(); ctx.arc(p.trail[k][0], p.trail[k][1], s * 0.1 * (0.4 + k / n), 0, 6.28); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-      }
-      function drawBox(p, s, alpha, pop) {
-        var c = TEAMS[p.team].color, bw = s * 1.2 * pop, bh = s * 1.3 * pop;
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = c; ctx.lineWidth = 2;
-        ctx.strokeRect(p.x - bw / 2, p.y - bh / 2, bw, bh);
-        var label = "#" + p.num;
-        ctx.font = "700 " + Math.max(9, s * 0.42) + "px system-ui, sans-serif";
-        var tw = ctx.measureText(label).width + 8, th = Math.max(12, s * 0.55);
-        ctx.fillStyle = c; ctx.fillRect(p.x - bw / 2, p.y - bh / 2 - th, tw, th);
-        ctx.fillStyle = "#fff"; ctx.fillText(label, p.x - bw / 2 + 4, p.y - bh / 2 - th * 0.25);
-        ctx.globalAlpha = 1;
-      }
-      function ballAt(time) {
-        var a = players.filter(function (p) { return p.team === 0; });
-        var k = Math.floor(time / 2.2) % a.length, n = (k + 1) % a.length, f = Math.min(1, (time % 2.2) / 0.6);
-        return { x: a[k].x + (a[n].x - a[k].x) * f, y: a[k].y + (a[n].y - a[k].y) * f };
-      }
-      var lastState = "", lastCount = -1, lastClock = "", t0 = null, trailTick = 0;
-      function frame(ms) {
-        // The cycle starts when the demo first becomes visible, so nobody lands mid-scan.
-        if (t0 === null) t0 = ms;
-        var time = (ms - t0) / 1000, c = reduce ? 6 : time % CYCLE, s = Math.max(12, H * 0.052);
-        if (!W) resize();
-        drawPitch();
-        place(reduce ? 3 : time);
-        var scanX = c < SCAN_START ? -1 : c < SCAN_END ? (c - SCAN_START) / (SCAN_END - SCAN_START) * W : W + 1;
-        var fade = c > FADE_START ? 1 - (c - FADE_START) / (CYCLE - FADE_START) : 1;
-        var tracked = 0;
-        var tracking = c >= SCAN_START && c < FADE_START;
-        if (++trailTick % 3 === 0) {
-          players.forEach(function (p) {
-            if (tracking && p.x <= scanX) { p.trail.push([p.x, p.y + s * 0.15]); if (p.trail.length > 12) p.trail.shift(); }
-            else p.trail.length = 0;
-          });
-        }
-        players.forEach(function (p) { if (p.trail.length) drawTrail(p, s, fade); });
-        players.forEach(function (p) { drawPerson(p, s, TEAMS[p.team].shirt); });
-        drawPerson(ref, s, "#e6c229");
-        var ball = ballAt(reduce ? 3 : time);
-        ctx.fillStyle = "#fff5d6";
-        ctx.beginPath(); ctx.ellipse(ball.x + s * 0.35, ball.y, s * 0.2, s * 0.13, 0.6, 0, 6.28); ctx.fill();
-        players.forEach(function (p) {
-          if (p.x > scanX) return;
-          tracked++;
-          var since = (scanX - p.x) / W * (SCAN_END - SCAN_START);
-          drawBox(p, s, fade, c < SCAN_END ? 1 + Math.max(0, 0.35 - since) : 1);
-        });
-        // The referee is recognised and deliberately left untracked.
-        if (ref.x <= scanX) {
-          ctx.globalAlpha = 0.55 * fade;
-          ctx.setLineDash([4, 4]); ctx.strokeStyle = "#cfd6d2"; ctx.lineWidth = 1.5;
-          ctx.strokeRect(ref.x - s * 0.6, ref.y - s * 0.65, s * 1.2, s * 1.3);
-          ctx.setLineDash([]);
-          ctx.font = "700 " + Math.max(9, s * 0.38) + "px system-ui, sans-serif";
-          ctx.fillStyle = "#cfd6d2"; ctx.fillText("REF · not tracked", ref.x - s * 0.6, ref.y + s * 1.1);
-          ctx.globalAlpha = 1;
-        }
-        if (scanX >= 0 && scanX <= W) {
-          var g = ctx.createLinearGradient(scanX - 90, 0, scanX, 0);
-          g.addColorStop(0, "rgba(69,224,124,0)"); g.addColorStop(1, "rgba(69,224,124,.42)");
-          ctx.fillStyle = g; ctx.fillRect(scanX - 90, 0, 90, H);
-          ctx.save(); ctx.shadowColor = "#45e07c"; ctx.shadowBlur = 18;
-          ctx.fillStyle = "#b8ffd4"; ctx.fillRect(scanX - 1.5, 0, 3, H);
-          ctx.restore();
-        }
-        var state = c < SCAN_START ? "raw" : c < SCAN_END ? "scan" : c < FADE_START ? "done" : "fade";
-        // Only touch the DOM when something shown actually changes.
-        if (tracked !== lastCount) { lastCount = tracked; countChip.textContent = tracked + " players"; }
-        var secs = Math.floor(40 + (reduce ? 6 : time % CYCLE) * 1.4);
-        var clk = "00:" + (secs < 10 ? "0" : "") + secs;
-        if (clk !== lastClock) { lastClock = clk; clock.textContent = clk; }
-        scrub.style.transform = "scaleX(" + (c / CYCLE) + ")";
-        if (state !== lastState) {
-          modeChip.textContent = state === "raw" ? "Raw footage" : state === "scan" ? "Tracking…" : "Tracked";
-          lastState = state;
-          cards.forEach(function (el, k) {
-            clearTimeout(el._t);
-            if (state === "done") el._t = setTimeout(function () { el.classList.add("show"); }, k * 350);
-            else el.classList.remove("show");
-          });
-        }
-      }
-      var running = false, raf = 0;
-      function loop(ms) { frame(ms); if (running) raf = requestAnimationFrame(loop); }
-      addEventListener("resize", function () { resize(); frame(reduce ? 0 : performance.now()); });
-      resize(); frame(0);
-      if (reduce) { cards.forEach(function (el) { el.classList.add("show"); }); return; }
-      whenVisible(canvas, function () { if (!running) { running = true; t0 = null; raf = requestAnimationFrame(loop); } },
-                          function () { running = false; cancelAnimationFrame(raf); });
-    })();
-
-    // ------------------------------------------------------------ two-team sorter
-    (function () {
-      var canvas = $("sorter"), ctx = canvas.getContext("2d"), status = $("sortStatus");
-      var legend = [$("lgW"), $("lgR"), $("lgO")], counts = [$("lgWn"), $("lgRn")], lastW = -1, lastR = -1;
-      var W = 0, H = 0, dpr = 1, dots = [], t0 = 0, running = false, raf = 0, started = false;
-      // Raw shirt colours as the camera sees them: whites (some in shade),
-      // reds (some darker), and yellow-shirted officials.
-      function build() {
-        dots = [];
-        for (var i = 0; i < 13; i++) dots.push({ team: 0, raw: i < 5 ? "#9aa29d" : "#eef1ef", final: "#eef1ef" });
-        for (var j = 0; j < 13; j++) dots.push({ team: 1, raw: j < 4 ? "#a8322f" : "#ef4b4b", final: "#ef4b4b" });
-        for (var k = 0; k < 3; k++) dots.push({ team: 2, raw: "#e6c229", final: "#e6c229" });
-        dots.sort(function () { return Math.random() - 0.5; });
-        var idx = [0, 0, 0];
-        dots.forEach(function (d) {
-          d.sx = 0.08 + Math.random() * 0.84; d.sy = 0.12 + Math.random() * 0.76;
-          d.ph = Math.random() * 6.28; d.slot = idx[d.team]++; d.delay = Math.random() * 0.6;
-        });
-      }
-      function target(d) {
-        if (d.team === 2) return { x: 0.38 + d.slot * 0.12, y: 0.9 };
-        var col = d.slot % 3, row = Math.floor(d.slot / 3);
-        var baseX = d.team === 0 ? 0.1 : 0.62;
-        return { x: baseX + col * 0.1 + (row % 2) * 0.03, y: 0.3 + row * 0.12 };
-      }
-      function resize() {
-        var r = canvas.getBoundingClientRect();
-        dpr = Math.min(2, window.devicePixelRatio || 1);
-        W = r.width; H = r.height;
-        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
-      function ease(x) { return x < 0 ? 0 : x > 1 ? 1 : 1 - Math.pow(1 - x, 3); }
-      function mix(a, b, f) {
-        var pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-        var r = Math.round(((pa >> 16) & 255) * (1 - f) + ((pb >> 16) & 255) * f);
-        var g = Math.round(((pa >> 8) & 255) * (1 - f) + ((pb >> 8) & 255) * f);
-        var bl = Math.round((pa & 255) * (1 - f) + (pb & 255) * f);
-        return "rgb(" + r + "," + g + "," + bl + ")";
-      }
-      function draw(el) {
-        ctx.clearRect(0, 0, W, H);
-        var r = Math.max(7, Math.min(W, H) * 0.028);
-        // phase 1 (0-1.6s): colours are read, a scan ring passes each dot
-        // phase 2 (1.6-3.6s): dots fly to their team; shade merges into the kit colour
-        var move = (el - 1.6) / 2;
-        ["White", "Red"].forEach(function (name, t) {
-          var a = ease((el - 3.2) / 0.6);
-          if (a <= 0) return;
-          ctx.globalAlpha = a;
-          ctx.font = "800 " + Math.max(12, r * 1.4) + "px system-ui, sans-serif";
-          ctx.fillStyle = t === 0 ? "#eef1ef" : "#ff6b6b";
-          ctx.fillText(name + " · 13", (t === 0 ? 0.1 : 0.62) * W - r, 0.2 * H);
-          ctx.globalAlpha = 1;
-        });
-        dots.forEach(function (d) {
-          var tg = target(d), f = ease((move - d.delay * 0.4) / 0.8);
-          var wob = (1 - f) * 0.008;
-          var x = (d.sx + (tg.x - d.sx) * f + Math.sin(el * 2 + d.ph) * wob) * W;
-          var y = (d.sy + (tg.y - d.sy) * f + Math.cos(el * 2.3 + d.ph) * wob) * H;
-          var officialFade = d.team === 2 ? 1 - 0.6 * ease((el - 3.4) / 0.6) : 1;
-          var colour = mix(d.raw, d.final, ease((move - 0.6) / 0.6));
-          ctx.globalAlpha = officialFade;
-          ctx.fillStyle = "rgba(0,0,0,.3)";
-          ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.9, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill();
-          ctx.fillStyle = colour;
-          ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill();
-          ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
-          // scanning ring during phase 1
-          var scanAt = d.sx * 1.3;
-          if (el > scanAt && el < scanAt + 0.35) {
-            ctx.strokeStyle = "#45e07c"; ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.arc(x, y, r + 4 + (el - scanAt) * 20, 0, 6.28); ctx.stroke();
-          }
-          // officials get crossed out once they're set aside
-          if (d.team === 2 && el > 3.4) {
-            ctx.strokeStyle = "#cfd6d2"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        });
-        if (el > 3.6) {
-          ctx.globalAlpha = ease((el - 3.6) / 0.5);
-          ctx.font = "700 " + Math.max(11, r * 1.1) + "px system-ui, sans-serif";
-          ctx.fillStyle = "#cfd6d2";
-          ctx.fillText("Officials · not tracked", 0.38 * W - r, 0.9 * H - r * 2.2);
-          ctx.globalAlpha = 1;
-        }
-        status.textContent = el < 1.6 ? "Reading shirt colours…" : el < 3.6 ? "Sorting into two teams…" : "2 teams · officials set aside";
-        legend[0].classList.toggle("on", el > 3.2);
-        legend[1].classList.toggle("on", el > 3.4);
-        legend[2].classList.toggle("on", el > 3.7);
-        var nW = Math.round(13 * ease((el - 3.2) / 0.8)), nR = Math.round(13 * ease((el - 3.4) / 0.8));
-        if (nW !== lastW) { lastW = nW; counts[0].textContent = nW + " players"; }
-        if (nR !== lastR) { lastR = nR; counts[1].textContent = nR + " players"; }
-      }
-      function loop(ms) {
-        if (!t0) t0 = ms;
-        var el = (ms - t0) / 1000;
-        draw(el);
-        if (el < 4.4 && running) raf = requestAnimationFrame(loop);
-        else running = false;
-      }
-      function play() {
-        build(); t0 = 0; running = true; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
-      }
-      resize(); build(); draw(reduce ? 10 : 0);
-      addEventListener("resize", function () { resize(); if (!running) draw(started ? 10 : 0); });
-      $("sortAgain").addEventListener("click", function () { started = true; reduce ? (build(), draw(10)) : play(); });
-      if (reduce) return;
-      whenVisible(canvas, function () { if (!started) { started = true; setTimeout(play, 300); } },
-                          function () { if (running) { running = false; cancelAnimationFrame(raf); started = false; draw(0); } }, 0.4);
-    })();
-
-    // ------------------------------------------------------------ real before/after slider
-    (function () {
-      var section = $("real"), compare = $("compare"), input = compare.querySelector("input");
-      var imgs = compare.querySelectorAll("img"), loaded = 0, touched = false;
-      function set(v) { input.value = v; compare.style.setProperty("--pos", v + "%"); }
-      function hint() {
-        if (reduce || touched) return;
-        var start = performance.now(), path = [50, 78, 22, 50];
-        (function step(now) {
-          if (touched) return;
-          var p = Math.min(1, (now - start) / 2400), seg = Math.min(2, Math.floor(p * 3)), f = p * 3 - seg;
-          f = f < .5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
-          set(path[seg] + (path[seg + 1] - path[seg]) * f);
-          if (p < 1) requestAnimationFrame(step);
-        })(start);
-      }
-      function onLoad() {
-        if (++loaded !== imgs.length) return;
-        section.hidden = false;
-        var once = false;
-        whenVisible(compare, function () { if (!once) { once = true; setTimeout(hint, 700); } });
-      }
-      imgs.forEach(function (img) {
-        if (img.complete && img.naturalWidth) return onLoad();
-        img.addEventListener("load", onLoad);
-        img.addEventListener("error", function () { section.hidden = true; });
-      });
-      input.addEventListener("input", function () { touched = true; compare.style.setProperty("--pos", input.value + "%"); });
-      input.addEventListener("pointerdown", function () { touched = true; });
-    })();
-
-    // ------------------------------------------------------------ how-it-works progress
-    (function () {
-      var wrap = $("steps"), line = wrap.querySelector(".steps-line"), steps = wrap.querySelectorAll(".step");
-      var ticking = false;
-      function update() {
-        ticking = false;
-        var r = wrap.getBoundingClientRect();
-        // 0 when the steps enter the bottom of the screen, 1 when they reach 40% from the top.
-        var p = Math.max(0, Math.min(1, (innerHeight - r.top) / (innerHeight * 0.6 + r.height * 0.5)));
-        if (reduce) p = 1;
-        line.style.setProperty("--p", p);
-        steps.forEach(function (s, i) { s.classList.toggle("lit", p >= i / (steps.length - 1) - 0.02); });
-      }
-      addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
-      addEventListener("resize", update);
-      update();
-    })();
-
-    // ------------------------------------------------------------ report counters
-    (function () {
-      var card = $("rcard"), vals = card.querySelectorAll(".v[data-to]"), done = false;
-      function count() {
-        if (done) return; done = true;
-        card.classList.add("in");
-        var start = performance.now();
-        (function step(now) {
-          var p = reduce ? 1 : Math.min(1, (now - start) / 1400), e = 1 - Math.pow(1 - p, 3);
-          vals.forEach(function (v) { v.textContent = (parseFloat(v.dataset.to) * e).toFixed(1); });
-          if (p < 1) requestAnimationFrame(step);
-        })(start);
-      }
-      whenVisible(card, function () { setTimeout(count, 250); });
-    })();
+    }
+    function loop(ms) { draw(ms); if (running) requestAnimationFrame(loop); }
+    size(); draw(0);
+    addEventListener("resize", function () { if (canvas.isConnected) { size(); draw(performance.now()); } });
+    if (reduce || !("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (en) {
+      var vis = en[0].isIntersecting && canvas.isConnected;
+      if (vis && !running) { running = true; requestAnimationFrame(loop); } else if (!vis) running = false;
+    }).observe(canvas);
   })();
   </script>
 

@@ -84,7 +84,16 @@
       header .sub { display: none; }
     }
     @media (prefers-reduced-motion: reduce) { .card, .msg.err { animation: none; } }
-  </style>
+  
+    /* ---- calmer look ---- */
+    body { background: #0f1613; }
+    h1 { font-style: normal; text-transform: none; }
+    h1 .g { color: #fff; }
+    .card { animation: none; border-radius: 10px; background: #161f1a; }
+    .btn { border-radius: 8px; }
+    .btn-primary { background: #1d7a48; color: #fff; box-shadow: none; }
+    .btn-primary:hover { background: #238a53; }
+</style>
 </head>
 <body>
 <div class="wrap">

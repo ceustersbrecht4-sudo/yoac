@@ -161,7 +161,21 @@
       .card, .brand-mid h1 .l > span, .brand-mid h1 .g { opacity: 1; transform: none; }
       .mark rect { stroke-dashoffset: 0; } .mark polygon { opacity: 1; transform: none; }
     }
-  </style>
+  
+    /* ---- calmer look ---- */
+    .grid, .orb, .mini { display: none !important; }
+    .brand-side { background: #0f1613; }
+    .brand-mid h1 { font-style: normal; text-transform: none; font-size: clamp(2.6rem, 4.6vw, 4rem); }
+    .brand-mid h1 .g { background: none; -webkit-text-fill-color: currentColor; color: #fff; animation: rise .9s cubic-bezier(.2,.7,.2,1) forwards; }
+    .card { background: #161f1a; border-radius: 12px; }
+    .card::before { display: none; }
+    .tabs .pill { background: #1d7a48; box-shadow: none; border-radius: 8px; }
+    .tabs button[aria-selected="true"] { color: #fff; }
+    .submit { background: #1d7a48; color: #fff; border-radius: 8px; box-shadow: none; }
+    .submit:hover { background: #238a53; }
+    .submit::after { display: none; }
+    .ticker li::before { box-shadow: none; }
+</style>
 </head>
 <body>
   <aside class="brand-side">

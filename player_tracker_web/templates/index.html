@@ -337,6 +337,27 @@
     .kind-ic { display: none; }
     .report-actions .btn { width: 100%; }
   }
+
+  /* ---- calmer look: no glow, shimmer or drifting background ---- */
+  .backdrop { background: #0f1613 !important; }
+  .backdrop::before, .backdrop::after { display: none !important; }
+  .page-title h1 { font-style: normal; text-transform: none; font-size: clamp(2.2rem, 5vw, 3.2rem); line-height: 1; }
+  .page-title h1 .g { background: none !important; -webkit-text-fill-color: currentColor; color: #fff; animation: none !important; }
+  .page-title h1 span, .page-title p, .card { animation: none !important; }
+  .card { backdrop-filter: none; background: #161f1a; box-shadow: none; border-radius: 10px; }
+  .btn { border-radius: 8px; }
+  .btn-primary { background: #1d7a48; color: #fff; box-shadow: none; }
+  .btn-primary:hover:not(:disabled) { background: #238a53; }
+  .step, .step.on { box-shadow: none; backdrop-filter: none; border-radius: 8px; }
+  .step.on .n { color: #fff; background: #1d7a48; }
+  .pct { font-style: normal; color: #fff; text-shadow: none; }
+  .bar > div { background: #2f9a5f; box-shadow: none; }
+  .bar > div::after, .drop::after { display: none; }
+  .drop-icon { animation: none; box-shadow: none; }
+  .tab.on { background: #1d7a48; color: #fff; box-shadow: none; }
+  .seg button.on { background: #1d7a48; border-color: #1d7a48; color: #fff; }
+  .video-card { box-shadow: none; border-color: #2a362f; }
+  .usage-bar i { background: #2f9a5f !important; }
 </style>
 </head>
 <body>
