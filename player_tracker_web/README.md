@@ -28,6 +28,28 @@ legal pages show an orange "Not finished yet" notice until you've done this.
 `video_retention_days` sets how long videos are kept before they're deleted
 automatically (0 = keep until deleted by hand).
 
+## Rugby measurements
+
+Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
+
+- **Ruck speed** for every ruck the camera sees from start to end: the time from the
+  players meeting at the tackle until the group breaks up (usually the ball coming out).
+  Quick ball is under 3 s, slow ball over 6 s; the slowest rucks are shown as moments.
+  Scrums are counted too. This works on every video.
+- **Metres, after marking the pitch.** In the **Pitch** tab, click at least 4 spots where two
+  pitch lines cross (e.g. "Left 22 × Near 5 m line") on a wide shot, then press *Save and
+  measure*. The app follows the camera's panning and zooming from there (once per video;
+  a few minutes for a full match) and shows the players on a pitch seen from above, so you
+  can check the marking. Then the report adds:
+  - **Defensive line speed** in m/s in the first 1.5 s after each ruck. The defending team
+    is the one whose line stands closest to the ruck. Under 1.5 m/s is flagged as passive,
+    2.5 m/s and more as good.
+  - **Mauls** (a breakdown that moves 3 m or more) told apart from rucks.
+  Mark an extra frame after a replay or camera cut; each marked frame needs 4 points.
+
+All thresholds are named at the top of `rugby.py`. These are measurements from one camera:
+use them to find moments to review, and check them on the video.
+
 ## Plans and usage limits
 
 Every account has a plan with four limits, the things that cost money once the app is online:
@@ -137,6 +159,8 @@ and set your Wi-Fi network to **Private** in Windows settings.
 | `tracker.py` | Finds and tracks players with YOLO, draws the tracked video |
 | `teams.py` | Sorts players into the two teams by shirt colour, sets officials aside |
 | `analysis.py` | Coach report: line gaps, dog-legs, numbers, breakdown |
+| `pitch.py` | From pixels to metres: the marked pitch points and following the camera |
+| `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
 | `templates/` | The pages: login, front page, upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |
 | `start.bat` | Double-click to install requirements and start the app |

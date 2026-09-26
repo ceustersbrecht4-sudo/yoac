@@ -269,7 +269,24 @@
   .pill.issue { background: var(--issue-soft); color: var(--issue); }
   .pill.good { background: var(--good-soft); color: var(--good); }
   .pill.info { background: var(--info-soft); color: var(--info); }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .pitch-size { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 12px; font-size: .9rem; }
+  .pitch-size input, .calib-list select { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font: inherit; }
+  .pitch-size input { width: 72px; }
+  .calib-frame { position: relative; border-radius: 12px; overflow: hidden; background: #000; cursor: crosshair; min-height: 120px; }
+  .calib-frame img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+  .calib-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #ff5a4e; color: #fff; font: 800 .72rem/22px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 8px rgba(0,0,0,.6); pointer-events: none; }
+  .calib-slider { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  .calib-slider input { flex: 1; accent-color: var(--accent); }
+  .calib-list { list-style: none; padding: 0; margin: 0 0 6px; display: grid; gap: 8px; }
+  .calib-list li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .calib-list .num { width: 22px; height: 22px; border-radius: 50%; background: #ff5a4e; color: #fff; font-weight: 800; font-size: .72rem; display: grid; place-items: center; flex: none; }
+  .calib-list .when { font-size: .8rem; color: var(--muted); min-width: 36px; cursor: pointer; text-decoration: underline; background: none; border: 0; padding: 0; font-family: inherit; }
+  .calib-list select { flex: 1; min-width: 130px; }
+  .calib-list .rm { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 0 6px; }
+  .pitch-map { width: 100%; height: auto; display: block; border-radius: 10px; }
+  .breakdowns { margin-top: 20px; }
+  .breakdowns .stats { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
   @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
   .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .stat .v { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -432,6 +449,7 @@
 
     <div class="tabs" role="tablist">
       <button type="button" class="tab on" role="tab" id="tabReport" aria-selected="true">Coach report</button>
+      <button type="button" class="tab" role="tab" id="tabPitch" aria-selected="false">Pitch</button>
       <button type="button" class="tab" role="tab" id="tabTeams" aria-selected="false">Teams</button>
     </div>
 
@@ -457,6 +475,37 @@
       </div>
       <div class="empty" id="reportUnavailable" hidden>
         The coach report isn't available for this video because it was analysed before reports existed.<br>Analyse it again to get one.
+      </div>
+    </div>
+
+    <!-- pitch tab: mark 4+ points so the report can measure in metres -->
+    <div class="card" id="pitchPane" hidden>
+      <h2>Mark the pitch</h2>
+      <p class="muted small" style="margin:0 0 14px">Click at least 4 spots where two pitch lines cross, then say which lines they are. The app follows the camera from there, so the report can measure in metres: defensive line speed, mauls and where rucks happen. Left and right are as seen from the camera; near is the touchline closest to the camera.</p>
+      <div class="pitch-size">
+        <label>Length <input type="number" id="pLen" min="40" max="100" step="1" value="100"> m</label>
+        <label>Width <input type="number" id="pWid" min="25" max="70" step="1" value="70"> m</label>
+        <span class="muted small">Try line to try line, touchline to touchline. Full size is 100 × 70.</span>
+      </div>
+      <div class="calib-frame" id="calibFrame">
+        <img id="calibImg" alt="Frame of the video to mark the pitch on">
+        <div id="calibDots"></div>
+      </div>
+      <div class="calib-slider">
+        <input type="range" id="calibSlider" min="0" max="0" value="0" aria-label="Choose a frame">
+        <span id="calibTime" class="muted small">0:00</span>
+      </div>
+      <p class="muted small" style="margin:6px 0 10px">Pick a wide shot where the lines are easy to see. Mark more frames if the camera moves a lot or there are cuts; each marked frame needs 4 points.</p>
+      <ol class="calib-list" id="calibList"></ol>
+      <div class="row report-actions">
+        <button type="button" class="btn btn-primary" id="calibSave">Save and measure</button>
+        <button type="button" class="btn btn-ghost" id="calibClear">Remove marking</button>
+      </div>
+      <div class="error-box" id="calibError" style="margin-top:12px" hidden></div>
+      <div id="pitchCheck" hidden>
+        <h3 style="margin:22px 0 6px">Check: players seen from above</h3>
+        <p class="muted small" style="margin:0 0 10px" id="pitchCheckText"></p>
+        <svg id="pitchMap" class="pitch-map" role="img" aria-label="Pitch seen from above with the players"></svg>
       </div>
     </div>
 
@@ -701,13 +750,15 @@ function stageKey(message) {
   const m = (message || "").toLowerCase();
   if (m.includes("upload")) return "upload";
   if (m.includes("shrinking")) return "shrink";
+  if (m.includes("camera")) return "camera";
   if (m.includes("sorting")) return "teams";
   if (m.includes("drawing") || m.includes("finishing")) return "draw";
   if (m.includes("updating")) return "update";
   return "track";
 }
 function renderStages(current) {
-  const list = current === "update" ? [["update", "Redraw the video"]] : ANALYSE_STAGES;
+  const list = current === "update" ? [["update", "Redraw the video"]]
+    : current === "camera" ? [["camera", "Follow the camera to measure in metres"]] : ANALYSE_STAGES;
   const idx = list.findIndex(([k]) => k === current);
   const box = $("stages"); box.innerHTML = "";
   list.forEach(([k, label], i) => {
@@ -839,8 +890,8 @@ async function poll(jobId) {
     setProgress(0, "", "Another video is being analysed first");
   } else {
     const key = stageKey(s.message);
-    watchedAnalysis = key !== "update";
-    const titles = { track: "Finding and tracking players…", teams: "Sorting players into teams…", draw: "Drawing the tracked video…", update: "Redrawing the video…" };
+    watchedAnalysis = key !== "update" && key !== "camera";
+    const titles = { camera: "Following the camera…", track: "Finding and tracking players…", teams: "Sorting players into teams…", draw: "Drawing the tracked video…", update: "Redrawing the video…" };
     setStage(s.message === "Loading model..." ? "Loading the detection model…" : (titles[key] || s.message), key);
     updateLive(jobId, s, key);
     if (s.total) {
@@ -900,7 +951,15 @@ function showResult(jobId, s, reveal = false) {
   renderChips();
   setupReport();
   show(["resultCard"]);
-  selectTab(result.canHide ? "report" : "teams");
+  if (calib && calib.jobId !== jobId) calib = null;
+  if (afterCalib && result.canHide) {
+    afterCalib = false;
+    if (calib) calib.followed = !failed;
+    selectTab("pitch");
+    if (failed) { $("calibError").hidden = false; $("calibError").textContent = s.message; }
+  } else {
+    selectTab(result.canHide ? "report" : "teams");
+  }
   if (wantedReport && result.canHide && (wantedReport.team === "both" || rTeams.includes(wantedReport.team))) {
     rTeam = wantedReport.team; rPhase = wantedReport.phase;
     drawReportControls();
@@ -941,13 +1000,180 @@ function playReveal(jobId) {
 }
 
 function selectTab(which) {
-  const rep = which === "report";
-  $("tabReport").classList.toggle("on", rep); $("tabReport").setAttribute("aria-selected", rep);
-  $("tabTeams").classList.toggle("on", !rep); $("tabTeams").setAttribute("aria-selected", !rep);
-  $("reportPane").hidden = !rep; $("teamsPane").hidden = rep;
+  for (const [tab, pane, name] of [["tabReport", "reportPane", "report"], ["tabPitch", "pitchPane", "pitch"], ["tabTeams", "teamsPane", "teams"]]) {
+    const on = which === name;
+    $(tab).classList.toggle("on", on); $(tab).setAttribute("aria-selected", on);
+    $(pane).hidden = !on;
+  }
+  if (which === "pitch") openPitch();
 }
 $("tabReport").onclick = () => selectTab("report");
+$("tabPitch").onclick = () => selectTab("pitch");
 $("tabTeams").onclick = () => selectTab("teams");
+
+// ------------------------------------------------------------ pitch marking
+// The coach clicks spots where two pitch lines cross and names the lines.
+// Points are kept in the video's own pixels, per frame.
+
+let calib = null, calibFrame = 0, calibLoadTimer = null, afterCalib = false;
+const clock = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
+async function openPitch() {
+  if (calib && calib.jobId === result.jobId) {
+    drawCalib();
+    if (calib.followed && calib.points.length) drawPitchCheck();
+    return;
+  }
+  $("calibError").hidden = true;
+  try {
+    const r = await fetch(`/calibration/${result.jobId}`);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Couldn't load the pitch marking.");
+    calib = { ...data, jobId: result.jobId };
+  } catch (e) {
+    $("calibError").hidden = false; $("calibError").textContent = e.message;
+    return;
+  }
+  $("pLen").value = calib.length; $("pWid").value = calib.width;
+  $("calibSlider").max = Math.max(0, calib.frames - 1);
+  calibFrame = calib.points.length ? calib.points[0].f : Math.floor(calib.frames / 3);
+  $("calibSlider").value = calibFrame;
+  loadCalibFrame();
+  drawCalib();
+  if (calib.points.length && calib.followed) drawPitchCheck();
+}
+
+function loadCalibFrame() {
+  $("calibTime").textContent = clock(calibFrame / (calib.fps || 25));
+  $("calibImg").src = `/frame/${calib.jobId}?f=${calibFrame}&w=960`;
+  drawCalib();
+}
+$("calibSlider").oninput = () => {
+  calibFrame = +$("calibSlider").value;
+  $("calibTime").textContent = clock(calibFrame / (calib.fps || 25));
+  clearTimeout(calibLoadTimer);
+  calibLoadTimer = setTimeout(loadCalibFrame, 250);  // don't fetch every step while dragging
+};
+
+$("calibFrame").onclick = e => {
+  if (!calib || !calib.size[0]) return;
+  const box = $("calibImg").getBoundingClientRect();
+  if (!box.width) return;
+  const x = (e.clientX - box.left) / box.width * calib.size[0];
+  const y = (e.clientY - box.top) / box.height * calib.size[1];
+  if (calib.points.length >= 40) return;
+  calib.points.push({ f: calibFrame, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, across: "", along: "" });
+  drawCalib();
+};
+
+function drawCalib() {
+  if (!calib) return;
+  const dots = $("calibDots"); dots.innerHTML = "";
+  const list = $("calibList"); list.innerHTML = "";
+  calib.points.forEach((p, i) => {
+    if (p.f === calibFrame) {
+      dots.append(el("span", { class: "calib-dot", style: `left:${p.x / calib.size[0] * 100}%;top:${p.y / calib.size[1] * 100}%` }, String(i + 1)));
+    }
+    const pick = (options, key, placeholder) => {
+      const sel = el("select");
+      sel.setAttribute("aria-label", placeholder);
+      sel.append(el("option", { value: "" }, placeholder));
+      for (const [k, label] of options) sel.append(el("option", { value: k, selected: p[key] === k }, label));
+      sel.onchange = () => { p[key] = sel.value; };
+      return sel;
+    };
+    const when = el("button", { type: "button", class: "when", title: "Show this frame" }, clock(p.f / (calib.fps || 25)));
+    when.onclick = () => { calibFrame = p.f; $("calibSlider").value = p.f; loadCalibFrame(); };
+    const rm = el("button", { type: "button", class: "rm", title: "Remove this point" }, "×");
+    rm.setAttribute("aria-label", `Remove point ${i + 1}`);
+    rm.onclick = () => { calib.points.splice(i, 1); drawCalib(); };
+    list.append(el("li", {}, el("span", { class: "num" }, String(i + 1)), when,
+      pick(calib.across, "across", "Line across the pitch…"), pick(calib.along, "along", "Line along the pitch…"), rm));
+  });
+  if (!calib.points.length) list.append(el("li", { class: "muted small" }, "No points yet: click on the picture where two lines cross."));
+}
+
+async function saveCalib(body) {
+  $("calibError").hidden = true;
+  $("calibSave").disabled = true;
+  try {
+    const r = await fetch(`/calibration/${result.jobId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401) return toLogin();
+    if (!r.ok) throw new Error(data.error || "Couldn't save the pitch marking.");
+    return data;
+  } catch (e) {
+    $("calibError").hidden = false; $("calibError").textContent = e.message || "Can't reach the laptop.";
+    return null;
+  } finally {
+    $("calibSave").disabled = false;
+  }
+}
+
+$("calibSave").onclick = async () => {
+  if (calib.points.some(p => !p.across || !p.along)) {
+    $("calibError").hidden = false;
+    $("calibError").textContent = "Pick a line across and a line along the pitch for every point.";
+    return;
+  }
+  const data = await saveCalib({ length: +$("pLen").value, width: +$("pWid").value, points: calib.points });
+  if (!data) return;
+  if (data.queued) {
+    afterCalib = true;
+    resetLive();
+    show(["progressCard"]);
+    setStage("Following the camera…", "camera");
+    setProgress(0, "");
+    poll(result.jobId);
+  } else {
+    calib.followed = true;
+    drawPitchCheck();
+  }
+};
+
+$("calibClear").onclick = async () => {
+  if (!confirm("Remove all marked points for this video?")) return;
+  const data = await saveCalib({ clear: true });
+  if (!data) return;
+  calib.points = [];
+  $("pitchCheck").hidden = true;
+  drawCalib();
+};
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+
+async function drawPitchCheck() {
+  let data;
+  try {
+    const r = await fetch(`/pitch/${calib.jobId}?f=${calibFrame}`);
+    if (!r.ok) return;
+    data = await r.json();
+  } catch { return; }
+  const L = data.length, W = data.width, m = 6;
+  const map = $("pitchMap"); map.innerHTML = "";
+  map.setAttribute("viewBox", `${-m} ${-m} ${L + 2 * m} ${W + 2 * m}`);
+  map.append(svg("rect", { x: -m, y: -m, width: L + 2 * m, height: W + 2 * m, fill: "#10331f" }));
+  map.append(svg("rect", { x: 0, y: 0, width: L, height: W, fill: "#17492c", stroke: "#e8f5ec", "stroke-width": 0.4 }));
+  const across = [[22, 0], [L - 22, 0], [L / 2, 0], [L / 2 - 10, 1], [L / 2 + 10, 1], [5, 1], [L - 5, 1]];
+  for (const [x, dash] of across) map.append(svg("line", { x1: x, y1: 0, x2: x, y2: W, stroke: "#e8f5ec", "stroke-width": 0.3, "stroke-dasharray": dash ? "1.5 1.5" : "none", opacity: 0.8 }));
+  for (const y of [5, 15, W - 15, W - 5]) map.append(svg("line", { x1: 0, y1: W - y, x2: L, y2: W - y, stroke: "#e8f5ec", "stroke-width": 0.25, "stroke-dasharray": "1.5 1.5", opacity: 0.6 }));
+  // Near touchline at the bottom, like the camera sees it.
+  for (const p of data.players) map.append(svg("circle", { cx: p.x, cy: W - p.y, r: 1.4, fill: colorOf(p.team), stroke: "#000", "stroke-width": 0.25 }));
+  $("pitchCheckText").textContent = data.mapped
+    ? `At ${clock(calibFrame / (calib.fps || 25))}: ${data.players.length} players placed. They should stand where they are in the picture. If they're mirrored or off the pitch, check which lines you picked.`
+    : "This frame couldn't be measured (a replay or close-up, or the camera couldn't be followed from a marked frame). Move the slider to a wide shot, or mark this frame too.";
+  $("pitchCheck").hidden = false;
+}
+$("calibImg").addEventListener("load", () => { if (calib && calib.followed && calib.points.length) drawPitchCheck(); });
 
 // ------------------------------------------------------------ teams / hide
 
@@ -1103,6 +1329,7 @@ function renderReport(data) {
     shared.forEach(n => box.append(el("p", { class: "rnote", style: "margin:4px 0", html: ICONS.note }, n)));
     out.append(box);
   }
+  renderBreakdowns(out, data);
   for (const s of data.sections) {
     out.append(el("div", { class: "report-head", style: `--team:${colorOf(s.team)}` },
       el("span", { class: "dot", style: `background:${colorOf(s.team)}` }),
@@ -1122,7 +1349,8 @@ function renderReport(data) {
       stat(fmt(st.players_in_view), "players in view (average)"),
       stat(fmt(st.players_in_line), "standing in the line"),
       stat(fmt(st.per_breakdown), "players per ruck / maul"),
-      stat(st.usual_spacing == null ? "–" : st.usual_spacing, "usual spacing (body lengths)")));
+      stat(st.usual_spacing == null ? "–" : st.usual_spacing, "usual spacing (body lengths)"),
+      st.line_speed == null ? null : stat(st.line_speed + " m/s", s.phase === "attack" ? "opposition line speed" : "defensive line speed")));
 
     for (const n of s.notes.filter(n => !shared.includes(n))) out.append(el("p", { class: "rnote", html: ICONS.note }, n));
     if (!s.points.length && !s.notes.length) out.append(el("p", { class: "empty" }, "Nothing stood out in this video."));
@@ -1136,28 +1364,78 @@ function renderReport(data) {
             el("h4", {}, p.title),
             el("p", {}, p.detail),
             el("p", { class: "why" }, p.why))));
-      if (p.moments.length) {
-        const grid = el("div", { class: "moments" });
-        for (const m of p.moments) {
-          const q = new URLSearchParams({ f: m.frame, team: s.team, opp: s.opponent || "", hl: m.hl });
-          const card = el("button", { type: "button", class: "moment", title: "Play this moment in the video" },
-            el("div", { class: "thumb" },
-              el("img", { src: `/snapshot/${result.jobId}?${q}`, alt: m.label }),
-              el("span", { class: "play", html: ICONS.play + " " + m.time })),
-            el("div", { class: "cap" }, m.label));
-          card.onclick = () => seekTo(m.t);
-          grid.append(card);
-        }
-        box.append(grid);
-      }
+      if (p.moments.length) box.append(momentGrid(p.moments, s.team, s.opponent || ""));
       out.append(box);
     }
   }
   out.append(el("div", { class: "caveat" },
     el("strong", {}, "How to read this. "),
-    "The app measures what the camera shows, in \"body lengths\" (a player's height on screen), not metres. " +
+    (data.pitch && data.pitch.coverage
+      ? `Line speed and mauls are in metres, from the pitch points you marked (${data.pitch.coverage}% of the wide footage could be measured). Other points use "body lengths" (a player's height on screen). `
+      : "The app measures what the camera shows, in \"body lengths\" (a player's height on screen), not metres. ") +
     "Players off-screen aren't counted, and far-away players can be missed or marked unsure. " +
     "Use these points as a guide to which moments to review, and always check them on the video."));
+}
+
+function momentGrid(moments, team, opp) {
+  const grid = el("div", { class: "moments" });
+  for (const m of moments) {
+    const q = new URLSearchParams({ f: m.frame, team, opp, hl: m.hl });
+    const card = el("button", { type: "button", class: "moment", title: "Play this moment in the video" },
+      el("div", { class: "thumb" },
+        el("img", { src: `/snapshot/${result.jobId}?${q}`, alt: m.label }),
+        el("span", { class: "play", html: ICONS.play + " " + m.time })),
+      el("div", { class: "cap" }, m.label));
+    card.onclick = () => seekTo(m.t);
+    grid.append(card);
+  }
+  return grid;
+}
+
+// Rucks, mauls and scrums: both teams together (who won the ball isn't known).
+function renderBreakdowns(out, data) {
+  const b = data.breakdowns, pt = data.pitch || {};
+  if (!b) return;
+  const box = el("div", { class: "breakdowns" });
+  box.append(el("div", { class: "report-head" }, el("h3", {}, "Breakdowns"), el("span", { class: "phase" }, "Both teams")));
+  const pct = n => b.timed ? Math.round(100 * n / b.timed) + "%" : "–";
+  box.append(el("div", { class: "stats" },
+    stat(b.rucks, "rucks seen"),
+    stat(b.median == null ? "–" : b.median + " s", "typical ruck time"),
+    stat(pct(b.quick), `quick ball (under ${b.quick_limit} s)`),
+    stat(pct(b.slow), `slow ball (over ${b.slow_limit} s)`),
+    pt.coverage ? stat(b.mauls, "mauls") : null,
+    stat(b.scrums, "scrums")));
+  if (!b.rucks) {
+    box.append(el("p", { class: "rnote", html: ICONS.note }, "No rucks were seen in the wide shots of this video."));
+  } else {
+    const detail = b.timed
+      ? `${b.timed} of ${b.rucks} rucks could be timed from start to end: ${b.quick} quick, ${b.medium} medium, ${b.slow} slow. ` +
+        "Ruck time runs from the players meeting at the tackle until the group breaks up, which is usually when the ball comes out."
+      : "None of the rucks could be timed from start to end (they started or ended off camera or during a replay).";
+    const kind = b.timed && b.slow > b.quick ? "issue" : b.timed && b.quick >= b.timed / 2 ? "good" : "info";
+    const p = el("div", { class: `point ${kind}` },
+      el("div", { class: "point-top" },
+        el("span", { class: "kind-ic", html: ICONS[kind] }),
+        el("div", { style: "flex:1;min-width:0" },
+          el("div", { class: "tag" }, KIND_NAME[kind]),
+          el("h4", {}, "Ruck speed"),
+          el("p", {}, detail),
+          el("p", { class: "why" }, "Quick ball (under 3 s) catches the defence before it's set. Slow rucks usually " +
+            "mean the ball carrier was isolated, cleaners arrived late, or the opposition slowed it down: " +
+            "check the slowest ones below."))));
+    if (b.moments.length) p.append(momentGrid(b.moments, "", ""));
+    box.append(p);
+  }
+  if (!pt.marked) {
+    box.append(el("p", { class: "rnote", html: ICONS.note },
+      "Tip: mark the pitch in the Pitch tab to get defensive line speed in metres per second and to tell mauls apart from rucks."));
+  } else if (pt.measuring) {
+    box.append(el("p", { class: "rnote", html: ICONS.note }, "The pitch is marked but not measured yet. Open the Pitch tab and press \"Save and measure\"."));
+  } else if (!pt.coverage) {
+    box.append(el("p", { class: "rnote", html: ICONS.note }, "The marked pitch points couldn't be used for this video. Check them in the Pitch tab."));
+  }
+  out.append(box);
 }
 
 function stat(v, k) { return el("div", { class: "stat" }, el("div", { class: "v" }, String(v)), el("div", { class: "k" }, k)); }

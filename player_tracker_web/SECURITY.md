@@ -35,6 +35,16 @@ Date: 25 September 2026. Scope: every route in `app.py`, `accounts.py`, `legal.p
 Uploads are now re-encoded before analysis (`compact.py`): sound and metadata (GPS location,
 phone model) are dropped, so they are no longer stored at all.
 
+## Pitch marking (26 September 2026)
+
+The new `/calibration/<id>` and `/pitch/<id>` routes follow the same rules as every video
+route: only the uploader (and the owner) can open them, others get a 404; saving needs the
+CSRF header; every value is checked on the server (numbers in range, points inside the
+video, known line names, at most 40 points on 8 frames, pitch 40-100 × 25-70 m). Saving is
+limited to 30 times an hour per account, following the camera runs in the same one-at-a-time
+queue as the analysis, and the pitch view counts towards the image rate limit. Marking and
+camera files are deleted with the video.
+
 ## Already in place (from the earlier review)
 
 - Login: HttpOnly + SameSite session cookie (not readable by scripts), signed with a random key.

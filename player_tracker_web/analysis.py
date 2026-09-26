@@ -43,7 +43,7 @@ def _players(detections, size):
         low = (x2 - x1) > 0.9 * (y2 - y1)
         players.append({
             "x": (x1 + x2) / 2, "y": float(y2), "h": float(y2 - y1),
-            "bucket": bucket, "box": (x1, y1, x2, y2), "measurable": not (cut or low),
+            "bucket": bucket, "box": (x1, y1, x2, y2), "measurable": not (cut or low), "id": track_id,
         })
     return players
 

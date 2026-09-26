@@ -53,7 +53,8 @@ PUBLIC_ENDPOINTS = {"login", "static"}
 # Pages a user who must change their password may still open.
 FORCED_CHANGE_OK = {"account", "change_password", "logout", "legal_page", "static"}
 # Paths the upload page calls from JavaScript: answer with JSON, not a redirect.
-API_PREFIXES = ("/analyze", "/status/", "/hide/", "/delete/", "/report/", "/snapshot/", "/frame/", "/video/")
+API_PREFIXES = ("/analyze", "/status/", "/hide/", "/delete/", "/report/", "/snapshot/", "/frame/", "/video/",
+                "/calibration/", "/pitch/")
 
 # Rate limits (in memory; reset when the app restarts).
 login_ip = Throttle(10, 10 * 60)       # wrong passwords from one address

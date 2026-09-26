@@ -27,7 +27,10 @@ import cv2
 import accounts
 import analysis
 import compact
+import numpy as np
+import pitch
 import quota
+import rugby
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
@@ -54,6 +57,7 @@ rejects_per_day = Throttle(3, 86400)    # uploads refused by the content check i
 image_requests = Throttle(300, 60)      # video frames and snapshots per minute (each one decodes video)
 report_requests = Throttle(30, 60)      # coach reports per minute
 redraws_per_hour = Throttle(20, 3600)   # "Update video" redraws per hour
+calibrations_per_hour = Throttle(30, 3600)  # pitch markings saved per hour
 # Pages that send video or images back: counted against the monthly transfer.
 TRANSFER_ENDPOINTS = {"video", "frame", "snapshot", "demo"}
 
@@ -80,6 +84,14 @@ def _detections_path(job_id):
     return os.path.join(OUTPUT_DIR, f"{job_id}.detections.json")
 
 
+def _calib_path(job_id):
+    return os.path.join(OUTPUT_DIR, f"{job_id}.calib.json")
+
+
+def _motion_path(job_id):
+    return os.path.join(OUTPUT_DIR, f"{job_id}.motion.npy")
+
+
 def _save_meta(job_id):
     # Finished jobs are written to disk so results survive a server restart.
     with jobs_lock:
@@ -92,9 +104,9 @@ def _save_meta(job_id):
 
 def _load_saved_jobs():
     for path in glob.glob(os.path.join(OUTPUT_DIR, "*.json")):
-        if path.endswith(".detections.json"):
-            continue
         job_id = os.path.splitext(os.path.basename(path))[0]
+        if "." in job_id:  # detections, pitch marking... not a job's own file
+            continue
         try:
             with open(path) as f:
                 meta = json.load(f)
@@ -186,16 +198,30 @@ def _render(job_id, hidden):
         pass  # still being streamed; harmless to leave behind
 
 
+def _follow_camera(job_id):
+    """How the camera moved, frame to frame (see pitch.py). Done once per
+    video, the first time its pitch is marked."""
+    job = jobs[job_id]
+    with open(_detections_path(job_id)) as f:
+        detections = json.load(f)
+    moves = pitch.camera_motion(job["input"], detections, progress=_progress(job_id, "Following the camera..."))
+    tmp = _motion_path(job_id) + ".part.npy"
+    np.save(tmp, moves)
+    os.replace(tmp, _motion_path(job_id))
+
+
 def worker():
     # One video at a time: YOLO on a laptop already uses all the CPU/GPU it
     # can get, so running jobs in parallel would just make each one slower.
     while True:
         kind, job_id, arg = job_queue.get()
         _update(job_id, status="processing", started=time.time(), done=0, total=0,
-                message="Loading model..." if kind == "analyze" else "Updating video...")
+                message={"analyze": "Loading model...", "motion": "Following the camera..."}.get(kind, "Updating video..."))
         try:
             if kind == "analyze":
                 _analyze(job_id)
+            elif kind == "motion":
+                _follow_camera(job_id)
             else:
                 _render(job_id, arg)
             _update(job_id, status="done", message="Done")
@@ -218,6 +244,8 @@ def worker():
             friendly = str(e) if isinstance(e, ValueError) else "Something went wrong while analysing this video."
             if kind == "analyze":
                 _update(job_id, status="error", message=friendly)
+            elif kind == "motion":
+                _update(job_id, status="done", message="Couldn't follow the camera in this video, so the report stays in body lengths.")
             else:
                 # The previous video is still fine - go back to it.
                 _update(job_id, status="done", message="Could not update the video. The previous version is kept.")
@@ -264,13 +292,13 @@ def _folder_bytes(*folders):
 def _transfer_limit():
     """Stop sending video and images once this month's transfer is used up,
     and don't let one account hammer the pages that decode video."""
-    if request.endpoint not in TRANSFER_ENDPOINTS or not accounts.current_user():
+    if request.endpoint not in TRANSFER_ENDPOINTS | {"pitch_view"} or not accounts.current_user():
         return None
     user = accounts.current_user()
-    problem = _transfer_blocked(user)
+    problem = _transfer_blocked(user) if request.endpoint in TRANSFER_ENDPOINTS else None
     if problem:
         return jsonify(error=problem, limit="transfer"), 429
-    if request.endpoint in ("frame", "snapshot", "demo"):
+    if request.endpoint in ("frame", "snapshot", "demo", "pitch_view"):
         if image_requests.wait(user):
             return jsonify(error="Too many requests. Wait a minute and try again."), 429
         image_requests.hit(user)
@@ -524,7 +552,55 @@ def _prepared_frames(job_id, video_path):
             with open(_detections_path(job_id)) as f:
                 _prepared.clear()  # keep only one video in memory
                 _prepared[job_id] = analysis.prepare(json.load(f), size)
+                _sizes[job_id] = size
         return _prepared[job_id]
+
+
+_sizes = {}
+# job_id -> (key, per-frame pixel -> metres mappings, calibration)
+_mapped = {}
+_mapped_lock = threading.Lock()
+
+
+def _load_calibration(job_id):
+    try:
+        with open(_calib_path(job_id)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def _keyframes(calib):
+    """{frame: homography} from the saved marked points (raises
+    pitch.CalibrationError if a view doesn't work)."""
+    across, along = pitch.lines_across(calib["length"]), pitch.lines_along(calib["width"])
+    views = {}
+    for p in calib["points"]:
+        views.setdefault(p["f"], []).append((p["x"], p["y"], across[p["across"]][1], along[p["along"]][1]))
+    return {f: pitch.solve(pts) for f, pts in views.items()}
+
+
+def _mappings(job_id, job):
+    """(maps, calibration) for a video whose pitch is marked and camera
+    followed, else (None, calibration-or-None)."""
+    calib = _load_calibration(job_id)
+    if not calib or not calib.get("points") or not os.path.exists(_motion_path(job_id)):
+        return None, calib
+    key = (os.path.getmtime(_calib_path(job_id)), os.path.getmtime(_motion_path(job_id)))
+    frames = _prepared_frames(job_id, job["input"])
+    with _mapped_lock:
+        cached = _mapped.get(job_id)
+        if cached and cached[0] == key:
+            return cached[1], calib
+        try:
+            keyframes = _keyframes(calib)
+        except (pitch.CalibrationError, KeyError, TypeError):
+            return None, calib
+        maps = pitch.frame_mappings(len(frames), np.load(_motion_path(job_id)), keyframes)
+        maps = pitch.check_with_players(maps, frames, calib["length"], calib["width"])
+        _mapped.clear()  # one video in memory
+        _mapped[job_id] = (key, maps)
+        return maps, calib
 
 
 def _hex_colors(job):
@@ -578,7 +654,147 @@ def report(job_id):
     fps, _ = video_info(job["input"])
     frames = _prepared_frames(job_id, job["input"])
     sections = [analysis.analyse_team(frames, fps, t, o, p) for t, o, p in plan]
-    return jsonify(fps=fps, teams=main, sections=sections)
+
+    # Rugby layer: breakdowns (always) and line speed (pitch marked).
+    maps, calib = _mappings(job_id, job)
+    events = rugby.breakdowns(frames, fps, maps, _sizes.get(job_id))
+    speeds = rugby.line_speeds(frames, fps, maps, events, main)
+    order = {"issue": 0, "info": 1, "good": 2}
+    for sec in sections:
+        point = rugby.line_speed_point(speeds, sec["team"], sec["opponent"], sec["phase"], fps)
+        if point:
+            sec["stats"]["line_speed"] = point.pop("speed")
+            sec["points"].append(point)
+            sec["points"].sort(key=lambda p: order[p["kind"]])
+    wide = sum(1 for f in frames if f[0])
+    mapped = sum(1 for m in (maps or []) if m is not None)
+    pitch_info = {
+        "marked": bool(calib and calib.get("points")),
+        "measuring": bool(calib and calib.get("points")) and maps is None,
+        "coverage": round(100 * mapped / wide) if maps and wide else 0,
+    }
+    return jsonify(fps=fps, teams=main, sections=sections, breakdowns=rugby.breakdown_summary(events, fps),
+                   pitch=pitch_info)
+
+
+def _video_size(job):
+    cap = cv2.VideoCapture(job["input"])
+    ok, first = cap.read()
+    count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25
+    cap.release()
+    return ((first.shape[1], first.shape[0]) if ok else (0, 0)), count, fps
+
+
+@app.route("/calibration/<job_id>", methods=["GET", "POST"])
+def calibration(job_id):
+    """The coach's marked pitch points for this video (see pitch.py)."""
+    job = _job_or_404(job_id)
+    if not os.path.exists(_detections_path(job_id)):
+        return jsonify(error="This video was analysed before pitch marking existed. Please analyse it again."), 409
+    if request.method == "GET":
+        calib = _load_calibration(job_id) or {}
+        (w, h), count, fps = _video_size(job)
+        length = calib.get("length", pitch.DEFAULT_LENGTH)
+        width = calib.get("width", pitch.DEFAULT_WIDTH)
+        return jsonify(length=length, width=width, points=calib.get("points", []), size=[w, h], frames=count, fps=fps,
+                       across=[[k, v[0]] for k, v in pitch.lines_across(length).items()],
+                       along=[[k, v[0]] for k, v in pitch.lines_along(width).items()],
+                       followed=os.path.exists(_motion_path(job_id)))
+
+    user = accounts.current_user()
+    with jobs_lock:
+        if job["status"] != "done":
+            return jsonify(error="This video is still being processed. Try again when it's finished."), 409
+    body = request.get_json(silent=True, force=True)
+    if not isinstance(body, dict):
+        return jsonify(error="Bad request."), 400
+    if body.get("clear"):
+        try:
+            os.remove(_calib_path(job_id))
+        except OSError:
+            pass
+        return jsonify(ok=True, cleared=True)
+    if calibrations_per_hour.wait(user):
+        return jsonify(error="You've saved the pitch marking a lot in the last hour. Try again later."), 429
+    try:
+        length = float(body.get("length", pitch.DEFAULT_LENGTH))
+        width = float(body.get("width", pitch.DEFAULT_WIDTH))
+    except (TypeError, ValueError):
+        return jsonify(error="Pitch length and width must be numbers."), 400
+    if not (40 <= length <= 100 and 25 <= width <= 70):
+        return jsonify(error="Pitch length must be 40-100 m (try line to try line) and width 25-70 m."), 400
+    (w, h), count, _ = _video_size(job)
+    across, along = pitch.lines_across(length), pitch.lines_along(width)
+    raw = body.get("points")
+    if not isinstance(raw, list) or not 4 <= len(raw) <= 40:
+        return jsonify(error="Mark at least 4 points (and at most 40)."), 400
+    points = []
+    for p in raw:
+        try:
+            pt = {"f": int(p["f"]), "x": float(p["x"]), "y": float(p["y"]),
+                  "across": str(p["across"]), "along": str(p["along"])}
+        except (KeyError, TypeError, ValueError):
+            return jsonify(error="A marked point is incomplete."), 400
+        if not (0 <= pt["f"] < max(count, 1) and 0 <= pt["x"] <= w and 0 <= pt["y"] <= h):
+            return jsonify(error="A marked point is outside the video."), 400
+        if pt["across"] not in across or pt["along"] not in along:
+            return jsonify(error="Pick a line across and a line along the pitch for every point."), 400
+        points.append(pt)
+    if len({p["f"] for p in points}) > 8:
+        return jsonify(error="Use at most 8 different frames."), 400
+    calib = {"length": length, "width": width, "points": points}
+    try:
+        _keyframes(calib)
+    except pitch.CalibrationError as e:
+        frame_views = {}
+        for p in points:
+            frame_views.setdefault(p["f"], 0)
+            frame_views[p["f"]] += 1
+        few = [f for f, n in frame_views.items() if n < 4]
+        if few:
+            return jsonify(error=f"The frame at {_clock(few[0] / (_video_size(job)[2] or 25))} has fewer than 4 points. "
+                                 "Each frame you mark needs at least 4 (or remove its points)."), 400
+        return jsonify(error=str(e)), 400
+    calibrations_per_hour.hit(user)
+    tmp = _calib_path(job_id) + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(calib, f)
+    os.replace(tmp, _calib_path(job_id))
+    if os.path.exists(_motion_path(job_id)):
+        return jsonify(ok=True, queued=False)
+    with jobs_lock:
+        job.update(status="queued", message="Waiting in queue...")
+    job_queue.put(("motion", job_id, None))
+    return jsonify(ok=True, queued=True)
+
+
+def _clock(t):
+    t = int(t)
+    return f"{t // 60}:{t % 60:02d}"
+
+
+@app.route("/pitch/<job_id>")
+def pitch_view(job_id):
+    """Players on a top-down pitch at one frame, to check the marking."""
+    job = _job_or_404(job_id)
+    if job["status"] != "done" or not os.path.exists(_detections_path(job_id)):
+        abort(404)
+    try:
+        frame_no = min(10_000_000, max(0, int(request.args.get("f", 0))))
+    except ValueError:
+        abort(400)
+    maps, calib = _mappings(job_id, job)
+    frames = _prepared_frames(job_id, job["input"])
+    H = maps[frame_no] if maps and frame_no < len(maps) else None
+    out = {"length": (calib or {}).get("length", pitch.DEFAULT_LENGTH),
+           "width": (calib or {}).get("width", pitch.DEFAULT_WIDTH), "mapped": H is not None, "players": []}
+    if H is not None:
+        players = [p for p in frames[frame_no][0] if p["bucket"] not in ("other", "unsure")]
+        xy = pitch.project(H, [(p["x"], p["y"]) for p in players])
+        out["players"] = [{"x": round(float(x), 1), "y": round(float(y), 1), "team": p["bucket"]}
+                          for p, (x, y) in zip(players, xy)]
+    return jsonify(out)
 
 
 @app.route("/snapshot/<job_id>")
