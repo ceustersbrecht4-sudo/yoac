@@ -79,8 +79,9 @@
     .grass { fill: #2b6a3f; } .grass-2 { fill: #2f7445; }
     .pline { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.6; fill: none; }
     .pline.dash { stroke-dasharray: 7 6; }
-    .sock { fill: #1d2320; } .shorts { fill: #1a211d; } .head { fill: #c79a74; }
+    .shorts { fill: #1a211d; } .shade { fill: #000; opacity: .2; } .collar { stroke: rgba(0, 0, 0, .5); }
     .shirt-a { fill: var(--a); } .shirt-b { fill: var(--b); } .shirt-r { fill: #202428; }
+    .sock-a, .sleeve-a { stroke: var(--a); } .sock-b, .sleeve-b { stroke: var(--b); } .sock-r, .sleeve-r { stroke: #202428; }
     .box-a, .box-b, .halo-a, .halo-b, .flag, .ok { fill: none; }
     .box-a { stroke: var(--a); } .box-b { stroke: var(--b); }
     .halo-a { stroke: var(--a-halo); } .halo-b { stroke: var(--b-halo); }
@@ -338,14 +339,14 @@
             <path class="pline dash" d="M0 62 L640 62"/><path class="pline dash" d="M0 318 L640 318"/>
             <path class="pline dash" d="M392 38 L400 346"/>
             {# breakdown #}
-            {{ bx.player(338, 148, "b", 1.08, B ~ " 5") }}{{ bx.player(352, 152, "a", 1.1, A ~ " 8") }}{{ bx.player(344, 162, "a", 1.14) }}
-            {{ bx.player(372, 142, "b", 1.06) }}{{ bx.player(318, 128, "r", 1.02) }}
+            {{ bx.player(334, 148, "b", 1.08, B ~ " 5", pose="crouch", d=-1) }}{{ bx.player(356, 152, "a", 1.1, A ~ " 8", pose="crouch") }}{{ bx.player(344, 164, "a", 1.14, pose="crouch") }}
+            {{ bx.player(376, 142, "b", 1.06, pose="crouch", d=-1) }}{{ bx.player(314, 128, "r", 1.02) }}
             {# defending line #}
             {% for x, y, n in [(420, 84, 12), (432, 118, 13), (436, 196, 6), (452, 246, 11), (466, 302, 2), (400, 58, 14)] %}
-            {{ bx.player(x, y, "b", 0.82 + y / 360 * 0.9, B ~ " " ~ n) }}{% endfor %}
+            {{ bx.player(x, y, "b", 0.82 + y / 360 * 0.9, B ~ " " ~ n, pose="crouch" if loop.index is odd else "stand", d=-1) }}{% endfor %}
             {# attack, deeper #}
             {% for x, y, n in [(300, 92, 10), (286, 190, 9), (252, 236, 12), (228, 288, 15), (206, 336, 14), (330, 66, 3)] %}
-            {{ bx.player(x, y, "a", 0.82 + y / 360 * 0.9, A ~ " " ~ n) }}{% endfor %}</g>
+            {{ bx.player(x, y, "a", 0.82 + y / 360 * 0.9, A ~ " " ~ n, pose="run") }}{% endfor %}</g>
           </svg>
         </div>
         <figcaption class="cap">Drawn the way the tracked video looks: every player boxed and numbered in their shirt colour, the
@@ -414,7 +415,7 @@
       <ol class="rail" id="rail">
         <li data-stage="upload">
           <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
-            {{ bx.player(48, 60, "a", 0.8, box=False) }}{{ bx.player(70, 74, "a", 0.9, box=False) }}{{ bx.player(108, 56, "b", 0.8, box=False) }}{{ bx.player(124, 80, "b", 0.95, box=False) }}
+            {{ bx.player(48, 60, "a", 0.8, box=False, pose="run") }}{{ bx.player(70, 74, "a", 0.9, box=False, pose="run") }}{{ bx.player(108, 56, "b", 0.8, box=False, pose="crouch", d=-1) }}{{ bx.player(124, 80, "b", 0.95, box=False, d=-1) }}
             <rect class="meter-bg" x="0" y="86" width="160" height="10"/><rect class="meter-fg" x="0" y="86" width="98" height="10"/>
             {{ bx.tab(0, 9, "match.mp4", "a", 7) }}</svg>
           <span class="n">Upload</span>
@@ -434,7 +435,7 @@
           <p class="param">samples <b>16 frames</b><br>grass in <b>40%</b> of them<br>later: <b>3+ people</b> in <b>30%</b> of frames</p>
         </li>
         <li data-stage="shrink">
-          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}{{ bx.player(60, 70, "a", 0.9, box=False) }}{{ bx.player(92, 62, "b", 0.85, box=False) }}
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}{{ bx.player(60, 70, "a", 0.9, box=False, pose="run") }}{{ bx.player(92, 62, "b", 0.85, box=False, d=-1) }}
             <rect class="frame-out" x="3" y="14" width="154" height="79"/><rect class="frame-in" x="30" y="30" width="96" height="54"/>
             <text class="label-w" x="120" y="26" font-size="7">4K</text>
             {{ bx.tab(29, 29, "1280 px", "a", 7) }}</svg>
@@ -458,8 +459,8 @@
         </li>
         <li data-stage="teams">
           <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}
-            {{ bx.player(28, 60, "a", 0.85) }}{{ bx.player(46, 78, "a", 0.95) }}{{ bx.player(34, 92, "a", 1.0) }}
-            {{ bx.player(112, 58, "b", 0.85) }}{{ bx.player(132, 76, "b", 0.95) }}{{ bx.player(118, 92, "b", 1.0) }}
+            {{ bx.player(28, 60, "a", 0.85, pose="run") }}{{ bx.player(46, 78, "a", 0.95, pose="run") }}{{ bx.player(32, 92, "a", 1.0, pose="run") }}
+            {{ bx.player(112, 58, "b", 0.85, d=-1) }}{{ bx.player(132, 76, "b", 0.95, pose="crouch", d=-1) }}{{ bx.player(118, 92, "b", 1.0, pose="run", d=-1) }}
             {{ bx.player(80, 72, "r", 0.95) }}
             {{ bx.tab(0, 9, A, "a", 7) }}{{ bx.tab(100, 9, B, "b", 7) }}</svg>
           <span class="n">Teams</span>
@@ -470,7 +471,7 @@
         </li>
         <li data-stage="draw">
           <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
-            {{ bx.player(44, 56, "a", 0.8, A ~ " 9") }}{{ bx.player(60, 86, "a", 0.95, A ~ " 3") }}{{ bx.player(112, 58, "b", 0.8, B ~ " 6") }}{{ bx.player(130, 88, "b", 0.95, B ~ " 2") }}
+            {{ bx.player(40, 56, "a", 0.8, A ~ " 9", pose="run") }}{{ bx.player(56, 86, "a", 0.95, A ~ " 3", pose="run") }}{{ bx.player(112, 58, "b", 0.8, B ~ " 6", d=-1) }}{{ bx.player(128, 88, "b", 0.95, B ~ " 2", pose="crouch", d=-1) }}
             </svg>
           <span class="n">Draw</span>
           <h3>Draw the video</h3>
@@ -580,37 +581,37 @@
         </div>
         <div class="sheet" aria-label="The flags the coach report can raise">
           <div class="row"><div class="side"><span class="kind issue">work on</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [12, 30, 48, 100, 118] %}{{ bx.player(x, 60, "b", 0.78) }}{% endfor %}
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [12, 30, 48, 100, 118] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
     <path class="flag" stroke-width="2" d="M58 44 L58 50 L90 50 L90 44"/><path class="flag" stroke-width="1.5" d="M74 50 L74 56"/></svg></div><div>
             <h3>Holes in the defensive line</h3>
             <p>Two neighbouring defenders much further apart than they usually stand.</p>
             <div class="rule">gap &gt; 2.2 x usual spacing, and &gt; usual + 1.5 body lengths</div></div></div>
           <div class="row"><div class="side"><span class="kind issue">work on</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 94, 118] %}{{ bx.player(x, 62, "b", 0.78) }}{% endfor %}{{ bx.player(66, 44, "b", 0.78, mark="x") }}</svg></div><div>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 94, 118] %}{{ bx.player(x, 62, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}{{ bx.player(66, 44, "b", 0.78, mark="x", pose="crouch", d=-1) }}</svg></div><div>
             <h3>Players out of line (dog-legs)</h3>
             <p>One defender standing well in front of or behind the rest of the line.</p>
             <div class="rule">&gt; 2.5 x the usual step out of line, at least 1.5 body lengths</div></div></div>
           <div class="row"><div class="side"><span class="kind issue">work on</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [22, 50, 78] %}{{ bx.player(x, 64, "b", 0.72) }}{% endfor %}
-    {% for x in [16, 38, 60] %}{{ bx.player(x, 34, "a", 0.66) }}{% endfor %}{{ bx.player(92, 34, "a", 0.66, mark="x") }}{{ bx.player(116, 34, "a", 0.66, mark="x") }}</svg></div><div>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [22, 50, 78] %}{{ bx.player(x, 64, "b", 0.72, pose="crouch", d=-1) }}{% endfor %}
+    {% for x in [16, 38, 60] %}{{ bx.player(x, 34, "a", 0.66, pose="run") }}{% endfor %}{{ bx.player(92, 34, "a", 0.66, mark="x", pose="run") }}{{ bx.player(116, 34, "a", 0.66, mark="x", pose="run") }}</svg></div><div>
             <h3>Outnumbered in defence / overlap chances</h3>
             <p>One side has more players standing in the line than the other.</p>
             <div class="rule">2 or more extra players in the line</div></div></div>
           <div class="row"><div class="side"><span class="kind issue">work on</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(52, 50, "b", 0.74) }}{{ bx.player(62, 54, "b", 0.78) }}{{ bx.player(72, 50, "b", 0.74) }}{{ bx.player(80, 56, "a", 0.78) }}{{ bx.player(58, 62, "b", 0.82) }}
-    <rect class="flag" stroke-width="1.6" x="40" y="24" width="52" height="42"/>{{ bx.player(116, 62, "b", 0.78) }}{{ bx.player(14, 62, "b", 0.78) }}</svg></div><div>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(52, 50, "b", 0.74, pose="crouch", d=-1) }}{{ bx.player(62, 54, "b", 0.78, pose="crouch", d=-1) }}{{ bx.player(72, 50, "b", 0.74, pose="crouch", d=-1) }}{{ bx.player(80, 56, "a", 0.78, pose="run") }}{{ bx.player(58, 62, "b", 0.82, pose="crouch", d=-1) }}
+    <rect class="flag" stroke-width="1.6" x="40" y="24" width="52" height="42"/>{{ bx.player(116, 62, "b", 0.78, pose="crouch", d=-1) }}{{ bx.player(14, 62, "b", 0.78, pose="crouch", d=-1) }}</svg></div><div>
             <h3>Committing too many to the breakdown</h3>
             <p>Players who join the ruck aren't standing in the line.</p>
             <div class="rule">defence: 3+ per ruck on average / attack: 4+</div></div></div>
           <div class="row"><div class="side"><span class="kind info">timed</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(54, 52, "b", 0.76) }}{{ bx.player(66, 56, "a", 0.8) }}{{ bx.player(78, 52, "b", 0.76) }}{{ bx.player(62, 64, "a", 0.84) }}
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(54, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(66, 56, "a", 0.8, pose="run") }}{{ bx.player(78, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(62, 64, "a", 0.84, pose="run") }}
     {{ bx.tab(68, 18, "quick < 3 s", "a", 8) }}</svg></div><div>
             <h3>Ruck speed</h3>
             <p>From the players meeting at the tackle until the group breaks up, for every ruck the camera sees start to end.
               Scrums are counted too.</p>
             <div class="rule">quick ball &lt; 3 s / slow ball &gt; 6 s / scrum = 10+ players in one group</div></div></div>
           <div class="row"><div class="side"><span class="kind good">going well</span>
-            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78) }}{% endfor %}
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
     <path class="ok" stroke-width="2" d="M8 64 L120 64"/></svg></div><div>
             <h3>The same checks, the other way round</h3>
             <p>A line that stayed connected, kept its shape or matched the attack's numbers is reported as going well.</p></div></div>
