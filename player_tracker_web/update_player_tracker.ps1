@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/fd05cc5f4b0cb12f4ec3eb73d9198c43e8c775f2/player_tracker_web"
+$base = "https://raw.githubusercontent.com/ceustersbrecht4-sudo/yoac/0e9aa92af0ac2617b6e8f0474047068f0d3ee979/player_tracker_web"
 $files = @("app.py", "teams.py", "accounts.py", "security.py", "content_check.py", "quota.py", "compact.py", "tracker.py", "analysis.py", "pitch.py", "rugby.py", "demo.py", "tactics.py", "README.md", "templates/_usage.html", "templates/_boxes.html", "legal.py", "SECURITY.md", "requirements.txt", "templates/account.html", "templates/legal.html", "templates/login.html", "templates/index.html", "templates/_front.html", "templates/home.html", "templates/how.html", "templates/match.html", "templates/report.html", "templates/pricing.html", "templates/faq.html", "templates/_cookie_banner.html",
            "static/brand/yoac-logo.png", "static/brand/yoac-wordmark.png", "static/brand/yoac-icon-64.png", "static/brand/yoac-icon-192.png",
            "static/brand/yoac-outline.png", "static/brand/yoac-stencil.png", "static/brand/yoac-y-icon.png", "static/brand/yoac-icon-italic-320.png",
