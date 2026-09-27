@@ -26,8 +26,7 @@
     h1 { font-family: "Barlow Condensed", system-ui, sans-serif; font-style: italic; font-weight: 900; text-transform: uppercase; font-size: clamp(2.6rem, 7vw, 4rem); line-height: .95; margin: 18px 0 6px; }
     h1 .g { color: var(--neon); }
     .lead { color: var(--muted); margin: 0 0 24px; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 16px; animation: in .5s var(--ease) both; }
-    @keyframes in { from { opacity: 0; transform: translateY(12px); } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 16px; }
     .card h2 { font-family: "Barlow Condensed", system-ui, sans-serif; font-weight: 800; font-size: 1.7rem; line-height: 1; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
     .card p.help { color: var(--muted); margin: 0 0 16px; font-size: .93rem; }
     .badge { font-family: system-ui, sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .06); color: var(--muted); border: 1px solid var(--border); }
@@ -83,13 +82,13 @@
       .hide-sm { display: none; }
       header .sub { display: none; }
     }
-    @media (prefers-reduced-motion: reduce) { .card, .msg.err { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .msg.err { animation: none; } }
   
     /* ---- calmer look ---- */
     body { background: #0f1613; }
     h1 { font-style: normal; text-transform: none; }
     h1 .g { color: #fff; }
-    .card { animation: none; border-radius: 10px; background: #161f1a; }
+    .card { border-radius: 10px; background: #161f1a; }
     .btn { border-radius: 8px; }
     .btn-primary { background: #1d7a48; color: #fff; box-shadow: none; }
     .btn-primary:hover { background: #238a53; }

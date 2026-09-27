@@ -27,6 +27,7 @@ import cv2
 import accounts
 import analysis
 import compact
+import demo as front_demo
 import numpy as np
 import pitch
 import quota
@@ -256,7 +257,13 @@ def worker():
 @app.route("/")
 def landing():
     public_plans = {k: v for k, v in quota.plans().items() if not k.startswith("_")}
-    return render_template("landing.html", plans=public_plans)
+    me = accounts.current_user()
+    with jobs_lock:
+        running = [(jid, j) for jid, j in jobs.items()
+                   if j.get("owner") == me and j.get("status") in ("queued", "processing")]
+    active = max(running, key=lambda r: r[1].get("uploaded") or 0, default=None)
+    return render_template("landing.html", plans=public_plans, demo=_demo_info(),
+                           active={"id": active[0], "name": active[1].get("original_name") or "Your video"} if active else None)
 
 
 def _storage_used(user_key):
@@ -910,6 +917,50 @@ def _demo_job():
     return max(done, key=lambda j: os.path.getmtime(j["output"]), default=None)
 
 
+_demo_cache = {}
+
+
+def _demo_info():
+    """Frame number, crops and measured numbers for the front page, from the
+    same video /demo shows. None when there's nothing real to show."""
+    if os.path.exists(os.path.join(DEMO_DIR, "raw.jpg")) and os.path.exists(os.path.join(DEMO_DIR, "tracked.jpg")):
+        try:
+            with open(os.path.join(DEMO_DIR, "demo.json")) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {"frame": 0, "name": "", "size": None, "facts": None, "crops": []}  # pictures only
+    job = _demo_job()
+    if not job:
+        return None
+    job_id = next((jid for jid, j in list(jobs.items()) if j is job), None)
+    if not job_id or not os.path.exists(_detections_path(job_id)):
+        return None
+    key = (job_id, os.path.getmtime(job["output"]))
+    if key not in _demo_cache:
+        # Saved next to the job (and deleted with it), so a full match's
+        # detections are only read once, not after every restart.
+        saved = os.path.join(OUTPUT_DIR, f"{job_id}.front.json")
+        info = None
+        try:
+            with open(saved) as f:
+                info = json.load(f)
+            if info.get("key") != key[1]:
+                info = None
+        except (OSError, ValueError):
+            pass
+        if info is None:
+            with open(_detections_path(job_id)) as f:
+                detections = json.load(f)
+            size, _, fps = _video_size(job)
+            info = dict(front_demo.summary(detections, fps, size, job.get("hidden") or [], job.get("colors"),
+                                           job.get("original_name") or ""), key=key[1])
+            with open(saved, "w") as f:
+                json.dump(info, f)
+        _demo_cache.clear()  # only the latest video is ever shown
+        _demo_cache[key] = info
+    return _demo_cache[key]
+
+
 @app.route("/demo/<kind>.jpg")
 def demo(kind):
     """Matching raw and tracked frames for the before/after slider on the
@@ -924,10 +975,13 @@ def demo(kind):
     job = _demo_job()
     if not job:
         abort(404)
-    cap = cv2.VideoCapture(job["output"])
-    count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    cap.release()
-    frame_no = count // 3  # a third in: past any kick-off close-ups
+    info = _demo_info()
+    if info:
+        frame_no = info["frame"]
+    else:
+        cap = cv2.VideoCapture(job["output"])
+        frame_no = front_demo.frame_index(int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0))
+        cap.release()
     img = _read_frame(job["input"] if kind == "raw" else job["output"], frame_no)
     if img is None:
         abort(404)

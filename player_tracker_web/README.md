@@ -145,6 +145,22 @@ Firewall. Run this once in PowerShell *as administrator*:
 
 and set your Wi-Fi network to **Private** in Windows settings.
 
+## The front page
+
+The front page follows a video through the app: upload (a working upload box), processing (the real
+stages and the settings they run on, lit up live while one of your videos is being analysed) and the
+tracked result. The result part only ever shows real footage: a frame from your latest analysed video
+before and after tracking, close-ups cut from that frame, and numbers counted from its tracking data.
+Until you've analysed a video it says so instead of showing an example.
+
+To show one fixed match to every account instead, pick a finished video (its id is in the address:
+`/upload#job=...`) and run once:
+
+    python demo.py JOB_ID
+
+This writes `static/demo/raw.jpg`, `tracked.jpg` and `demo.json`. Delete those three files to go back
+to each coach's own latest video. Only use footage you're allowed to show to everyone with an account.
+
 ## What's in here
 
 | File | What it does |
@@ -161,6 +177,7 @@ and set your Wi-Fi network to **Private** in Windows settings.
 | `analysis.py` | Coach report: line gaps, dog-legs, numbers, breakdown |
 | `pitch.py` | From pixels to metres: the marked pitch points and following the camera |
 | `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
+| `demo.py` | The front page's frame, close-ups and measured numbers, from a real analysed video |
 | `templates/` | The pages: login, front page, upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |
 | `start.bat` | Double-click to install requirements and start the app |

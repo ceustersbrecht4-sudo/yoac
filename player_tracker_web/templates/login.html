@@ -35,43 +35,20 @@
         linear-gradient(160deg, #0b2418, #050b08 70%);
       border-right: 1px solid var(--border);
     }
-    .grid { position: absolute; inset: -64px; pointer-events: none; opacity: .5;
-      background-image: linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
-      background-size: 64px 64px; animation: drift 26s linear infinite;
-      mask-image: radial-gradient(ellipse at 40% 40%, #000 25%, transparent 75%);
-      -webkit-mask-image: radial-gradient(ellipse at 40% 40%, #000 25%, transparent 75%); }
-    @keyframes drift { to { transform: translate(64px, 64px); } }
-    .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; background: #1f7a4d; filter: blur(70px); opacity: .45; top: -60px; right: -60px; animation: float 13s ease-in-out infinite; pointer-events: none; }
-    @keyframes float { 50% { transform: translate(-50px, 40px) scale(1.15); } }
-    .brand-side > :not(.grid):not(.orb) { position: relative; z-index: 1; }
     .brand-top { display: flex; align-items: center; gap: 12px; }
     .brand-top img { height: 26px; width: auto; }
     .brand-top span { padding-left: 12px; border-left: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: .92rem; }
     .brand-mid { margin: auto 0; padding: 40px 0; }
     .mark { width: 76px; height: 76px; margin-bottom: 26px; }
-    .mark rect { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 1.1s var(--ease) .2s forwards; }
-    .mark polygon { fill: #fff; opacity: 0; transform-origin: 84px 90px; transform: scale(.6); animation: pop .5s var(--ease) .9s forwards; }
-    @keyframes draw { to { stroke-dashoffset: 0; } }
-    @keyframes pop { to { opacity: 1; transform: none; } }
+    .mark rect { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; }
+    .mark polygon { fill: #fff; }
     .brand-mid h1 {
       font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase;
       font-size: clamp(3rem, 5.4vw, 5.2rem); line-height: .92; margin: 0 0 22px; letter-spacing: -.005em;
     }
     .brand-mid h1 .l { display: block; overflow: hidden; }
-    .brand-mid h1 .l > span { display: inline-block; transform: translateY(110%); animation: rise .9s var(--ease) forwards; }
-    .brand-mid h1 .g { background: linear-gradient(90deg, var(--neon), #c9ffe0 40%, var(--neon) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rise .9s var(--ease) forwards, shine 6s linear 1.4s infinite; }
-    @keyframes rise { to { transform: none; } }
-    @keyframes shine { to { background-position: -200% 0; } }
-    .ticker { height: 1.6em; overflow: hidden; color: var(--muted); font-size: 1.1rem; }
-    .ticker ul { list-style: none; margin: 0; padding: 0; animation: tick 12s var(--ease) infinite; }
-    .ticker li { height: 1.6em; display: flex; align-items: center; gap: 10px; }
-    .ticker li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 10px var(--neon); flex: none; }
-    @keyframes tick {
-      0%, 20% { transform: translateY(0); } 25%, 45% { transform: translateY(-1.6em); }
-      50%, 70% { transform: translateY(-3.2em); } 75%, 95% { transform: translateY(-4.8em); } 100% { transform: translateY(-6.4em); }
-    }
-    .mini { margin-top: 34px; width: 100%; max-width: 440px; aspect-ratio: 16 / 7; border-radius: 16px; overflow: hidden; border: 1px solid rgba(69, 224, 124, .25); box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
-    .mini canvas { display: block; width: 100%; height: 100%; }
+
+    .facts { list-style: none; margin: 0; padding: 0; color: var(--muted); font-size: 1.05rem; display: grid; gap: 6px; }
     .brand-foot { color: var(--muted); font-size: .85rem; display: flex; align-items: center; gap: 8px; }
     .brand-foot svg { color: var(--neon); flex: none; }
 
@@ -81,12 +58,10 @@
       width: 100%; max-width: 420px; padding: 34px 30px; border-radius: 24px; position: relative;
       background: linear-gradient(180deg, rgba(19, 42, 31, .75), rgba(12, 26, 19, .85));
       border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
-      opacity: 0; transform: translateY(18px); animation: in .8s var(--ease) .35s forwards;
     }
     .card::before { content: ""; position: absolute; inset: -1px; border-radius: 25px; padding: 1px; pointer-events: none;
       background: linear-gradient(140deg, rgba(69, 224, 124, .55), transparent 35%, transparent 65%, rgba(69, 224, 124, .35));
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
-    @keyframes in { to { opacity: 1; transform: none; } }
     .card h2 { font-family: var(--display); font-weight: 800; font-size: 2.3rem; line-height: 1; margin: 0 0 6px; }
     .card .sub { color: var(--muted); margin: 0 0 22px; font-size: .95rem; }
     .tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: #0a1711; border: 1px solid var(--border); border-radius: 14px; padding: 4px; margin-bottom: 24px; }
@@ -122,8 +97,6 @@
     }
     .submit:hover { background: #6cf09a; }
     .submit:active { transform: scale(.98); }
-    .submit::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent); transform: skewX(-20deg); animation: sweep 3.2s ease-in-out 1.5s infinite; }
-    @keyframes sweep { 0%, 70% { left: -60%; } 100% { left: 130%; } }
     .submit .spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(3, 20, 10, .3); border-top-color: #03140a; animation: rot .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
     .submit.busy .spin { display: inline-block; }
     @keyframes rot { to { transform: rotate(360deg); } }
@@ -151,35 +124,27 @@
       .brand-mid { padding: 28px 0 0; }
       .mark { display: none; }
       .brand-mid h1 { font-size: 2.6rem; margin-bottom: 12px; }
-      .ticker { font-size: .95rem; }
-      .ticker li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .mini, .brand-foot { display: none; }
+      .facts { font-size: .95rem; }
+      .brand-foot { display: none; }
       .form-side { padding: 28px 16px 120px; place-items: start center; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
-      .card, .brand-mid h1 .l > span, .brand-mid h1 .g { opacity: 1; transform: none; }
-      .mark rect { stroke-dashoffset: 0; } .mark polygon { opacity: 1; transform: none; }
     }
   
     /* ---- calmer look ---- */
-    .grid, .orb, .mini { display: none !important; }
     .brand-side { background: #0f1613; }
     .brand-mid h1 { font-style: normal; text-transform: none; font-size: clamp(2.6rem, 4.6vw, 4rem); }
-    .brand-mid h1 .g { background: none; -webkit-text-fill-color: currentColor; color: #fff; animation: rise .9s cubic-bezier(.2,.7,.2,1) forwards; }
     .card { background: #161f1a; border-radius: 12px; }
     .card::before { display: none; }
     .tabs .pill { background: #1d7a48; box-shadow: none; border-radius: 8px; }
     .tabs button[aria-selected="true"] { color: #fff; }
     .submit { background: #1d7a48; color: #fff; border-radius: 8px; box-shadow: none; }
     .submit:hover { background: #238a53; }
-    .submit::after { display: none; }
-    .ticker li::before { box-shadow: none; }
 </style>
 </head>
 <body>
   <aside class="brand-side">
-    <div class="grid"></div><div class="orb"></div>
     <div class="brand-top">
       <img src="{{ url_for('static', filename='brand/yoac-logo.png') }}" alt="YOAC">
       <span>Player Tracker</span>
@@ -191,19 +156,14 @@
         <polygon points="106,57 130,57 88,99 88,107 70,125 70,93"/>
       </svg>
       <h1>
-        <span class="l"><span style="animation-delay:.3s">Your Online</span></span>
-        <span class="l"><span class="g" style="animation-delay:.45s">AI Coach.</span></span>
+        <span class="l">Your Online</span>
+        <span class="l">AI Coach.</span>
       </h1>
-      <div class="ticker" aria-hidden="true">
-        <ul>
-          <li>Track every player in your match video</li>
-          <li>Two teams sorted by shirt colour</li>
-          <li>Referee left out automatically</li>
-          <li>Coach report with moments to review</li>
-          <li>Track every player in your match video</li>
-        </ul>
-      </div>
-      <div class="mini"><canvas id="mini" aria-hidden="true"></canvas></div>
+      <ul class="facts">
+        <li>Every player in your match video tracked and numbered</li>
+        <li>Two teams sorted by shirt colour, the referee left out</li>
+        <li>A coach report with the moments to rewatch</li>
+      </ul>
     </div>
     <div class="brand-foot">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
@@ -234,7 +194,7 @@
     {% else %}
     <form class="card {{ 'signup-mode' if mode == 'signup' else '' }}" id="form" method="post" action="{{ url_for('login') }}" novalidate>
       <h2 id="title">{{ 'Create your account' if mode == 'signup' else 'Welcome back' }}</h2>
-      <p class="sub" id="sub">{% if mode == 'signup' %}{{ 'You need an invite code from the owner of this app.' if need_invite else 'You’re the first: this account becomes the owner.' }}{% else %}Log in to analyse your match footage.{% endif %}</p>
+      <p class="sub" id="sub">{% if mode == 'signup' %}{{ 'You need an invite code from the owner of this app.' if need_invite else "You're the first: this account becomes the owner." }}{% else %}Log in to analyse your match footage.{% endif %}</p>
 
       <div class="tabs {{ 'signup' if mode == 'signup' else '' }}" id="tabs" role="tablist">
         <span class="pill" aria-hidden="true"></span>
@@ -313,12 +273,11 @@
     "use strict";
     var MIN = {{ min_password }};
     if (!document.getElementById("form")) return;  // two-step login page has no sign-up form
-    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var form = document.getElementById("form"), tabs = document.getElementById("tabs"), modeInput = document.getElementById("mode");
     var pw = document.getElementById("password"), confirmInput = document.getElementById("confirm");
     var TEXT = {
       login: { title: "Welcome back", sub: "Log in to analyse your match footage.", submit: "Log in", fine: "New here? Create an account in a few seconds." },
-      signup: { title: "Create your account", sub: {{ ('"You need an invite code from the owner of this app."' if need_invite else '"You\u2019re the first: this account becomes the owner."') | safe }}, submit: "Create account", fine: "Already have an account? Use the Log in tab." }
+      signup: { title: "Create your account", sub: {{ ('"You need an invite code from the owner of this app."' if need_invite else '"You\u0027re the first: this account becomes the owner."') | safe }}, submit: "Create account", fine: "Already have an account? Use the Log in tab." }
     };
 
     function setMode(mode, keepError) {
@@ -407,44 +366,6 @@
     }
     (form.querySelector(".error") ? pw : document.getElementById("username")).focus({ preventScroll: true });
 
-    // Small looping tracking demo: players drift, a scan line boxes them in team colours.
-    var canvas = document.getElementById("mini");
-    if (!canvas || getComputedStyle(canvas.parentNode).display === "none") return;
-    var ctx = canvas.getContext("2d"), W = 0, H = 0, dots = [];
-    for (var i = 0; i < 14; i++) dots.push({ t: i % 2, x: 0.15 + (i % 7) * 0.11 + (i % 2) * 0.05, y: 0.2 + Math.floor(i / 7) * 0.45 + (i % 3) * 0.08, p: Math.random() * 6.28 });
-    function size() {
-      var r = canvas.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
-      W = r.width; H = r.height; canvas.width = W * d; canvas.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
-    }
-    function draw(ms) {
-      var t = ms / 1000, c = t % 6, scan = c < 3 ? c / 3 * W : W + 1, s = H * 0.1;
-      for (var k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? "#236b40" : "#277547"; ctx.fillRect(k * W / 8, 0, W / 8 + 1, H); }
-      ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1.5;
-      [0.25, 0.5, 0.75].forEach(function (f) { ctx.beginPath(); ctx.moveTo(f * W, 0); ctx.lineTo(f * W, H); ctx.stroke(); });
-      dots.forEach(function (d) {
-        var x = (d.x + 0.02 * Math.sin(t * 0.8 + d.p)) * W, y = (d.y + 0.03 * Math.cos(t * 0.6 + d.p)) * H;
-        ctx.fillStyle = d.t ? "#2c6fd1" : "#d83a3a";
-        ctx.beginPath(); ctx.arc(x, y, s * 0.4, 0, 6.28); ctx.fill();
-        if (x < scan && c < 5.5) {
-          ctx.strokeStyle = d.t ? "#4f9bff" : "#ff5a5a"; ctx.lineWidth = 2;
-          ctx.strokeRect(x - s * 0.7, y - s * 0.75, s * 1.4, s * 1.5);
-        }
-      });
-      if (scan <= W) {
-        ctx.save(); ctx.shadowColor = "#45e07c"; ctx.shadowBlur = 14;
-        ctx.fillStyle = "#b8ffd4"; ctx.fillRect(scan - 1.5, 0, 3, H); ctx.restore();
-      }
-    }
-    size(); draw(3000);
-    addEventListener("resize", function () { size(); draw(performance.now()); });
-    if (reduce) return;
-    var running = false, raf = 0;
-    function loop(ms) { draw(ms); if (running) raf = requestAnimationFrame(loop); }
-    document.addEventListener("visibilitychange", function () {
-      if (document.hidden) { running = false; cancelAnimationFrame(raf); }
-      else if (!running) { running = true; raf = requestAnimationFrame(loop); }
-    });
-    running = true; raf = requestAnimationFrame(loop);
   })();
   </script>
   {% include "_cookie_banner.html" %}
