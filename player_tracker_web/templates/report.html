@@ -51,6 +51,20 @@
             <h3>Possible offside at the ruck (pitch marked)</h3>
             <p>A defender standing in front of the offside line, the hindmost foot of the ruck on their side, just before the ball comes out.</p>
             <div class="rule">&gt; 1 m in front of the line, for most of the last 1 s before the ball is out (Law 15)</div></div></div>
+          <div class="row"><div class="side"><span class="kind info">info</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(22, 46, "a", 0.74, pose="crouch") }}{{ bx.player(34, 54, "b", 0.74, pose="crouch", d=-1) }}
+    {% for y in [22, 44, 66] %}{{ bx.player(84, y, "b", 0.7, pose="run", d=-1) }}{% endfor %}
+    <path class="flag" stroke-width="1.6" d="M104 16 L90 16 M90 12 L86 16 L90 20"/><path class="ok" stroke-width="1.6" d="M106 40 L106 60 M102 56 L106 62 L110 56"/></svg></div><div>
+            <h3>Blitz or drift (pitch marked)</h3>
+            <p>After each ruck, whether the defending line came forward hard or slid out towards the touchline.</p>
+            <div class="rule">blitz: forward &ge; 2.5 m/s / drift: spreading out &ge; 1 m/s and faster than forward</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for k in range(4) %}{{ bx.player(52 + 6 * k, 46 + (k % 2) * 6, "a", 0.62, pose="crouch") }}{{ bx.player(80 + 6 * k, 46 + (k % 2) * 6, "b", 0.62, pose="crouch", d=-1) }}{% endfor %}
+    <path class="pline dash" d="M28 6 L28 70"/>{{ bx.player(38, 26, "a", 0.66, mark="x") }}{{ bx.player(12, 62, "a", 0.66) }}
+    {{ bx.tab(2, 10, "5 m", "a", 6) }}</svg></div><div>
+            <h3>Backs too close at the scrum (pitch marked)</h3>
+            <p>Backs must stay 5 m behind their own scrum's hindmost foot until it ends. The scrum-half may stand close.</p>
+            <div class="rule">&lt; 4 m behind the hindmost foot, for most of the scrum (Law 19)</div></div></div>
           <div class="row"><div class="side"><span class="kind good">going well</span>
             <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
     <path class="ok" stroke-width="2" d="M8 64 L120 64"/></svg></div><div>
@@ -67,7 +81,8 @@
             the camera as it pans and zooms, and the report adds:</p>
           <p><b>Line speed</b> in the first 1.5 s after the ball leaves a ruck: under 1.5 m/s is flagged as passive, 2.5 m/s and
             more as good.<br><b>Mauls</b>, told apart from rucks: a breakdown that moves 3 m or more.<br><b>Offside at the ruck</b>:
-            defenders in front of the hindmost foot just before the ball comes out.</p>
+            defenders in front of the hindmost foot just before the ball comes out.<br><b>Lineouts</b>:
+            both teams in a single line between the 5 m and 15 m lines, and whether a maul followed.</p>
           <p>Following the camera runs once per video, a few minutes for a full match.</p>
         </div>
         <figure style="margin:0">

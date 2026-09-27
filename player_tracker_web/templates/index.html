@@ -1410,9 +1410,24 @@ function renderBreakdowns(out, data) {
     if (b.moments.length) p.append(momentGrid(b.moments, "", ""));
     box.append(p);
   }
+  if (b.lineouts != null) {
+    const lo = el("div", { class: "point info" },
+      el("div", { class: "point-top" },
+        el("span", { class: "kind-ic", html: ICONS.info }),
+        el("div", { style: "flex:1;min-width:0" },
+          el("div", { class: "tag" }, KIND_NAME.info),
+          el("h4", {}, "Lineouts"),
+          el("p", {}, b.lineouts
+            ? `${b.lineouts} lineout${b.lineouts > 1 ? "s" : ""} seen, ${b.lineout_mauls} of them went into a maul.`
+            : "No lineouts were seen in the parts of the video where the pitch is measured."),
+          el("p", { class: "why" }, "A lineout is both teams in a single line between the 5 m and 15 m lines. Lineouts won on the " +
+            "opposition's throw are one of the numbers that most often separate winning and losing teams."))));
+    if (b.lineout_moments && b.lineout_moments.length) lo.append(momentGrid(b.lineout_moments, "", ""));
+    box.append(lo);
+  }
   if (!pt.marked) {
     box.append(el("p", { class: "rnote", html: ICONS.note },
-      "Tip: mark the pitch in the Pitch tab to get defensive line speed in metres per second and to tell mauls apart from rucks."));
+      "Tip: mark the pitch in the Pitch tab to get defensive line speed in metres per second, blitz or drift, mauls told apart from rucks, lineouts, and offside at rucks and scrums."));
   } else if (pt.measuring) {
     box.append(el("p", { class: "rnote", html: ICONS.note }, "The pitch is marked but not measured yet. Open the Pitch tab and press \"Save and measure\"."));
   } else if (!pt.coverage) {

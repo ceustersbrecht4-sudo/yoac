@@ -711,15 +711,19 @@ def report(job_id):
     events = rugby.breakdowns(frames, fps, maps, _sizes.get(job_id))
     speeds = rugby.line_speeds(frames, fps, maps, events, main)
     offside = rugby.offside_at_rucks(frames, fps, maps, events, main)
+    scrum_off = rugby.scrum_offside(frames, fps, maps, events, main)
+    lineout_list = rugby.lineouts(frames, fps, maps, events, calib.get("width")) if maps and calib else None
     order = {"issue": 0, "info": 1, "good": 2}
     for sec in sections:
         point = rugby.line_speed_point(speeds, sec["team"], sec["opponent"], sec["phase"], fps)
         if point:
             sec["stats"]["line_speed"] = point.pop("speed")
             sec["points"].append(point)
-        point = rugby.offside_point(offside, sec["team"], sec["phase"])
-        if point:
-            sec["points"].append(point)
+        for point in (rugby.offside_point(offside, sec["team"], sec["phase"]),
+                      rugby.defence_style_point(speeds, sec["team"], sec["phase"]),
+                      rugby.scrum_offside_point(scrum_off, sec["team"])):
+            if point:
+                sec["points"].append(point)
         sec["points"].sort(key=lambda p: order[p["kind"]])
     wide = sum(1 for f in frames if f[0])
     mapped = sum(1 for m in (maps or []) if m is not None)
@@ -728,7 +732,7 @@ def report(job_id):
         "measuring": bool(calib and calib.get("points")) and maps is None,
         "coverage": round(100 * mapped / wide) if maps and wide else 0,
     }
-    return jsonify(fps=fps, teams=main, sections=sections, breakdowns=rugby.breakdown_summary(events, fps),
+    return jsonify(fps=fps, teams=main, sections=sections, breakdowns=rugby.breakdown_summary(events, fps, lineout_list),
                    pitch=pitch_info)
 
 

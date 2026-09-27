@@ -48,6 +48,12 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
   - **Mauls** (a breakdown that moves 3 m or more) told apart from rucks.
   - **Possible offside at the ruck** (Law 15): a defender standing more than 1 m in front of the offside
     line (the hindmost foot of the ruck on their side) for most of the last second before the ball comes out.
+  - **Blitz or drift** after each ruck: the line coming forward hard (2.5 m/s and more) or sliding out towards
+    the touchline (spreading at 1 m/s and more, faster than it comes forward).
+  - **Backs too close at the scrum** (Law 19): backs less than 4 m (5 m in law, minus measuring error) behind
+    their own scrum's hindmost foot. The player nearest the scrum is taken to be the scrum-half.
+  - **Lineouts**: both teams in a single line, about a metre apart, between the 5 m and 15 m lines, for at
+    least a second; and how many turned into a maul.
   Mark an extra frame after a replay or camera cut; each marked frame needs 4 points.
 
 All thresholds are named at the top of `rugby.py`. These are measurements from one camera:

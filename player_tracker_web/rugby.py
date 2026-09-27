@@ -22,6 +22,12 @@ With the pitch marked (pitch.py), positions are in metres, which adds:
   behind the offside line through the hindmost foot of the ruck on their
   side. Defenders standing in front of it just before the ball comes out
   are shown as moments to check.
+- defensive system: after each ruck, whether the defence mostly came
+  forward (blitz) or slid out towards the touchline (drift).
+- lineouts: both teams in a single line between the 5 m and 15 m lines,
+  and whether the lineout turned into a maul.
+- offside at the scrum (Law 19): backs must stay 5 m behind the hindmost
+  foot of their own scrum.
 
 Thresholds are rules of thumb; each is a named constant below.
 """
@@ -48,6 +54,13 @@ OFFSIDE_WINDOW = 1.0   # s before the ball comes out that players are checked fo
 OFFSIDE_MARGIN = 1.0   # m in front of the offside line before it counts (one camera isn't exact)
 OFFSIDE_SIDE = 1.5     # m across the pitch from the ruck's middle: closer = could be in the ruck
 OFFSIDE_SHARE = 0.5    # share of the window a player must be offside for
+DRIFT_SPEED = 1.0      # m/s the line spreads towards the touchline = drifting
+SCRUM_BACK = 5.0       # m backs stay behind their scrum's hindmost foot (Law 19)
+LINEOUT_BAND = (4.0, 16.0)  # m in from touch: the lineout stands between the 5 m and 15 m lines
+LINEOUT_LINE = 1.5     # m: a team's lineout players stand this close to one line (spread along the pitch)
+LINEOUT_GAP = (0.3, 3.0)    # m between the two lines (1 m in law, plus measuring error)
+MIN_LINEOUT = 3        # players per team in the line
+LINEOUT_TO_MAUL = 6.0  # s after a lineout that a maul still counts as coming from it
 LINE_WINDOW = 1.5      # s after the ball comes out that line speed is measured over
 LINE_REACH = 30.0      # m either side of the ruck (across the pitch) that counts as "the line"
 MIN_LINE_PLAYERS = 3
@@ -213,6 +226,17 @@ def _team_line(frame, H, team, ruck_x, ruck_y):
     return float(np.median(xy[keep, 0])), [players[idx[k]] for k in keep]
 
 
+def _team_spread(frame, H, team, ruck_y):
+    """How far out from the ruck (across the pitch) a team's line stands, on average."""
+    players, _, in_contact = frame[:3]
+    idx = [i for i, p in enumerate(players) if p["bucket"] == team and i not in in_contact]
+    if len(idx) < MIN_LINE_PLAYERS:
+        return None
+    xy = pitch.project(H, _feet(players, idx))
+    d = [abs(v - ruck_y) for v in xy[:, 1] if abs(v - ruck_y) <= LINE_REACH]
+    return sum(d) / len(d) if len(d) >= MIN_LINE_PLAYERS else None
+
+
 def line_speeds(frames, fps, maps, events, teams):
     """Defensive line speed after each timed ruck (needs the pitch marked).
     Returns [{team, speed, frame, t, ruck, players}] - team = the defenders."""
@@ -263,8 +287,18 @@ def line_speeds(frames, fps, maps, events, teams):
         speed = -side * (x1 - x0) / dt  # moving towards the ruck / the attack = positive
         if abs(speed) > MAX_SPEED:
             continue
-        out.append({"team": team, "speed": round(speed, 1), "frame": start, "t": round(start / fps, 2),
-                    "ruck": n, "players": shown})
+        # Drift: the line spreading out towards the touchline.
+        s0 = [v for v in (_team_spread(frames[f], maps[f], team, ry) for f in first if maps[f] is not None) if v is not None]
+        s1 = [v for v in (_team_spread(frames[f], maps[f], team, ry) for f in last if maps[f] is not None) if v is not None]
+        drift = (sum(s1) / len(s1) - sum(s0) / len(s0)) / dt if s0 and s1 else 0.0
+        if speed >= FAST_LINE and speed >= 1.5 * max(drift, 0):
+            style = "blitz"
+        elif drift >= DRIFT_SPEED and drift > speed:
+            style = "drift"
+        else:
+            style = "hold"
+        out.append({"team": team, "speed": round(speed, 1), "drift": round(drift, 1), "style": style,
+                    "frame": start, "t": round(start / fps, 2), "ruck": n, "players": shown})
     return out
 
 
@@ -347,6 +381,150 @@ def offside_point(checks, team, phase):
             "moments": moments}
 
 
+def defence_style_point(speeds, team, phase):
+    """Blitz or drift: how `team`'s defence moved after the rucks. None without enough rucks."""
+    if phase == "attack":
+        return None
+    mine = [s for s in speeds if s["team"] == team]
+    if len(mine) < 3:
+        return None
+    n = {k: sum(1 for s in mine if s["style"] == k) for k in ("blitz", "drift", "hold")}
+    top = max(n, key=n.get)
+    T = team.capitalize()
+    words = {"blitz": "came forward hard (blitz)", "drift": "slid out towards the touchline (drift)",
+             "hold": "mostly held its ground"}
+    return {"kind": "info", "title": f"Defensive system: mostly {'held' if top == 'hold' else top}",
+            "detail": f"After {len(mine)} rucks, {T}'s line {words[top]} {n[top]} times. Blitz {n['blitz']}, "
+                      f"drift {n['drift']}, held {n['hold']}.",
+            "why": "Blitz takes time away from the attack but leaves space behind a defender who shoots up alone; "
+                   "drift uses the touchline as an extra defender but gives the attack time. Most teams mix them: "
+                   "blitz where numbers are even, drift where the attack has more players.",
+            "moments": []}
+
+
+def scrum_offside(frames, fps, maps, events, teams):
+    """Scrums where backs stood closer than 5 m behind their own scrum's
+    hindmost foot (Law 19). Needs the pitch marked. The player of each team
+    nearest the scrum is taken to be the scrum-half, who may stand close.
+    Returns [{team, frame, t, players, metres}] - one per scrum and team."""
+    if not maps or len(teams) < 2:
+        return []
+    out = []
+    for ev in events:
+        if ev["kind"] != "scrum" or not ev["timed"] or not ev["where"]:
+            continue
+        rx, ry = ev["where"]
+        fs = [f for f in range(ev["start_f"] + int(fps), ev["end_f"] + 1) if maps[f] is not None]
+        if len(fs) < fps // 2:
+            continue
+        for team in teams:
+            count, where, checked = {}, {}, 0
+            for f in fs:
+                players, groups, in_contact = frames[f][:3]
+                scrum = max(groups, key=len, default=None)
+                if not scrum:
+                    continue
+                pack = [i for i in scrum if players[i]["bucket"] == team]
+                if len(pack) < 3:
+                    continue
+                pxy = pitch.project(maps[f], _feet(players, pack))
+                side = math.copysign(1, float(np.mean(pxy[:, 0])) - rx)  # their pack pushes from this side
+                hind = side * max(side * pxy[:, 0])
+                idx = [i for i, p in enumerate(players) if p["bucket"] == team and i not in in_contact]
+                if not idx:
+                    continue
+                xy = pitch.project(maps[f], _feet(players, idx))
+                near = [k for k in range(len(idx)) if abs(xy[k, 1] - ry) <= LINE_REACH]
+                if not near:
+                    continue
+                checked += 1
+                half = min(near, key=lambda k: math.hypot(xy[k, 0] - rx, xy[k, 1] - ry))
+                for k in near:
+                    behind = side * (xy[k, 0] - hind)
+                    if k != half and behind < SCRUM_BACK - OFFSIDE_MARGIN:
+                        key = players[idx[k]].get("id") or ("n", k)
+                        count[key] = count.get(key, 0) + 1
+                        where[key] = (f, players[idx[k]], round(float(SCRUM_BACK - behind), 1))
+            if checked < len(fs) // 2:
+                continue
+            caught = [where[k] for k, c in count.items() if c >= OFFSIDE_SHARE * checked]
+            f = max((w[0] for w in caught), default=None)
+            out.append({"team": team, "frame": f, "t": round(f / fps, 2) if f is not None else None,
+                        "players": [w[1] for w in caught], "metres": max((w[2] for w in caught), default=0)})
+    return out
+
+
+def scrum_offside_point(checks, team):
+    """A coach-report point about `team`'s backs at the scrum, or None."""
+    mine = [c for c in checks if c["team"] == team]
+    if len(mine) < 2:
+        return None
+    caught = [c for c in mine if c["frame"] is not None]
+    T = team.capitalize()
+    if not caught:
+        return {"kind": "good", "title": "Backs onside at the scrum",
+                "detail": f"At {len(mine)} scrums, {T}'s backs stayed 5 m behind their scrum's hindmost foot.",
+                "why": "Backs who stay back at the scrum can't be penalised, and they get a run-up onto the ball or the attack.",
+                "moments": []}
+    moments = [{"frame": c["frame"], "t": c["t"], "time": _fmt_t(c["t"]), "hl": _hl_players(c["players"]),
+                "label": f"{len(c['players'])} back{'s' if len(c['players']) > 1 else ''} about {c['metres']:.0f} m too close"}
+               for c in sorted(caught, key=lambda c: -c["metres"])[:4]]
+    return {"kind": "issue", "title": "Backs too close at the scrum",
+            "detail": f"At {len(caught)} of {len(mine)} scrums, {T} backs stood less than {SCRUM_BACK:.0f} m behind their "
+                      f"scrum's hindmost foot while the scrum was on.",
+            "why": "Law 19 keeps the backs 5 m behind the hindmost foot until the scrum ends; a back who creeps up "
+                   "gives away a penalty.",
+            "moments": moments}
+
+
+def lineouts(frames, fps, maps, events, width):
+    """Lineouts seen (needs the pitch marked): in some frames, both teams
+    each standing in a single line across the pitch, between the 5 m and
+    15 m lines from one touchline, about a metre apart. Returns
+    [{start_f, end_f, t, near, maul, players}]; maul = a maul started from it."""
+    if not maps or not width:
+        return []
+    hits = []
+    for f, frame in enumerate(frames):
+        H = maps[f] if f < len(maps) else None
+        players = frame[0]
+        if H is None or len(players) < 2 * MIN_LINEOUT:
+            continue
+        xy = pitch.project(H, _feet(players, range(len(players))))
+        found = None
+        for near in (True, False):
+            dist = xy[:, 1] if near else width - xy[:, 1]
+            band = [i for i in range(len(players)) if LINEOUT_BAND[0] <= dist[i] <= LINEOUT_BAND[1]]
+            lines = {}
+            for team in {players[i]["bucket"] for i in band} - {"other", "unsure", "ball"}:
+                mine = [i for i in band if players[i]["bucket"] == team]
+                if len(mine) >= MIN_LINEOUT:
+                    xs = xy[mine, 0]
+                    x0 = float(np.median(xs))
+                    close = [i for i in mine if abs(xy[i, 0] - x0) <= LINEOUT_LINE]
+                    if len(close) >= MIN_LINEOUT and np.ptp(xy[close, 1]) >= 3.0:
+                        lines[team] = (x0, close)
+            if len(lines) >= 2:
+                (xa, pa), (xb, pb) = sorted(lines.values(), key=lambda v: -len(v[1]))[:2]
+                if LINEOUT_GAP[0] <= abs(xa - xb) <= LINEOUT_GAP[1]:
+                    found = (near, (xa + xb) / 2, [players[i] for i in pa + pb])
+                    break
+        if found:
+            hits.append((f, found))
+    out, gap = [], max(2, int(0.4 * fps))
+    for f, (near, x, pl) in hits:
+        if out and f - out[-1]["end_f"] <= gap and out[-1]["near"] == near and abs(out[-1]["x"] - x) < 5:
+            out[-1]["end_f"] = f
+        else:
+            out.append({"start_f": f, "end_f": f, "near": near, "x": x, "players": pl})
+    out = [o for o in out if (o["end_f"] - o["start_f"] + 1) / fps >= 1.0]
+    for o in out:
+        o["t"] = round(o["start_f"] / fps, 2)
+        o["maul"] = any(e["kind"] == "maul" and 0 <= e["start_f"] - o["end_f"] <= LINEOUT_TO_MAUL * fps
+                        and e["where"] and abs(e["where"][0] - o["x"]) < 15 for e in events)
+    return out
+
+
 def _hl_players(players):
     if not players:
         return ""
@@ -360,8 +538,9 @@ def _fmt_t(t):
     return f"{t // 60}:{t % 60:02d}"
 
 
-def breakdown_summary(events, fps):
-    """The report block about all breakdowns (both teams together)."""
+def breakdown_summary(events, fps, lineout_list=None):
+    """The report block about all breakdowns (both teams together), and the
+    lineouts when the pitch is marked."""
     rucks = [e for e in events if e["kind"] == "ruck"]
     timed = [e for e in rucks if e["timed"]]
     times = [e["seconds"] for e in timed]
@@ -383,6 +562,12 @@ def breakdown_summary(events, fps):
     } for e in slowest]
     scrums = [e["seconds"] for e in events if e["kind"] == "scrum" and e["timed"]]
     s["scrum_median"] = round(median(scrums), 1) if scrums else None
+    if lineout_list is not None:
+        s["lineouts"] = len(lineout_list)
+        s["lineout_mauls"] = sum(1 for o in lineout_list if o["maul"])
+        s["lineout_moments"] = [{"frame": o["start_f"], "t": o["t"], "time": _fmt_t(o["t"]),
+                                 "hl": _hl_players(o["players"]),
+                                 "label": "Lineout" + (", then a maul" if o["maul"] else "")} for o in lineout_list[:4]]
     return s
 
 
