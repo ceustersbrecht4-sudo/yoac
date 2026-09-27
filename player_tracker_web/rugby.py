@@ -45,8 +45,8 @@ MIN_BREAKDOWN = 1.0    # s a group must last to count as a ruck/maul/scrum
 MAX_BREAKDOWN = 60.0   # s longer than this = not a breakdown we can time
 SCRUM_SIZE = 10        # players seen in one group = a scrum
 MAUL_MOVE = 3.0        # m a group travels = a maul
-QUICK_RUCK = 3.0       # s: quick ball, the usual coaching benchmark
-SLOW_RUCK = 4.0        # s: slow ball, the defence has time to reorganise
+QUICK_RUCK = 3.0       # s: quick ball (elite teams get about 60-70% of rucks under this)
+SLOW_RUCK = 6.0        # s: slow ball; analysts band rucks 0-3 s quick, 3-6 s usable, over 6 s slow
 TACKLE_LOOKBACK = 2.0  # s before the ruck forms to look for the tackle that started it
 BALL_CLEAR = 0.4       # body lengths outside the ruck = the ball is out
 BALL_REACH = 4.0       # ... but within this many body lengths (not a ball elsewhere)
@@ -58,9 +58,14 @@ DRIFT_SPEED = 1.0      # m/s the line spreads towards the touchline = drifting
 SCRUM_BACK = 5.0       # m backs stay behind their scrum's hindmost foot (Law 19)
 LINEOUT_BAND = (4.0, 16.0)  # m in from touch: the lineout stands between the 5 m and 15 m lines
 LINEOUT_LINE = 1.5     # m: a team's lineout players stand this close to one line (spread along the pitch)
-LINEOUT_GAP = (0.3, 3.0)    # m between the two lines (1 m in law, plus measuring error)
+LINEOUT_GAP = (0.3, 2.0)    # m between the two lines (1 m in law, plus measuring error)
 MIN_LINEOUT = 3        # players per team in the line
 LINEOUT_TO_MAUL = 6.0  # s after a lineout that a maul still counts as coming from it
+LINEOUT_MAUL_REACH = 5.0  # m along the pitch from the lineout: a lineout maul forms on the line of touch
+SCRUM_STILL = 2.0      # m: a scrum barely moves; a 10+ player group that travels further is a maul
+SCRUM_PACK = 4         # players of each team in a group before it can be a scrum
+PACK_REACH = 1.5       # m from the scrum: a flanker hidden from the contact group still counts as pack
+TRY_ZONE = 5.0         # m: near their own try line, the backs' offside line is the try line
 LINE_WINDOW = 1.5      # s after the ball comes out that line speed is measured over
 LINE_REACH = 30.0      # m either side of the ruck (across the pitch) that counts as "the line"
 MIN_LINE_PLAYERS = 3
@@ -143,7 +148,13 @@ def breakdowns(frames, fps, maps=None, size=None):
         # cut may have ended off camera: count it, but don't time it.
         after = range(f1 + 1, min(len(frames), f1 + gap + 1))
         blind_end = ev.get("blind_end") or last["edge"] or not all(frames[k][0] for k in after)
-        kind = "scrum" if biggest >= SCRUM_SIZE else "ruck"
+        # A scrum is 10+ players with a proper pack from each team; a big
+        # maul (often from a lineout) is just as crowded but moves (checked below).
+        packs = max(min(sum(1 for i in g["idx"] if frames[f][0][i]["bucket"] == t)
+                        for t in {frames[f][0][i]["bucket"] for i in g["idx"]} - {"other", "unsure"}) if
+                    len({frames[f][0][i]["bucket"] for i in g["idx"]} - {"other", "unsure"}) >= 2 else 0
+                    for f, g in ev["seen"])
+        kind = "scrum" if biggest >= SCRUM_SIZE and packs >= SCRUM_PACK else "ruck"
         where = travel = None
         if maps:
             pts = []
@@ -156,6 +167,8 @@ def breakdowns(frames, fps, maps=None, size=None):
                 where = pts[-1][1:]
                 travel = math.hypot(pts[-1][1] - pts[0][1], pts[-1][2] - pts[0][2])
                 if kind == "ruck" and travel >= MAUL_MOVE and secs >= 2:
+                    kind = "maul"
+                elif kind == "scrum" and travel > SCRUM_STILL:
                     kind = "maul"
         mid_f, mid_g = ev["seen"][len(ev["seen"]) // 2]
         group_f0 = f0
@@ -402,7 +415,7 @@ def defence_style_point(speeds, team, phase):
             "moments": []}
 
 
-def scrum_offside(frames, fps, maps, events, teams):
+def scrum_offside(frames, fps, maps, events, teams, length=None):
     """Scrums where backs stood closer than 5 m behind their own scrum's
     hindmost foot (Law 19). Needs the pitch marked. The player of each team
     nearest the scrum is taken to be the scrum-half, who may stand close.
@@ -430,11 +443,15 @@ def scrum_offside(frames, fps, maps, events, teams):
                 pxy = pitch.project(maps[f], _feet(players, pack))
                 side = math.copysign(1, float(np.mean(pxy[:, 0])) - rx)  # their pack pushes from this side
                 hind = side * max(side * pxy[:, 0])
+                if length and (min(hind, length - hind) < TRY_ZONE):
+                    continue  # within 5 m of the try line the backs' line is the try line itself
+                sx0, sx1 = float(pxy[:, 0].min()), float(pxy[:, 0].max())
                 idx = [i for i, p in enumerate(players) if p["bucket"] == team and i not in in_contact]
                 if not idx:
                     continue
                 xy = pitch.project(maps[f], _feet(players, idx))
-                near = [k for k in range(len(idx)) if abs(xy[k, 1] - ry) <= LINE_REACH]
+                near = [k for k in range(len(idx)) if abs(xy[k, 1] - ry) <= LINE_REACH
+                        and not (sx0 - PACK_REACH <= xy[k, 0] <= sx1 + PACK_REACH and abs(xy[k, 1] - ry) <= 3.0)]
                 if not near:
                     continue
                 checked += 1
@@ -521,7 +538,7 @@ def lineouts(frames, fps, maps, events, width):
     for o in out:
         o["t"] = round(o["start_f"] / fps, 2)
         o["maul"] = any(e["kind"] == "maul" and 0 <= e["start_f"] - o["end_f"] <= LINEOUT_TO_MAUL * fps
-                        and e["where"] and abs(e["where"][0] - o["x"]) < 15 for e in events)
+                        and e["where"] and abs(e["where"][0] - o["x"]) < LINEOUT_MAUL_REACH for e in events)
     return out
 
 

@@ -711,7 +711,7 @@ def report(job_id):
     events = rugby.breakdowns(frames, fps, maps, _sizes.get(job_id))
     speeds = rugby.line_speeds(frames, fps, maps, events, main)
     offside = rugby.offside_at_rucks(frames, fps, maps, events, main)
-    scrum_off = rugby.scrum_offside(frames, fps, maps, events, main)
+    scrum_off = rugby.scrum_offside(frames, fps, maps, events, main, calib.get("length") if calib else None)
     lineout_list = rugby.lineouts(frames, fps, maps, events, calib.get("width")) if maps and calib else None
     order = {"issue": 0, "info": 1, "good": 2}
     for sec in sections:

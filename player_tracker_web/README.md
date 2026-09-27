@@ -34,9 +34,11 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
 
 - **Ruck speed** for every ruck the camera sees from start to end, timed the way coaches time it: from the
   tackle (ball carrier and tackler going down together) until the ball is out. When the ball is seen leaving
-  the ruck that's the end; otherwise it's the group breaking up, which can read a little long. Quick ball is
-  under 3 s (the usual benchmark; elite teams average about 2.8 to 4.5 s), slow ball over 4 s. The slowest
-  rucks are shown as moments. Scrums are counted too. This works on every video.
+  the ruck that's the end; otherwise it's the group breaking up, which can read a little long. Rucks are banded
+  the way analysts band them: quick under 3 s, usable 3 to 6 s, slow over 6 s (elite teams get 60 to 70%
+  quick). The slowest
+  rucks are shown as moments. Scrums are counted too: 10+ players with a pack of 4+ from each team that
+  doesn't move (a big group that moves is a maul). This works on every video.
 - **Metres, after marking the pitch.** In the **Pitch** tab, click at least 4 spots where two
   pitch lines cross (e.g. "Left 22 × Near 5 m line") on a wide shot, then press *Save and
   measure*. The app follows the camera's panning and zooming from there (once per video;
@@ -51,7 +53,9 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
   - **Blitz or drift** after each ruck: the line coming forward hard (2.5 m/s and more) or sliding out towards
     the touchline (spreading at 1 m/s and more, faster than it comes forward).
   - **Backs too close at the scrum** (Law 19): backs less than 4 m (5 m in law, minus measuring error) behind
-    their own scrum's hindmost foot. The player nearest the scrum is taken to be the scrum-half.
+    their own scrum's hindmost foot. The player nearest the scrum is taken to be the scrum-half, players right
+    next to the scrum count as pack, and scrums within 5 m of a try line aren't checked (the try line is the
+    offside line there).
   - **Lineouts**: both teams in a single line, about a metre apart, between the 5 m and 15 m lines, for at
     least a second; and how many turned into a maul.
   Mark an extra frame after a replay or camera cut; each marked frame needs 4 points.
