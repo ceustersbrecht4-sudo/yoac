@@ -210,6 +210,8 @@
     font-weight: 500; cursor: pointer;
   }
   .seg button:hover { border-color: var(--accent); }
+  .seg button small { margin-left: 6px; font-size: .72rem; opacity: .7; }
+  .tactic-group { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 10px 0 6px; }
   .seg button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -266,7 +268,7 @@
     border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-top: 10px;
     background: var(--surface); position: relative; overflow: hidden;
   }
-  .point::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--kc); }
+  /* no coloured bar down the left edge: the tag and icon already say what kind of point it is */
   .point.issue { --kc: var(--issue); --ks: var(--issue-soft); }
   .point.good { --kc: var(--good); --ks: var(--good-soft); }
   .point.info { --kc: var(--info); --ks: var(--info-soft); }
@@ -446,6 +448,11 @@
         <div class="field">
           <div class="field-label" id="phaseLabel">In this video, the team is…</div>
           <div class="seg" id="phaseSeg"></div>
+        </div>
+        <div class="field" id="tacticField" hidden>
+          <div class="field-label">Your tactics (optional)</div>
+          <p class="muted small" style="margin:0 0 4px">Tick what your team plans to play. The report checks whether each one stuck and whether it worked, and doesn't flag it as a mistake.</p>
+          <div id="tacticBox"></div>
         </div>
         <div class="row report-actions">
           <button type="button" class="btn btn-primary" id="reportBtn">Make report</button>
@@ -1213,6 +1220,32 @@ $("applyBtn").onclick = async () => {
 // ------------------------------------------------------------ coach report
 
 let rTeams = [], rTeam = "both", rPhase = "mixed";
+const TACTICS = {{ tactics|tojson }};
+const TACTIC_GROUPS = { line: "Defensive line", ruck: "Around the ruck", back: "Backfield", tempo: "Tempo", carry: "Where the ball goes", depth: "Depth", shape: "Shape" };
+const rTactics = new Set();
+function drawTactics() {
+  const box = $("tacticBox"); box.innerHTML = "";
+  const show = rTeam !== "both";
+  $("tacticField").hidden = !show;
+  if (!show) return;
+  const sides = rPhase === "mixed" ? ["defence", "attack"] : [rPhase];
+  for (const side of sides) {
+    const groups = [...new Set(TACTICS.filter(t => t.side === side).map(t => t.group))];
+    for (const g of groups) {
+      box.append(el("div", { class: "tactic-group" }, (sides.length > 1 ? (side === "defence" ? "Defence: " : "Attack: ") : "") + TACTIC_GROUPS[g]));
+      const row = el("div", { class: "seg" });
+      for (const t of TACTICS.filter(t => t.side === side && t.group === g)) {
+        const b = el("button", { type: "button", title: `${t.about} Played: ${t.played}.` + (t.worked ? ` Worked: ${t.worked}.` : "") }, t.name);
+        if (t.needs_metres) b.append(el("small", {}, "pitch marked"));
+        const on = rTactics.has(t.id);
+        b.className = on ? "on" : ""; b.setAttribute("aria-pressed", on);
+        b.onclick = () => { rTactics.has(t.id) ? rTactics.delete(t.id) : rTactics.add(t.id); drawTactics(); };
+        row.append(b);
+      }
+      box.append(row);
+    }
+  }
+}
 
 function mainTeams() {
   return Object.entries(result.teams)
@@ -1266,6 +1299,7 @@ function drawReportControls() {
       v => { rPhase = v; drawReportControls(); });
     $("onlyTeamBtn").textContent = `Show only ${cap(rTeam)} in video`;
   }
+  drawTactics();
 }
 
 $("onlyTeamBtn").onclick = () => {
@@ -1278,6 +1312,8 @@ $("onlyTeamBtn").onclick = () => {
 $("reportBtn").onclick = async () => {
   const params = new URLSearchParams({ team: rTeam });
   params.set(rTeam === "both" ? "attacker" : "phase", rPhase);
+  const picked = rTeam === "both" ? [] : TACTICS.filter(t => rTactics.has(t.id) && (rPhase === "mixed" || t.side === rPhase)).map(t => t.id);
+  if (picked.length) params.set("tactics", picked.join(","));
   $("reportBtn").disabled = true; $("reportBtn").textContent = "Working…";
   $("reportError").hidden = true;
   try {
@@ -1336,7 +1372,7 @@ function renderReport(data) {
     for (const n of s.notes.filter(n => !shared.includes(n))) out.append(el("p", { class: "rnote", html: ICONS.note }, n));
     if (!s.points.length && !s.notes.length) out.append(el("p", { class: "empty" }, "Nothing stood out in this video."));
 
-    for (const p of s.points) {
+    const pointBox = p => {
       const box = el("div", { class: `point ${p.kind}` },
         el("div", { class: "point-top" },
           el("span", { class: "kind-ic", html: ICONS[p.kind] }),
@@ -1347,7 +1383,13 @@ function renderReport(data) {
             el("p", { class: "why" }, p.why))));
       if (p.moments.length) box.append(momentGrid(p.moments, s.team, s.opponent || ""));
       out.append(box);
+    };
+    if (s.tactics && s.tactics.length) {
+      out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, `${cap(s.team)}'s tactics: did they stick?`));
+      s.tactics.forEach(pointBox);
+      out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, "Everything else"));
     }
+    s.points.forEach(pointBox);
   }
   out.append(el("div", { class: "caveat" },
     el("strong", {}, "How to read this. "),

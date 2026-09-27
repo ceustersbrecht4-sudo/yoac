@@ -63,6 +63,15 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
 All thresholds are named at the top of `rugby.py`. These are measurements from one camera:
 use them to find moments to review, and check them on the video.
 
+## Tactics
+
+In the coach report, after choosing one team and attacking or defending, tick the tactics you planned: blitz,
+drift or passive hold; gap trap, fan or compete at every ruck; two or three in the backfield; and in attack
+quick tempo, pick and go, play off 9 or off 10, wide, overload one side, flat or deep, and 1-3-3-1 or 2-4-2 pods.
+The report says for each one in what share of the rucks it was played and whether it worked (the rules are
+listed on the Coach report page, and in `tactics.py`). Most need the pitch marked. A gap trap you picked turns the
+"holes in the defensive line" warning into a note, and is checked as a trap instead.
+
 ## Plans and usage limits
 
 Every account has a plan with four limits, the things that cost money once the app is online:

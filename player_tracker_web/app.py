@@ -32,6 +32,7 @@ import numpy as np
 import pitch
 import quota
 import rugby
+import tactics
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
@@ -296,7 +297,7 @@ def your_match():
 
 @app.route("/coach-report")
 def coach_report():
-    return _front("report.html")
+    return _front("report.html", tactics=tactics.catalogue())
 
 
 @app.route("/pricing")
@@ -365,7 +366,7 @@ def _count_transfer(resp):
 
 @app.route("/upload")
 def index():
-    return render_template("index.html", usage=_usage(accounts.current_user()))
+    return render_template("index.html", usage=_usage(accounts.current_user()), tactics=tactics.catalogue())
 
 
 @app.route("/analyze", methods=["POST"])
@@ -713,6 +714,7 @@ def report(job_id):
     offside = rugby.offside_at_rucks(frames, fps, maps, events, main)
     scrum_off = rugby.scrum_offside(frames, fps, maps, events, main, calib.get("length") if calib else None)
     lineout_list = rugby.lineouts(frames, fps, maps, events, calib.get("width")) if maps and calib else None
+    chosen = [t for t in request.args.get("tactics", "").split(",") if t in tactics.BY_ID][:12]
     order = {"issue": 0, "info": 1, "good": 2}
     for sec in sections:
         point = rugby.line_speed_point(speeds, sec["team"], sec["opponent"], sec["phase"], fps)
@@ -724,6 +726,18 @@ def report(job_id):
                       rugby.scrum_offside_point(scrum_off, sec["team"])):
             if point:
                 sec["points"].append(point)
+        if chosen and team != "both":
+            plan = tactics.evaluate([t for t in chosen if tactics.BY_ID[t]["side"] == sec["phase"] or sec["phase"] == "mixed"],
+                                    frames, fps, maps, events, speeds, sec["team"], sec["opponent"], sec["phase"],
+                                    calib.get("width") if calib else None)
+            if "gap_trap" in chosen:
+                # A gap left on purpose isn't a mistake: say so instead of flagging it.
+                for p in sec["points"]:
+                    if p["title"] == "Holes in the defensive line":
+                        p["kind"] = "info"
+                        p["why"] = ("You play a gap trap, so some of these gaps are meant to be there. "
+                                    "The gap trap check below says whether they were the planned ones and whether the trap worked.")
+            sec["tactics"] = plan
         sec["points"].sort(key=lambda p: order[p["kind"]])
     wide = sum(1 for f in frames if f[0])
     mapped = sum(1 for m in (maps or []) if m is not None)

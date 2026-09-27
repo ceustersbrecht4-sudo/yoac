@@ -74,6 +74,27 @@
         </div>
       </div>
 
+      <div class="tactics-list">
+        <h3>Pick your tactics, check if they stuck</h3>
+        <p>When you make a report for one team, tick the tactics you planned. For each one the report says in what share
+          of the rucks the team played it, and whether it worked. A tactic you picked isn't flagged as a mistake: a gap you
+          leave on purpose as a trap is checked as a trap, not as a hole.</p>
+        {% for side, label in [("defence", "Defence"), ("attack", "Attack")] %}
+        <h4>{{ label }}</h4>
+        <div class="sheet">
+          {% for t in tactics if t.side == side %}
+          <div class="row"><div class="side"><span class="kind {{ 'info' if t.needs_metres else 'good' }}">{{ 'pitch marked' if t.needs_metres else 'any video' }}</span></div><div>
+            <h3>{{ t.name }}</h3>
+            <p>{{ t.about }}</p>
+            <div class="rule">played: {{ t.played }}{% if t.worked %} / worked: {{ t.worked }}{% endif %}</div></div></div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        <p class="later">Not measurable yet from one camera: umbrella and up-and-in defence, man-on-man, pillar-guard-post, double
+          tackles, choke tackles, lineout and maul defence, kick chase, two-layer shapes, forward pods with tip-on passes,
+          strike plays, and the kicking game. These need the ball or player roles, which the video doesn't give reliably yet.</p>
+      </div>
+
       <div class="metres">
         <div>
           <h3>Mark the pitch once, get metres</h3>
