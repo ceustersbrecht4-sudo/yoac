@@ -1,0 +1,93 @@
+{% extends "_front.html" %}
+{% block title %}Your match · YOAC Player Tracker{% endblock %}
+{% block content %}
+{% import "_boxes.html" as bx %}
+  <!-- ================= 03 result: the coach's own footage ================= -->
+  <section class="result page-top" id="result">
+    <div class="wrap">
+      <div class="step-label"><b>03</b> Tracked result</div>
+      {% if demo %}
+      <h2>Close-ups from {% if demo.name %}your latest match{% else %}the tracked frame{% endif %}</h2>
+      <div class="result-grid">
+        <div>
+          <p class="cap" style="margin-top:0">Cut from frame <b>{{ "{:,}".format(demo.frame + 1) }}</b>, the one on the upload page. Nothing added or cleaned up.</p>
+
+          {% if demo.crops and demo.size %}
+          {% set W, H = demo.size[0], demo.size[1] %}
+          <div class="crops">
+            {% for c in demo.crops %}
+            {% set style = "background-image:url('/demo/" ~ c.image ~ ".jpg');background-size:" ~ (100 / c.w)|round(3) ~ "% " ~ (100 / c.h)|round(3) ~ "%;background-position:"
+               ~ ((c.x / (1 - c.w) * 100) if c.w < 1 else 0)|round(3) ~ "% " ~ ((c.y / (1 - c.h) * 100) if c.h < 1 else 0)|round(3) ~ "%;aspect-ratio:" ~ (c.w * W)|round(1) ~ " / " ~ (c.h * H)|round(1) %}
+            <figure>
+              {% if c.kind == "player" %}
+              <div class="tbox" style="--k:{{ c.color }};--k-ink:{{ c.ink }}"><span class="tab">{{ c.team|capitalize }} {{ c.id }}</span>
+                <div class="crop" style="{{ style }}" role="img" aria-label="Close-up of {{ c.team }} player {{ c.id }}"></div></div>
+              <figcaption><b>{{ c.team|capitalize }} {{ c.id }}</b>, the {{ c.team }} player nearest the camera in this frame.</figcaption>
+              {% elif c.kind == "group" %}
+              <div class="tbox plain"><span class="tab">{{ c.players }} players</span>
+                <div class="crop" style="{{ style }}" role="img" aria-label="Close-up of a group of players"></div></div>
+              <figcaption><b>{{ c.players }} players close together</b>, probably a breakdown. Each one still has a box.</figcaption>
+              {% else %}
+              <div class="tbox plain"><span class="tab">official</span>
+                <div class="crop" style="{{ style }}" role="img" aria-label="Close-up of a match official"></div></div>
+              <figcaption>{% if c.image == "raw" %}<b>An official</b>, from the original frame. In the tracked video they have no box.{% else %}<b>An official</b>, boxed because you switched officials back on.{% endif %}</figcaption>
+              {% endif %}
+            </figure>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        {% if fx %}
+        <aside class="measured">
+          <h3>Measured on this video</h3>
+          <p class="from">Counted from the saved tracking data{% if demo.name %} of {{ demo.name }}{% endif %}. Your numbers change with every match and camera spot.</p>
+          <dl>
+            <dt>{{ "{:,}".format(fx.frames) }}<small>frames</small></dt>
+            <dd>{{ fx.seconds }} seconds at {{ fx.fps }} frames a second, every one of them scanned.</dd>
+            {% if fx.teams %}
+            <dt>{% for t in fx.teams %}<span class="kit" style="background:{{ t.color }};color:{{ t.ink }}">{{ t.tracks }}</span>{% if not loop.last %} {% endif %}{% endfor %}<small>player numbers</small></dt>
+            <dd>{% for t in fx.teams %}{{ t.tracks }} for {{ t.name }}{% if not loop.last %}, {% endif %}{% endfor %}. That's more than the players on the pitch:
+              someone who leaves the picture for longer than 90 frames comes back with a new number.</dd>
+            {% endif %}
+            <dt>{{ fx.median_in_view }}<small>players in view, typically</small></dt>
+            <dd>Up to {{ fx.max_in_view }} in one frame.{% if fx.officials %} {{ fx.officials }} official number{{ "s" if fx.officials != 1 }} left out of the video and the report.{% endif %}</dd>
+            {% if fx.recovered %}
+            <dt>{{ "{:,}".format(fx.recovered) }}<small>times picked up again</small></dt>
+            <dd>A player went out of sight and came back under the same number. The longest gap was {{ fx.longest_hidden }} frames
+              ({{ (fx.longest_hidden / fx.fps)|round(1) if fx.fps else "?" }} s).</dd>
+            {% endif %}
+            <dt>{{ "{:,}".format(fx.longest_track) }}<small>frames, longest track</small></dt>
+            <dd>The longest one player was followed under one number ({{ (fx.longest_track / fx.fps)|round(1) if fx.fps else "?" }} s).</dd>
+          </dl>
+        </aside>
+        {% endif %}
+      </div>
+      {% else %}
+      <h2>Your tracked match will be here</h2>
+      <div class="tbox plain empty" style="margin-top:44px">
+        <span class="tab">no video yet</span>
+        <h3>Nothing analysed on this account yet</h3>
+        <p>This part of the page only shows real footage. Once your first video is done, you'll see close-ups cut from its
+          frame, like these cut from the drawing on the upload page:</p>
+        <div class="crops" style="margin:8px 0 34px">
+          {% for vb, label, k, cap in [("324 104 66 60", "4 players", "plain", "A breakdown: every player in it keeps a box."),
+                                       ("436 190 64 80", B ~ " 11", "b", "The nearest " ~ tb.name ~ " player."),
+                                       ("188 270 72 90", A ~ " 14", "a", "The nearest " ~ ta.name ~ " player."),
+                                       ("305 99 26 34", "official", "plain", "The referee: no box.")] %}
+          <figure><div class="tbox {{ k }}"><span class="tab">{{ label }}</span>
+            <svg class="draw" viewBox="{{ vb }}" aria-hidden="true">{{ bx.scene(A, B) }}</svg></div>
+            <figcaption>{{ cap }}</figcaption></figure>
+          {% endfor %}
+        </div>
+        <p>And numbers counted from your tracking data: frames scanned, player numbers per team, how often a hidden
+          player was picked up again under the same number.</p>
+        <a class="btn" href="{{ url_for('landing') }}">Upload a first clip</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+{% block next %}
+  <a class="next" href="{{ url_for("coach_report") }}"><div class="wrap"><small>Next page</small><b>The coach report &gt;</b></div></a>
+{% endblock %}

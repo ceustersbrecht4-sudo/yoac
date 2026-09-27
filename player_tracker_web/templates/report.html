@@ -1,0 +1,92 @@
+{% extends "_front.html" %}
+{% block title %}Coach report · YOAC Player Tracker{% endblock %}
+{% block content %}
+{% import "_boxes.html" as bx %}
+  <!-- ================= 04 the report: what it flags and the rule behind each ================= -->
+  <section class="report" id="report">
+    <div class="wrap">
+      <div class="report-grid">
+        <div>
+          <div class="step-label"><b>04</b> Coach report</div>
+          <h2>What the report flags, and the rule behind each flag</h2>
+          <p>Pick a team and whether they were attacking or defending. Each flag comes with the moments it happened, a still with
+            the problem marked in red, and a click takes the video there.</p>
+          <p>Without marking the pitch, distances are in body lengths: the height of a typical player in that frame.</p>
+        </div>
+        <div class="sheet" aria-label="The flags the coach report can raise">
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [12, 30, 48, 100, 118] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
+    <path class="flag" stroke-width="2" d="M58 44 L58 50 L90 50 L90 44"/><path class="flag" stroke-width="1.5" d="M74 50 L74 56"/></svg></div><div>
+            <h3>Holes in the defensive line</h3>
+            <p>Two neighbouring defenders much further apart than they usually stand.</p>
+            <div class="rule">gap &gt; 2.2 x usual spacing, and &gt; usual + 1.5 body lengths</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 94, 118] %}{{ bx.player(x, 62, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}{{ bx.player(66, 44, "b", 0.78, mark="x", pose="crouch", d=-1) }}</svg></div><div>
+            <h3>Players out of line (dog-legs)</h3>
+            <p>One defender standing well in front of or behind the rest of the line.</p>
+            <div class="rule">&gt; 2.5 x the usual step out of line, at least 1.5 body lengths</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [22, 50, 78] %}{{ bx.player(x, 64, "b", 0.72, pose="crouch", d=-1) }}{% endfor %}
+    {% for x in [16, 38, 60] %}{{ bx.player(x, 34, "a", 0.66, pose="run") }}{% endfor %}{{ bx.player(92, 34, "a", 0.66, mark="x", pose="run") }}{{ bx.player(116, 34, "a", 0.66, mark="x", pose="run") }}</svg></div><div>
+            <h3>Outnumbered in defence / overlap chances</h3>
+            <p>One side has more players standing in the line than the other.</p>
+            <div class="rule">2 or more extra players in the line</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(52, 50, "b", 0.74, pose="crouch", d=-1) }}{{ bx.player(62, 54, "b", 0.78, pose="crouch", d=-1) }}{{ bx.player(72, 50, "b", 0.74, pose="crouch", d=-1) }}{{ bx.player(80, 56, "a", 0.78, pose="run") }}{{ bx.player(58, 62, "b", 0.82, pose="crouch", d=-1) }}
+    <rect class="flag" stroke-width="1.6" x="40" y="24" width="52" height="42"/>{{ bx.player(116, 62, "b", 0.78, pose="crouch", d=-1) }}{{ bx.player(14, 62, "b", 0.78, pose="crouch", d=-1) }}</svg></div><div>
+            <h3>Committing too many to the breakdown</h3>
+            <p>Players who join the ruck aren't standing in the line.</p>
+            <div class="rule">defence: 3+ per ruck on average / attack: 4+</div></div></div>
+          <div class="row"><div class="side"><span class="kind info">timed</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(54, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(66, 56, "a", 0.8, pose="run") }}{{ bx.player(78, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(62, 64, "a", 0.84, pose="run") }}
+    {{ bx.tab(68, 18, "quick < 3 s", "a", 8) }}</svg></div><div>
+            <h3>Ruck speed</h3>
+            <p>From the players meeting at the tackle until the group breaks up, for every ruck the camera sees start to end.
+              Scrums are counted too.</p>
+            <div class="rule">quick ball &lt; 3 s / slow ball &gt; 6 s / scrum = 10+ players in one group</div></div></div>
+          <div class="row"><div class="side"><span class="kind good">going well</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
+    <path class="ok" stroke-width="2" d="M8 64 L120 64"/></svg></div><div>
+            <h3>The same checks, the other way round</h3>
+            <p>A line that stayed connected, kept its shape or matched the attack's numbers is reported as going well.</p></div></div>
+          <div class="sheet-foot">These are measurements from one camera: a list of moments to rewatch, not a verdict. Check each one on the video.</div>
+        </div>
+      </div>
+
+      <div class="metres">
+        <div>
+          <h3>Mark the pitch once, get metres</h3>
+          <p>On a wide shot, click at least 4 spots where two pitch lines cross, like the 22 and the 5 m line. The app then follows
+            the camera as it pans and zooms, and the report adds:</p>
+          <p><b>Line speed</b> in the first 1.5 s after the ball leaves a ruck: under 1.5 m/s is flagged as passive, 2.5 m/s and
+            more as good.<br><b>Mauls</b>, told apart from rucks: a breakdown that moves 3 m or more.</p>
+          <p>Following the camera runs once per video, a few minutes for a full match.</p>
+        </div>
+        <figure style="margin:0">
+          <svg viewBox="0 0 400 250" role="img" aria-label="A rugby pitch seen from above with four marked crossing points">
+            <rect x="0" y="0" width="400" height="250" fill="#2f6b45"/>
+            <g stroke="#f2f0e8" stroke-width="2" fill="none">
+              <rect x="20" y="20" width="360" height="210"/>
+              <line x1="112" y1="20" x2="112" y2="230"/><line x1="288" y1="20" x2="288" y2="230"/>
+              <line x1="200" y1="20" x2="200" y2="230"/>
+              <line x1="20" y1="35" x2="380" y2="35" stroke-dasharray="10 8"/><line x1="20" y1="215" x2="380" y2="215" stroke-dasharray="10 8"/>
+              <line x1="160" y1="20" x2="160" y2="230" stroke-dasharray="10 8"/><line x1="240" y1="20" x2="240" y2="230" stroke-dasharray="10 8"/>
+            </g>
+            <g fill="none" stroke="#fff" stroke-width="2">
+              <rect x="106" y="29" width="12" height="12"/><rect x="106" y="209" width="12" height="12"/>
+              <rect x="194" y="29" width="12" height="12"/><rect x="194" y="209" width="12" height="12"/>
+            </g>
+            <g font-family="ui-monospace, Consolas, monospace" font-size="11" fill="#fff">
+              <text x="72" y="56">22 x 5 m</text><text x="72" y="202">22 x 5 m</text>
+              <text x="210" y="56">half x 5 m</text><text x="210" y="202">half x 5 m</text>
+            </g>
+          </svg>
+          <figcaption>The four crossings marked in this sketch are the minimum. Each extra marked frame, after a replay or a camera cut, needs 4 too.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+{% block next %}
+  <a class="next" href="{{ url_for("pricing") }}"><div class="wrap"><small>Next page</small><b>Pricing &gt;</b></div></a>
+{% endblock %}

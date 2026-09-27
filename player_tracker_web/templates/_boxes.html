@@ -81,3 +81,22 @@
 <rect x="{{ x }}" y="{{ y - size * 1.25 }}" width="{{ text|length * size * 0.62 + size * 0.8 }}" height="{{ size * 1.25 }}" class="tab-{{ k }}"/>
 <text x="{{ x + size * 0.4 }}" y="{{ y - size * 0.32 }}" font-size="{{ size }}" class="ink-{{ k }}">{{ text }}</text>
 {%- endmacro %}
+
+{# The drawing of a tracked frame (640 x 360) shown until a real match has been
+   analysed: a breakdown, the defending line, the attack and the referee. #}
+{% macro scene(A, B) -%}
+{{ grass(640, 360, 9) }}
+            <path class="pline" d="M0 38 L640 38"/><path class="pline" d="M0 346 L640 346"/>
+            <path class="pline" d="M318 38 L286 346"/><path class="pline" d="M112 38 L20 346"/><path class="pline" d="M526 38 L600 346"/>
+            <path class="pline dash" d="M0 62 L640 62"/><path class="pline dash" d="M0 318 L640 318"/>
+            <path class="pline dash" d="M392 38 L400 346"/>
+            {# breakdown #}
+            {{ player(334, 148, "b", 1.08, B ~ " 5", pose="crouch", d=-1) }}{{ player(356, 152, "a", 1.1, A ~ " 8", pose="crouch") }}{{ player(344, 164, "a", 1.14, pose="crouch") }}
+            {{ player(376, 142, "b", 1.06, pose="crouch", d=-1) }}{{ player(314, 128, "r", 1.02) }}
+            {# defending line #}
+            {% for x, y, n in [(420, 84, 12), (432, 118, 13), (436, 196, 6), (452, 246, 11), (466, 302, 2), (400, 58, 14)] %}
+            {{ player(x, y, "b", 0.82 + y / 360 * 0.9, B ~ " " ~ n, pose="crouch" if loop.index is odd else "stand", d=-1) }}{% endfor %}
+            {# attack, deeper #}
+            {% for x, y, n in [(300, 92, 10), (286, 190, 9), (252, 236, 12), (228, 288, 15), (206, 336, 14), (330, 66, 3)] %}
+            {{ player(x, y, "a", 0.82 + y / 360 * 0.9, A ~ " " ~ n, pose="run") }}{% endfor %}
+{%- endmacro %}

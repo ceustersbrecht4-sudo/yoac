@@ -19,7 +19,7 @@ import time
 import traceback
 import uuid
 
-from flask import Flask, abort, jsonify, render_template, request, send_file
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, url_for
 from werkzeug.utils import secure_filename
 
 import cv2
@@ -254,16 +254,59 @@ def worker():
             job_queue.task_done()
 
 
-@app.route("/")
-def landing():
+def _front(template, **extra):
+    """One of the front pages. They share the kit colours and pictures from
+    your latest analysed match, and know if a video of yours is running."""
     public_plans = {k: v for k, v in quota.plans().items() if not k.startswith("_")}
     me = accounts.current_user()
     with jobs_lock:
         running = [(jid, j) for jid, j in jobs.items()
                    if j.get("owner") == me and j.get("status") in ("queued", "processing")]
     active = max(running, key=lambda r: r[1].get("uploaded") or 0, default=None)
-    return render_template("landing.html", plans=public_plans, demo=_demo_info(),
-                           active={"id": active[0], "name": active[1].get("original_name") or "Your video"} if active else None)
+    extra.setdefault("follow", None)
+    return render_template(template, plans=public_plans, demo=_demo_info(),
+                           active={"id": active[0], "name": active[1].get("original_name") or "Your video"} if active else None,
+                           **extra)
+
+
+@app.route("/")
+def landing():
+    return _front("home.html")
+
+
+@app.route("/how-it-works")
+def how_it_works():
+    return _front("how.html")
+
+
+@app.route("/processing/<job_id>")
+def processing(job_id):
+    """Where the front page's upload box sends you: the stages, lit up live
+    for this video, and on to the tracked video once it's done."""
+    job = _job_or_404(job_id)
+    if job["status"] == "done":
+        return redirect(url_for("index") + "#job=" + job_id)
+    return _front("how.html", follow={"id": job_id, "name": job.get("original_name") or "Your video"})
+
+
+@app.route("/your-match")
+def your_match():
+    return _front("match.html")
+
+
+@app.route("/coach-report")
+def coach_report():
+    return _front("report.html")
+
+
+@app.route("/pricing")
+def pricing():
+    return _front("pricing.html")
+
+
+@app.route("/faq")
+def faq():
+    return _front("faq.html")
 
 
 def _storage_used(user_key):

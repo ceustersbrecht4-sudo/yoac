@@ -145,13 +145,17 @@ Firewall. Run this once in PowerShell *as administrator*:
 
 and set your Wi-Fi network to **Private** in Windows settings.
 
-## The front page
+## The front pages
 
-The front page follows a video through the app: upload (a working upload box), processing (the real
-stages and the settings they run on, lit up live while one of your videos is being analysed) and the
-tracked result. The result part only ever shows real footage: a frame from your latest analysed video
-before and after tracking, close-ups cut from that frame, and numbers counted from its tracking data.
-Until you've analysed a video it says so instead of showing an example.
+After logging in you land on **Upload**: a working upload box next to a frame of your latest analysed
+match. Uploading sends you to the **Processing** page, which follows your video through the real stages
+(shrink, track, teams, draw) and takes you to the tracked video and report when it's done. The menu opens
+the other pages: **How it works**, **Your match** (close-ups from your latest video and numbers counted
+from its tracking data), **Coach report** (what the report flags and the rule behind each flag),
+**Pricing** and **FAQ**. Each page ends with a link to the next one.
+
+Only real footage is shown as footage. Until you've analysed a video, the pages show drawings in the
+tracker's style instead, and say so.
 
 To show one fixed match to every account instead, pick a finished video (its id is in the address:
 `/upload#job=...`) and run once:
@@ -178,7 +182,7 @@ to each coach's own latest video. Only use footage you're allowed to show to eve
 | `pitch.py` | From pixels to metres: the marked pitch points and following the camera |
 | `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
 | `demo.py` | The front page's frame, close-ups and measured numbers, from a real analysed video |
-| `templates/` | The pages: login, front page, upload tool, cookie banner |
+| `templates/` | The pages: login, front pages (`_front.html` + one file per page), upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |
 | `start.bat` | Double-click to install requirements and start the app |
 

@@ -1,0 +1,95 @@
+{% extends "_front.html" %}
+{% block title %}YOAC Player Tracker{% endblock %}
+{% block content %}
+{% import "_boxes.html" as bx %}
+  <!-- ================= 01 upload: the real upload, not a picture of one ================= -->
+  <section class="upload-sec" id="upload">
+    <div class="wrap">
+      <div class="hero-head">
+        <div>
+          <div class="step-label"><b>01</b> Upload</div>
+          <h1>Drop in the match. Get every player back, boxed in
+            {% if known %}<em>{{ A }}</em> or <em class="b">{{ B }}</em>.{% else %}their own <em>shirt</em> <em class="b">colour</em>.{% endif %}</h1>
+        </div>
+        <p class="lead">Film from the stand on a phone and upload the file. Player Tracker follows each player, splits them
+          into the two teams by the colour of their shirts and leaves the referee out. Then the report points you to the
+          moments to rewatch.</p>
+      </div>
+
+      {% if active %}
+      <div class="banner-live"><span>Your video "{{ active.name }}" is being analysed.</span>
+        <a href="{{ url_for('processing', job_id=active.id) }}">Follow it on the processing page</a></div>
+      {% endif %}
+      <div class="upload-grid">
+      <figure class="frame-fig">
+        {% if demo %}
+        <div class="tbox" style="margin-top:26px"><span class="tab">frame {{ "{:,}".format(demo.frame + 1) }} · tracked</span>
+          <div class="compare" id="compare">
+            <img class="raw" src="/demo/raw.jpg" alt="The original frame">
+            <img class="tracked" src="/demo/tracked.jpg" alt="The same frame, tracked">
+            <span class="tag tag-l">tracked</span><span class="tag tag-r">original</span>
+            <span class="handle"></span><span class="grip">&lt; drag &gt;</span>
+            <input type="range" min="0" max="100" value="50" aria-label="Drag to compare the original and the tracked frame">
+          </div>
+        </div>
+        <figcaption class="cap">{% if demo.name %}From <b>{{ demo.name }}</b>, your latest analysed match{% else %}A tracked match{% endif %},
+          straight from the analysis. Drag to compare.</figcaption>
+        {% else %}
+        <div class="tbox" style="margin-top:26px"><span class="tab">how the tracked video looks</span>
+          <svg class="draw" viewBox="0 0 640 360" role="img" aria-label="Drawing of a tracked frame: players boxed and numbered in their shirt colours, the referee without a box">
+            <g id="scene">{{ bx.scene(A, B) }}</g>
+          </svg>
+        </div>
+        <figcaption class="cap">Drawn the way the tracked video looks: every player boxed and numbered in their shirt colour, the
+          referee (dark kit) left without a box. Once you've analysed a match, your own frame is here instead.</figcaption>
+        {% endif %}
+        <dl class="spec">
+          <dt>files</dt><dd>MP4, MOV, AVI, MKV, M4V or WEBM, up to 2 GB and 2 hours</dd>
+          <dt>best</dt><dd>A wide shot from high up that shows most of the pitch. Close-ups and replays are left out of the report.</dd>
+          <dt>first go</dt><dd>A 10 to 30 second clip, to see what it finds before you send a whole match.</dd>
+        </dl>
+      </figure>
+
+      <form class="tbox uploader" id="form">
+        <span class="tab">Upload</span>
+        <label class="drop" id="drop" for="file">
+          <strong id="fileName">Choose a match video</strong>
+          <span class="hint" id="fileHint">or drag the file onto this box</span>
+          <span class="ftype" id="fileTypes"><span>.mp4</span><span>.mov</span><span>.avi</span><span>.mkv</span><span>.m4v</span><span>.webm</span></span>
+          <span class="file-facts" id="fileFacts" hidden>
+            <span><b id="fSize">-</b>size</span>
+            <span><b id="fLen">-</b>length</span>
+            <span><b id="fDim">-</b>picture</span>
+          </span>
+        </label>
+        <input type="file" id="file" name="video" accept="video/*,.mkv,.avi">
+        <label class="consent">
+          <input type="checkbox" id="rights">
+          <span>This is match or training footage I'm allowed to use for coaching analysis (no violent, sexual or other forbidden content), and players (and parents of players under 16) know matches are filmed and analysed.
+            <a href="{{ url_for('legal_page', doc='terms') }}" target="_blank" rel="noopener">Terms</a></span>
+        </label>
+        <button type="submit" class="btn" id="go" disabled>Analyse this video</button>
+        <div class="sending" id="sending" hidden>
+          <div class="row"><span class="pct" id="pct">0%</span><span class="mono" id="sent"></span></div>
+          <div class="meter"><i id="bar"></i></div>
+          <p class="small" id="sendNote">Keep this page open until the upload reaches 100%. Then it moves to the processing screen.</p>
+        </div>
+        <div class="err" id="err" role="alert" hidden></div>
+        <p class="small">After the upload you go to the processing page. Your earlier videos are on the <a href="{{ url_for('index') }}">upload page</a>.</p>
+      </form>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap tiles">
+    <a class="tile tbox" href="{{ url_for('how_it_works') }}"><span class="tab">02 How it works</span>
+      <svg class="draw" viewBox="120 40 400 150" aria-hidden="true">{{ bx.scene(A, B) }}</svg>
+      <div class="in"><h3>What happens to the file</h3><p>The six stages between the upload and the tracked video, and the settings they run on.</p><span class="go">Open</span></div></a>
+    <a class="tile tbox b" href="{{ url_for('your_match') }}"><span class="tab">03 Your match</span>
+      <svg class="draw" viewBox="300 96 150 56" aria-hidden="true">{{ bx.scene(A, B) }}</svg>
+      <div class="in"><h3>Close-ups and numbers</h3><p>Cut from your latest analysed match, with the numbers counted from its tracking data.</p><span class="go">Open</span></div></a>
+    <a class="tile tbox" href="{{ url_for('coach_report') }}"><span class="tab">04 Coach report</span>
+      <svg class="draw" viewBox="190 200 300 112" aria-hidden="true">{{ bx.scene(A, B) }}</svg>
+      <div class="in"><h3>What the report flags</h3><p>Holes in the line, dog-legs, numbers, ruck speed, and the rule behind each flag.</p><span class="go">Open</span></div></a>
+  </div>
+{% endblock %}
