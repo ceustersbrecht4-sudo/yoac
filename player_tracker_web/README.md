@@ -63,6 +63,13 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
 All thresholds are named at the top of `rugby.py`. These are measurements from one camera:
 use them to find moments to review, and check them on the video.
 
+## 15 a side
+
+A rugby union team has 15 players on the pitch (30 in total, plus the officials). When the app sees more than 15
+of one team in a frame, the extras are replacements warming up, staff or crowd in a similar colour: it keeps the 15
+nearest the rest of the play and leaves the others out of the report, and says so. `PLAYERS_PER_TEAM` in
+`analysis.py` sets the number (7 for sevens).
+
 ## Tactics
 
 In the coach report, after choosing one team and attacking or defending, tick the tactics you planned: blitz,

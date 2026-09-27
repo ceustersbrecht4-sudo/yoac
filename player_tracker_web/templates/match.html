@@ -47,11 +47,11 @@
             <dd>{{ fx.seconds }} seconds at {{ fx.fps }} frames a second, every one of them scanned.</dd>
             {% if fx.teams %}
             <dt>{% for t in fx.teams %}<span class="kit" style="background:{{ t.color }};color:{{ t.ink }}">{{ t.tracks }}</span>{% if not loop.last %} {% endif %}{% endfor %}<small>player numbers</small></dt>
-            <dd>{% for t in fx.teams %}{{ t.tracks }} for {{ t.name }}{% if not loop.last %}, {% endif %}{% endfor %}. That's more than the players on the pitch:
-              someone who leaves the picture for longer than 90 frames comes back with a new number.</dd>
+            <dd>{% for t in fx.teams %}{{ t.tracks }} for {{ t.name }}{% if not loop.last %}, {% endif %}{% endfor %}. A team has 15 on the pitch, so there are more numbers than players:
+              someone who leaves the picture for longer than 90 frames comes back with a new number, and replacements add their own.</dd>
             {% endif %}
             <dt>{{ fx.median_in_view }}<small>players in view, typically</small></dt>
-            <dd>Up to {{ fx.max_in_view }} in one frame.{% if fx.officials %} {{ fx.officials }} official number{{ "s" if fx.officials != 1 }} left out of the video and the report.{% endif %}</dd>
+            <dd>Up to {{ fx.max_in_view }} of the 30 in one frame.{% if fx.officials %} {{ fx.officials }} official number{{ "s" if fx.officials != 1 }} left out of the video and the report.{% endif %}</dd>
             {% if fx.recovered %}
             <dt>{{ "{:,}".format(fx.recovered) }}<small>times picked up again</small></dt>
             <dd>A player went out of sight and came back under the same number. The longest gap was {{ fx.longest_hidden }} frames

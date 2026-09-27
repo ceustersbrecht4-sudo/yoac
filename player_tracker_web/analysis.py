@@ -24,6 +24,7 @@ DETACHED = 3.5        # body lengths from every teammate = not part of the line
 CLOSE_UP = 0.22       # typical player taller than this share of the picture
                       # = close-up / replay; team shape can't be judged there
 MIN_WIDE_PLAYERS = 6  # fewer players in view = too tight a shot to judge shape
+PLAYERS_PER_TEAM = 15  # rugby union: 15 a side on the pitch, 30 players plus the officials
 MAX_UNSURE = 0.15     # more than this share of "unsure" players in a frame =
                       # a gap in the line might just be a player we couldn't
                       # place, so line shape isn't judged in that frame
@@ -46,6 +47,29 @@ def _players(detections, size):
             "bucket": bucket, "box": (x1, y1, x2, y2), "measurable": not (cut or low), "id": track_id,
         })
     return players
+
+
+def _cap_teams(players):
+    """A team never has more than 15 players on the pitch. When more are
+    seen, the extras are replacements warming up, staff or crowd in a
+    similar colour: keep the 15 nearest the rest of the play (those people
+    stand along the edges) and leave the others out. Returns (players,
+    {team: number left out})."""
+    teams = {p["bucket"] for p in players} - {"other", "unsure", "unknown"}
+    extra = {}
+    if not any(sum(1 for p in players if p["bucket"] == t) > PLAYERS_PER_TEAM for t in teams):
+        return players, extra
+    on = [p for p in players if p["bucket"] in teams]
+    cx, cy = median(p["x"] for p in on), median(p["y"] for p in on)
+    scale = median(p["h"] for p in on) or 1
+    drop = set()
+    for t in teams:
+        mine = [p for p in players if p["bucket"] == t]
+        if len(mine) > PLAYERS_PER_TEAM:
+            mine.sort(key=lambda p: math.hypot(p["x"] - cx, p["y"] - cy) / scale)
+            drop.update(id(p) for p in mine[PLAYERS_PER_TEAM:])
+            extra[t] = len(mine) - PLAYERS_PER_TEAM
+    return [p for p in players if id(p) not in drop], extra
 
 
 def _contact_groups(players):
@@ -88,10 +112,11 @@ def _balls(detections):
 def prepare(all_detections, size=None):
     """Team-independent per-frame data; cache this per video.
     size = (width, height) of the video picture.
-    Each frame: (players, contact groups, indexes in contact, clear, balls)."""
+    Each frame: (players, contact groups, indexes in contact, clear, balls,
+    {team: players left out because more than 15 were seen})."""
     frames = []
     for detections in all_detections:
-        players = _players(detections, size)
+        players, extra = _cap_teams(_players(detections, size))
         wide = len(players) >= MIN_WIDE_PLAYERS and (
             not size or median(p["h"] for p in players) < CLOSE_UP * size[1])
         if not wide:
@@ -99,7 +124,8 @@ def prepare(all_detections, size=None):
         groups = _contact_groups(players)
         unsure = sum(1 for p in players if p["bucket"] == "unsure")
         clear = bool(players) and unsure <= MAX_UNSURE * len(players)
-        frames.append((players, groups, {i for g in groups for i in g}, clear, _balls(detections) if players else []))
+        frames.append((players, groups, {i for g in groups for i in g}, clear, _balls(detections) if players else [],
+                       extra if players else {}))
     return frames
 
 
@@ -264,6 +290,11 @@ def analyse_team(frames, fps, team, opp, phase):
         notes.append(f"{unsure_seen / all_seen:.0%} of player sightings couldn't be confidently put in a team "
                      "(\"unsure\" - usually far from the camera). Moments with many unsure players are left "
                      "out of the line measurements, so some real moments may be missed.")
+    capped = sum(1 for f in frames if len(f) > 5 and f[5].get(team))
+    if wide and capped > 0.02 * wide:
+        notes.append(f"In {capped / wide:.0%} of the wide shots more than {PLAYERS_PER_TEAM} {T} players were seen. A team only has "
+                     f"{PLAYERS_PER_TEAM} on the pitch, so the extras (probably replacements warming up, staff or crowd in a "
+                     "similar colour) were left out.")
     if wide < total * 0.9:
         notes.append(f"Used {wide / fps:.0f}s of wide-angle footage out of {seconds:.0f}s - "
                      "close-ups and replays are skipped because team shape can't be judged from them.")

@@ -21,6 +21,7 @@ MAX_HIDDEN = 90        # frames; matches track_buffer in tracker.py
 TOUCH = 0.6            # feet closer than this many box heights = one group
 MIN_GROUP = 4          # players in one group = a breakdown worth cropping
 GREY = (136, 136, 136) # box colour for a bucket without a kit colour
+PER_TEAM = 15          # players a side on the pitch (rugby union)
 
 
 def frame_index(frame_count):
@@ -49,15 +50,16 @@ def facts(detections, fps, colors=None):
     bucket_of = {}
     in_view = []
     for f, frame in enumerate(detections):
-        n = 0
+        n = {}
         for x1, y1, x2, y2, bucket, tid, conf in frame:
             if tid is None or bucket == "ball":
                 continue
             seen.setdefault(tid, []).append(f)
             bucket_of[tid] = bucket
             if bucket not in TEAM_SKIP:
-                n += 1
-        in_view.append(n)
+                n[bucket] = n.get(bucket, 0) + 1
+        # 15 a side: anyone past that is a replacement, staff or crowd, not a player.
+        in_view.append(sum(min(v, PER_TEAM) for v in n.values()))
 
     per_team, officials = {}, 0
     longest_track, hidden_runs = 0, []

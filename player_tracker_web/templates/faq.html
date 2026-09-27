@@ -11,7 +11,7 @@
         <p>No. Players are detected as "a person", given a temporary number and grouped by shirt colour. Nobody is identified.</p></details>
       <details><summary>Why does a player get a new number halfway through?</summary>
         <p>A player who is out of sight for more than 90 frames (3 seconds at 30 fps), for example off the edge of the picture,
-          is picked up as someone new. Their team stays right, because that's decided by shirt colour.</p></details>
+          is picked up as someone new. A team has 15 on the pitch, and the app never counts more than 15 of one team in a frame: extras are replacements warming up, staff or crowd in a similar colour. Their team stays right, because that's decided by shirt colour.</p></details>
       <details><summary>Who can see my videos?</summary>
         <p>Only you, and the owner of the app for moderation. Videos are deleted automatically after the period of your plan,
           or earlier when you delete them. See the <a href="{{ url_for('legal_page', doc='privacy') }}">privacy policy</a>.</p></details>
