@@ -9,11 +9,14 @@
   <meta name="description" content="Upload your rugby match video. YOAC tracks every player, splits them into both teams and shows the moments in attack and defence worth reviewing.">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
-  {# The two kit colours come from the coach's own analysed match when there is one;
-     otherwise the tracker's default red and blue boxes. #}
+  {# The two kit colours are the shirt colours measured in the coach's own latest
+     match. Before there is one, a claret and a white kit stand in for them. #}
+  {% import "_boxes.html" as bx %}
   {% set fx = demo.facts if demo and demo.facts else None %}
-  {% set ta = fx.teams[0] if fx and fx.teams|length > 0 else {"name": "red", "color": "#dc0000", "ink": "#ffffff"} %}
-  {% set tb = fx.teams[1] if fx and fx.teams|length > 1 else {"name": "blue", "color": "#0064dc", "ink": "#ffffff"} %}
+  {% set known = fx and fx.teams|length > 1 %}
+  {% set ta = fx.teams[0] if known else {"name": "claret", "color": "#7c1f35", "ink": "#ffffff", "dark": True} %}
+  {% set tb = fx.teams[1] if known else {"name": "white", "color": "#e6e2d6", "ink": "#0a0a0a", "dark": False} %}
+  {% set A, B = ta.name|capitalize, tb.name|capitalize %}
   <style>
     @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap;
       src: url("{{ url_for('static', filename='fonts/barlow-condensed-800.woff2') }}") format("woff2"); }
@@ -36,8 +39,8 @@
       --issue: #c8372d;
       --good: #1d7a48;
       --info: #5d6b63;
-      --a: {{ ta.color }}; --a-ink: {{ ta.ink }};
-      --b: {{ tb.color }}; --b-ink: {{ tb.ink }};
+      --a: {{ ta.color }}; --a-ink: {{ ta.ink }}; --a-halo: {{ "rgba(235,235,235,0.95)" if ta.dark else "transparent" }};
+      --b: {{ tb.color }}; --b-ink: {{ tb.ink }}; --b-halo: {{ "rgba(235,235,235,0.95)" if tb.dark else "transparent" }};
       --head: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
       --mono: ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
     }
@@ -66,8 +69,30 @@
     .tbox.plain { --k: var(--rule); --k-ink: var(--soft); }
 
     /* section number + name, like a stage in the app's progress list */
-    .step-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; color: var(--muted); }
-    .step-label b { font-family: var(--mono); font-weight: 700; color: var(--text); }
+    .step-label { display: inline-flex; align-items: baseline; gap: 10px; margin-bottom: 16px; padding: 6px 10px 5px;
+      background: var(--a); color: var(--a-ink); font: 700 .86rem/1 system-ui, sans-serif; box-shadow: 0 0 0 1px var(--a-halo); }
+    .step-label b { font-family: var(--mono); }
+
+    /* ---------- drawings in the tracker's style (see _boxes.html) ---------- */
+    svg.draw { display: block; width: 100%; height: auto; }
+    svg.draw text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-weight: 700; }
+    .grass { fill: #2b6a3f; } .grass-2 { fill: #2f7445; }
+    .pline { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.6; fill: none; }
+    .pline.dash { stroke-dasharray: 7 6; }
+    .sock { fill: #1d2320; } .shorts { fill: #1a211d; } .head { fill: #c79a74; }
+    .shirt-a { fill: var(--a); } .shirt-b { fill: var(--b); } .shirt-r { fill: #202428; }
+    .box-a, .box-b, .halo-a, .halo-b, .flag, .ok { fill: none; }
+    .box-a { stroke: var(--a); } .box-b { stroke: var(--b); }
+    .halo-a { stroke: var(--a-halo); } .halo-b { stroke: var(--b-halo); }
+    .tab-a { fill: var(--a); } .tab-b { fill: var(--b); }
+    .ink-a { fill: var(--a-ink); } .ink-b { fill: var(--b-ink); }
+    .ghost { stroke-dasharray: 3 2; opacity: .75; }
+    .flag { stroke: #ff3b30; }           /* the report marks problems in red */
+    .ok { stroke: #3ddc84; }
+    .cell-crowd { fill: #3b403d; } .frame-out { fill: none; stroke: #fff; stroke-width: 1.4; stroke-dasharray: 5 4; }
+    .frame-in { fill: none; stroke: #fff; stroke-width: 2; }
+    .meter-bg { fill: rgba(0, 0, 0, 0.55); } .meter-fg { fill: var(--a); }
+    .label-w { fill: #fff; font-family: ui-monospace, Consolas, monospace !important; font-weight: 700; }
 
     /* ---------- nav ---------- */
     nav { display: flex; align-items: center; gap: 26px; height: 66px; }
@@ -85,22 +110,23 @@
     .me button:hover { color: #fff; }
 
     /* ---------- 01 upload ---------- */
-    .upload-sec { position: relative; overflow: hidden; border-bottom: 1px solid var(--rule); }
-    /* The coach's own raw frame behind the headline, when there is one. */
-    .upload-sec .bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .22; }
-    .upload-sec .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--night) 25%, rgba(13, 19, 16, .55) 70%, var(--night)); }
-    .upload-sec .bg.mown { opacity: 1; background: repeating-linear-gradient(90deg, #111a14 0 90px, #0f1712 90px 180px); }
-    .upload-sec .bg.mown::after { background: linear-gradient(180deg, transparent 40%, var(--night)); }
-    .upload-grid { position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 64px; align-items: start; padding: 64px 0 80px; }
-    .upload-grid h1 { font-size: clamp(3rem, 6vw, 5.2rem); line-height: .94; margin-bottom: 24px; }
-    .upload-grid h1 em { font-style: italic; font-weight: 900; color: var(--a); }
-    .upload-grid h1 em + em { color: var(--b); }
+    .upload-sec { position: relative; border-bottom: 1px solid var(--rule);
+      background: repeating-linear-gradient(180deg, #0f1712 0 64px, #0d1410 64px 128px); }
+    .hero-head { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: 56px; align-items: end; padding: 56px 0 40px; }
+    .hero-head h1 { font-size: clamp(3rem, 6.4vw, 5.6rem); line-height: .94; }
+    /* team names drawn as the tracker's label tabs, in the real shirt colours */
+    .hero-head h1 em { font-style: italic; font-weight: 900; display: inline-block; padding: 0 .12em; line-height: .98;
+      background: var(--a); color: var(--a-ink); box-shadow: 0 0 0 2px var(--a-halo); }
+    .hero-head h1 em.b { background: var(--b); color: var(--b-ink); box-shadow: 0 0 0 2px var(--b-halo); }
+    .upload-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 40px; align-items: start; padding: 0 0 72px; }
+    .frame-fig { margin: 0; }
+    .frame-fig .tbox { background: #000; }
     .lead { font-size: 1.14rem; color: var(--soft); max-width: 31em; }
     .spec { margin: 30px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; max-width: 34em; }
     .spec dt { font-family: var(--mono); font-size: .8rem; color: var(--muted); padding-top: 2px; }
     .spec dd { margin: 0; font-size: .95rem; color: var(--soft); }
 
-    .uploader { background: rgba(13, 19, 16, .92); padding: 22px; }
+    .uploader { background: rgba(13, 19, 16, 0.92); padding: 22px; }
     .drop { display: block; border: 2px dashed var(--rule); padding: 30px 18px; text-align: center; cursor: pointer; background: var(--night-2); }
     .drop.over { border-style: solid; border-color: var(--a); background: var(--night-3); }  /* a file is being dragged over it */
     .drop.has-file { border-style: solid; border-color: var(--rule); text-align: left; }
@@ -115,7 +141,7 @@
     .consent { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; font-size: .86rem; color: var(--soft); line-height: 1.45; }
     .consent input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: var(--go); }
     .uploader .btn { width: 100%; }
-    .err { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--issue); color: #ffd6d2; background: rgba(200, 55, 45, .12); font-size: .92rem; }
+    .err { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--issue); color: #ffd6d2; background: rgba(200, 55, 45, 0.12); font-size: .92rem; }
     .sending { margin-top: 16px; }
     .sending .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
     .sending .pct { font-family: var(--head); font-size: 2.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -139,6 +165,7 @@
     .rail li.done { border-top-color: var(--a); }
     .rail li.done::before { background: var(--a); border-color: var(--a); }
     .rail li.now::before { border-color: var(--a); }
+    .rail .glyph { margin: 0 0 16px; border: 1px solid var(--rule); }
     .rail .n { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
     .rail .n::before { content: "0" counter(st) " "; color: var(--text); font-weight: 700; }
     .rail h3 { font-size: 1.6rem; margin: 6px 0 10px; }
@@ -156,7 +183,7 @@
     .compare .handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
     .compare .grip { position: absolute; top: 50%; left: var(--pos); transform: translate(-50%, -50%); background: #fff; color: var(--ink);
       font: 700 .74rem/1 var(--mono); padding: 7px 8px; pointer-events: none; white-space: nowrap; }
-    .compare .tag { position: absolute; top: 10px; padding: 4px 7px; background: rgba(0,0,0,.7); color: #fff; font: 700 .74rem/1 var(--mono); pointer-events: none; }
+    .compare .tag { position: absolute; top: 10px; padding: 4px 7px; background: rgba(0,0,0,0.7); color: #fff; font: 700 .74rem/1 var(--mono); pointer-events: none; }
     .compare .tag-l { left: 10px; } .compare .tag-r { right: 10px; }
     .compare input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
     .cap { margin-top: 10px; font-size: .86rem; color: var(--muted); }
@@ -185,13 +212,12 @@
 
     /* ---------- 04 report (printed sheet) ---------- */
     .report { background: var(--paper); color: var(--ink); padding: 88px 0; }
-    .report .step-label { color: #6b766f; }
-    .report .step-label b { color: var(--ink); }
-    .report-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; align-items: start; }
+    .report-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 56px; align-items: start; }
     .report-grid > div > p { color: var(--ink-2); margin-top: 18px; }
     .sheet { background: #fff; border: 1px solid var(--paper-rule); }
-    .sheet .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 18px; padding: 16px 20px; border-bottom: 1px solid var(--paper-rule); }
+    .sheet .row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 20px; padding: 16px 20px; border-bottom: 1px solid var(--paper-rule); }
     .sheet .row:last-child { border-bottom: 0; }
+    .sheet .side { display: grid; gap: 8px; align-content: start; }
     .kind { align-self: start; font: 700 .7rem/1 var(--mono); text-transform: uppercase; letter-spacing: .04em; padding: 6px 7px; color: #fff; text-align: center; }
     .kind.issue { background: var(--issue); } .kind.good { background: var(--good); } .kind.info { background: var(--info); }
     .sheet h3 { font-family: system-ui, sans-serif; font-size: 1rem; font-weight: 700; line-height: 1.3; }
@@ -233,7 +259,8 @@
     @media (max-width: 980px) {
       .nav-links { display: none; }
       .upload-grid, .proc-head, .result-grid, .report-grid, .metres { grid-template-columns: minmax(0, 1fr); gap: 40px; }
-      .upload-grid { padding: 36px 0 56px; }
+      .hero-head { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 36px 0 28px; }
+      .upload-grid { padding: 0 0 56px; }
       .rail { grid-template-columns: minmax(0, 1fr); }
       .rail li { border-top: 0; border-left: 2px solid var(--rule); padding: 0 0 30px 28px; }
       .rail li::before { top: 0; left: -9px; }
@@ -276,20 +303,60 @@
 
   <!-- ================= 01 upload: the real upload, not a picture of one ================= -->
   <section class="upload-sec" id="upload">
-    {% if demo %}<div class="bg" style="background-image:url('/demo/raw.jpg')" aria-hidden="true"></div>
-    {% else %}<div class="bg mown" aria-hidden="true"></div>{% endif %}
-    <div class="wrap"><div class="upload-grid">
-      <div>
-        <div class="step-label"><b>01</b> Upload</div>
-        <h1>Drop in the match. Get every player back, boxed in <em>{{ ta.name }}</em> or <em>{{ tb.name }}</em>.</h1>
-        <p class="lead">Film from the stand on a phone, upload the file, and Player Tracker follows each player, splits them
-          into the two teams by shirt colour and leaves the referee out. Then the report points you to the moments to rewatch.</p>
+    <div class="wrap">
+      <div class="hero-head">
+        <div>
+          <div class="step-label"><b>01</b> Upload</div>
+          <h1>Drop in the match. Get every player back, boxed in
+            {% if known %}<em>{{ A }}</em> or <em class="b">{{ B }}</em>.{% else %}their own <em>shirt</em> <em class="b">colour</em>.{% endif %}</h1>
+        </div>
+        <p class="lead">Film from the stand on a phone and upload the file. Player Tracker follows each player, splits them
+          into the two teams by the colour of their shirts and leaves the referee out. Then the report points you to the
+          moments to rewatch.</p>
+      </div>
+
+      <div class="upload-grid">
+      <figure class="frame-fig">
+        {% if demo %}
+        <div class="tbox" style="margin-top:26px"><span class="tab">frame {{ "{:,}".format(demo.frame + 1) }} · tracked</span>
+          <div class="compare" id="compare">
+            <img class="raw" src="/demo/raw.jpg" alt="The original frame">
+            <img class="tracked" src="/demo/tracked.jpg" alt="The same frame, tracked">
+            <span class="tag tag-l">tracked</span><span class="tag tag-r">original</span>
+            <span class="handle"></span><span class="grip">&lt; drag &gt;</span>
+            <input type="range" min="0" max="100" value="50" aria-label="Drag to compare the original and the tracked frame">
+          </div>
+        </div>
+        <figcaption class="cap">{% if demo.name %}From <b>{{ demo.name }}</b>, your latest analysed match{% else %}A tracked match{% endif %},
+          straight from the analysis. Drag to compare.</figcaption>
+        {% else %}
+        <div class="tbox" style="margin-top:26px"><span class="tab">how the tracked video looks</span>
+          <svg class="draw" viewBox="0 0 640 360" role="img" aria-label="Drawing of a tracked frame: players boxed and numbered in their shirt colours, the referee without a box">
+            <g id="scene">{{ bx.grass(640, 360, 9) }}
+            <path class="pline" d="M0 38 L640 38"/><path class="pline" d="M0 346 L640 346"/>
+            <path class="pline" d="M318 38 L286 346"/><path class="pline" d="M112 38 L20 346"/><path class="pline" d="M526 38 L600 346"/>
+            <path class="pline dash" d="M0 62 L640 62"/><path class="pline dash" d="M0 318 L640 318"/>
+            <path class="pline dash" d="M392 38 L400 346"/>
+            {# breakdown #}
+            {{ bx.player(338, 148, "b", 1.08, B ~ " 5") }}{{ bx.player(352, 152, "a", 1.1, A ~ " 8") }}{{ bx.player(344, 162, "a", 1.14) }}
+            {{ bx.player(372, 142, "b", 1.06) }}{{ bx.player(318, 128, "r", 1.02) }}
+            {# defending line #}
+            {% for x, y, n in [(420, 84, 12), (432, 118, 13), (436, 196, 6), (452, 246, 11), (466, 302, 2), (400, 58, 14)] %}
+            {{ bx.player(x, y, "b", 0.82 + y / 360 * 0.9, B ~ " " ~ n) }}{% endfor %}
+            {# attack, deeper #}
+            {% for x, y, n in [(300, 92, 10), (286, 190, 9), (252, 236, 12), (228, 288, 15), (206, 336, 14), (330, 66, 3)] %}
+            {{ bx.player(x, y, "a", 0.82 + y / 360 * 0.9, A ~ " " ~ n) }}{% endfor %}</g>
+          </svg>
+        </div>
+        <figcaption class="cap">Drawn the way the tracked video looks: every player boxed and numbered in their shirt colour, the
+          referee (dark kit) left without a box. Once you've analysed a match, your own frame is here instead.</figcaption>
+        {% endif %}
         <dl class="spec">
           <dt>files</dt><dd>MP4, MOV, AVI, MKV, M4V or WEBM, up to 2 GB and 2 hours</dd>
           <dt>best</dt><dd>A wide shot from high up that shows most of the pitch. Close-ups and replays are left out of the report.</dd>
           <dt>first go</dt><dd>A 10 to 30 second clip, to see what it finds before you send a whole match.</dd>
         </dl>
-      </div>
+      </figure>
 
       <form class="tbox uploader" id="form">
         <span class="tab">Upload</span>
@@ -318,7 +385,8 @@
         <div class="err" id="err" role="alert" hidden></div>
         <p class="small">Or use the <a href="{{ url_for('index') }}">full upload page</a>, with your recent videos.</p>
       </form>
-    </div></div>
+      </div>
+    </div>
   </section>
 
   <!-- ================= 02 processing: the stages the app really runs ================= -->
@@ -345,24 +413,43 @@
 
       <ol class="rail" id="rail">
         <li data-stage="upload">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
+            {{ bx.player(48, 60, "a", 0.8, box=False) }}{{ bx.player(70, 74, "a", 0.9, box=False) }}{{ bx.player(108, 56, "b", 0.8, box=False) }}{{ bx.player(124, 80, "b", 0.95, box=False) }}
+            <rect class="meter-bg" x="0" y="86" width="160" height="10"/><rect class="meter-fg" x="0" y="86" width="98" height="10"/>
+            {{ bx.tab(0, 9, "match.mp4", "a", 7) }}</svg>
           <span class="n">Upload</span>
           <h3>Send the file</h3>
           <p>Straight from your phone's gallery or your laptop.</p>
           <p class="param">limit <b>2 GB</b>, <b>2 h</b><br>picture up to <b>4096 px</b></p>
         </li>
         <li data-stage="check">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true"><rect width="160" height="96" fill="#101713"/>
+            {% for i in range(16) %}{% set cx, cy = 4 + (i % 4) * 39, 12 + (i // 4) * 21 %}
+            {% if i in [2, 7, 13] %}<rect class="cell-crowd" x="{{ cx }}" y="{{ cy }}" width="35" height="18"/>
+            {% else %}<rect class="grass" x="{{ cx }}" y="{{ cy }}" width="35" height="18"/>{{ bx.player(cx + 12, cy + 15, "a", 0.42, box=False) }}{{ bx.player(cx + 24, cy + 16, "b", 0.45, box=False) }}{% endif %}{% endfor %}
+            {{ bx.tab(0, 9, "16 frames", "a", 7) }}</svg>
           <span class="n">Check</span>
           <h3>Is it a match?</h3>
           <p>Anything that isn't match or training footage is refused and deleted, and its minutes are given back.</p>
           <p class="param">samples <b>16 frames</b><br>grass in <b>40%</b> of them<br>later: <b>3+ people</b> in <b>30%</b> of frames</p>
         </li>
         <li data-stage="shrink">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}{{ bx.player(60, 70, "a", 0.9, box=False) }}{{ bx.player(92, 62, "b", 0.85, box=False) }}
+            <rect class="frame-out" x="3" y="14" width="154" height="79"/><rect class="frame-in" x="30" y="30" width="96" height="54"/>
+            <text class="label-w" x="120" y="26" font-size="7">4K</text>
+            {{ bx.tab(29, 29, "1280 px", "a", 7) }}</svg>
           <span class="n">Shrink</span>
           <h3>Make it smaller</h3>
           <p>The detector only looks at 1280 pixels across, so the rest is thrown away first. The original is deleted.</p>
           <p class="param">max <b>1280 px</b> long side<br>max <b>30 fps</b>, no sound</p>
         </li>
         <li data-stage="track">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true"><rect width="160" height="96" fill="#101713"/>
+            {% for i in range(3) %}{% set fx0 = 2 + i * 53 %}<svg x="{{ fx0 }}" y="14" width="50" height="70" viewBox="0 0 50 70">{{ bx.grass(50, 70, 3) }}
+            {% if i == 1 %}{{ bx.player(22, 58, "a", 0.95, "7", ghost=True) }}{{ bx.player(27, 62, "b", 1.0, "4") }}
+            {% else %}{{ bx.player(18 + i * 4, 58, "a", 0.95, "7") }}{{ bx.player(36, 60 + i, "b", 1.0, "4") }}{% endif %}</svg>{% endfor %}
+            <text class="label-w" x="2" y="94" font-size="7">seen</text><text class="label-w" x="55" y="94" font-size="7">hidden</text><text class="label-w" x="108" y="94" font-size="7">still 7</text>
+            {{ bx.tab(0, 9, "same number", "a", 7) }}</svg>
           <span class="n">Track</span>
           <h3>Find every player</h3>
           <p>Each frame is scanned for people, and each person keeps one number from frame to frame, also when they
@@ -370,6 +457,11 @@
           <p class="param">YOLOv8m at <b>1280 px</b><br>boxes under <b>35%</b> sure are dropped<br>a hidden player keeps their number for <b>90 frames</b> (3 s at 30 fps)</p>
         </li>
         <li data-stage="teams">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}
+            {{ bx.player(28, 60, "a", 0.85) }}{{ bx.player(46, 78, "a", 0.95) }}{{ bx.player(34, 92, "a", 1.0) }}
+            {{ bx.player(112, 58, "b", 0.85) }}{{ bx.player(132, 76, "b", 0.95) }}{{ bx.player(118, 92, "b", 1.0) }}
+            {{ bx.player(80, 72, "r", 0.95) }}
+            {{ bx.tab(0, 9, A, "a", 7) }}{{ bx.tab(100, 9, B, "b", 7) }}</svg>
           <span class="n">Teams</span>
           <h3>Sort by shirt</h3>
           <p>Shirt pixels from every frame a player is seen in vote on their team, so shade and floodlight don't flip them.
@@ -377,6 +469,9 @@
           <p class="param">votes: <b>every frame</b> of a track<br>officials: <b>under 15%</b> of players, <b>65%</b> of their votes</p>
         </li>
         <li data-stage="draw">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
+            {{ bx.player(44, 56, "a", 0.8, A ~ " 9") }}{{ bx.player(60, 86, "a", 0.95, A ~ " 3") }}{{ bx.player(112, 58, "b", 0.8, B ~ " 6") }}{{ bx.player(130, 88, "b", 0.95, B ~ " 2") }}
+            </svg>
           <span class="n">Draw</span>
           <h3>Draw the video</h3>
           <p>Every player gets a box and a number in their team's real kit colour. Officials aren't drawn.</p>
@@ -391,18 +486,10 @@
     <div class="wrap">
       <div class="step-label"><b>03</b> Tracked result</div>
       {% if demo %}
-      <h2>{% if demo.name %}Your latest match, tracked{% else %}A tracked match{% endif %}</h2>
+      <h2>Close-ups from {% if demo.name %}your latest match{% else %}the tracked frame{% endif %}</h2>
       <div class="result-grid">
         <div>
-          <div class="compare" id="compare">
-            <img class="raw" src="/demo/raw.jpg" alt="The original frame">
-            <img class="tracked" src="/demo/tracked.jpg" alt="The same frame, tracked">
-            <span class="tag tag-l">tracked</span><span class="tag tag-r">original</span>
-            <span class="handle"></span><span class="grip">&lt; drag &gt;</span>
-            <input type="range" min="0" max="100" value="50" aria-label="Drag to compare the original and the tracked frame">
-          </div>
-          <p class="cap">Frame <b>{{ "{:,}".format(demo.frame + 1) }}</b>{% if demo.name %} of <b>{{ demo.name }}</b>{% endif %}, straight from the
-            analysis. Nothing added or cleaned up.</p>
+          <p class="cap" style="margin-top:0">Cut from frame <b>{{ "{:,}".format(demo.frame + 1) }}</b>, the one at the top of this page. Nothing added or cleaned up.</p>
 
           {% if demo.crops and demo.size %}
           {% set W, H = demo.size[0], demo.size[1] %}
@@ -460,12 +547,20 @@
       <div class="tbox plain empty" style="margin-top:44px">
         <span class="tab">no video yet</span>
         <h3>Nothing analysed on this account yet</h3>
-        <p>This part of the page only shows real footage. Once your first video is done, you'll see here:</p>
-        <ul>
-          <li>a frame from it, before and after tracking, to drag between;</li>
-          <li>close-ups cut from that frame: a group of players, the nearest player of each team, and the referee without a box;</li>
-          <li>numbers counted from your tracking data: frames scanned, player numbers per team, how often a hidden player was picked up again.</li>
-        </ul>
+        <p>This part of the page only shows real footage. Once your first video is done, you'll see close-ups cut from its
+          frame, like these cut from the drawing at the top:</p>
+        <div class="crops" style="margin:8px 0 34px">
+          {% for vb, label, k, cap in [("324 104 66 60", "4 players", "plain", "A breakdown: every player in it keeps a box."),
+                                       ("436 190 64 80", B ~ " 11", "b", "The nearest " ~ tb.name ~ " player."),
+                                       ("188 270 72 90", A ~ " 14", "a", "The nearest " ~ ta.name ~ " player."),
+                                       ("305 99 26 34", "official", "plain", "The referee: no box.")] %}
+          <figure><div class="tbox {{ k }}"><span class="tab">{{ label }}</span>
+            <svg class="draw" viewBox="{{ vb }}" aria-hidden="true"><use href="#scene"/></svg></div>
+            <figcaption>{{ cap }}</figcaption></figure>
+          {% endfor %}
+        </div>
+        <p>And numbers counted from your tracking data: frames scanned, player numbers per team, how often a hidden
+          player was picked up again under the same number.</p>
         <a class="btn" href="#upload">Upload a first clip</a>
       </div>
       {% endif %}
@@ -484,28 +579,39 @@
           <p>Without marking the pitch, distances are in body lengths: the height of a typical player in that frame.</p>
         </div>
         <div class="sheet" aria-label="The flags the coach report can raise">
-          <div class="row"><span class="kind issue">work on</span><div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [12, 30, 48, 100, 118] %}{{ bx.player(x, 60, "b", 0.78) }}{% endfor %}
+    <path class="flag" stroke-width="2" d="M58 44 L58 50 L90 50 L90 44"/><path class="flag" stroke-width="1.5" d="M74 50 L74 56"/></svg></div><div>
             <h3>Holes in the defensive line</h3>
             <p>Two neighbouring defenders much further apart than they usually stand.</p>
             <div class="rule">gap &gt; 2.2 x usual spacing, and &gt; usual + 1.5 body lengths</div></div></div>
-          <div class="row"><span class="kind issue">work on</span><div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 94, 118] %}{{ bx.player(x, 62, "b", 0.78) }}{% endfor %}{{ bx.player(66, 44, "b", 0.78, mark="x") }}</svg></div><div>
             <h3>Players out of line (dog-legs)</h3>
             <p>One defender standing well in front of or behind the rest of the line.</p>
             <div class="rule">&gt; 2.5 x the usual step out of line, at least 1.5 body lengths</div></div></div>
-          <div class="row"><span class="kind issue">work on</span><div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [22, 50, 78] %}{{ bx.player(x, 64, "b", 0.72) }}{% endfor %}
+    {% for x in [16, 38, 60] %}{{ bx.player(x, 34, "a", 0.66) }}{% endfor %}{{ bx.player(92, 34, "a", 0.66, mark="x") }}{{ bx.player(116, 34, "a", 0.66, mark="x") }}</svg></div><div>
             <h3>Outnumbered in defence / overlap chances</h3>
             <p>One side has more players standing in the line than the other.</p>
             <div class="rule">2 or more extra players in the line</div></div></div>
-          <div class="row"><span class="kind issue">work on</span><div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(52, 50, "b", 0.74) }}{{ bx.player(62, 54, "b", 0.78) }}{{ bx.player(72, 50, "b", 0.74) }}{{ bx.player(80, 56, "a", 0.78) }}{{ bx.player(58, 62, "b", 0.82) }}
+    <rect class="flag" stroke-width="1.6" x="40" y="24" width="52" height="42"/>{{ bx.player(116, 62, "b", 0.78) }}{{ bx.player(14, 62, "b", 0.78) }}</svg></div><div>
             <h3>Committing too many to the breakdown</h3>
             <p>Players who join the ruck aren't standing in the line.</p>
             <div class="rule">defence: 3+ per ruck on average / attack: 4+</div></div></div>
-          <div class="row"><span class="kind info">timed</span><div>
+          <div class="row"><div class="side"><span class="kind info">timed</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(54, 52, "b", 0.76) }}{{ bx.player(66, 56, "a", 0.8) }}{{ bx.player(78, 52, "b", 0.76) }}{{ bx.player(62, 64, "a", 0.84) }}
+    {{ bx.tab(68, 18, "quick < 3 s", "a", 8) }}</svg></div><div>
             <h3>Ruck speed</h3>
             <p>From the players meeting at the tackle until the group breaks up, for every ruck the camera sees start to end.
               Scrums are counted too.</p>
             <div class="rule">quick ball &lt; 3 s / slow ball &gt; 6 s / scrum = 10+ players in one group</div></div></div>
-          <div class="row"><span class="kind good">going well</span><div>
+          <div class="row"><div class="side"><span class="kind good">going well</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78) }}{% endfor %}
+    <path class="ok" stroke-width="2" d="M8 64 L120 64"/></svg></div><div>
             <h3>The same checks, the other way round</h3>
             <p>A line that stayed connected, kept its shape or matched the attack's numbers is reported as going well.</p></div></div>
           <div class="sheet-foot">These are measurements from one camera: a list of moments to rewatch, not a verdict. Check each one on the video.</div>

@@ -123,6 +123,15 @@ BUCKET_COLORS = {
 }
 
 
+def draw_box(frame, p1, p2, color, width=2):
+    """A box in the kit's own colour. Dark kits (navy, black, bottle green)
+    get a thin light edge so the box still shows up against the grass."""
+    color = tuple(int(c) for c in color)
+    if 0.114 * color[0] + 0.587 * color[1] + 0.299 * color[2] < 70:
+        cv2.rectangle(frame, (p1[0] - 1, p1[1] - 1), (p2[0] + 1, p2[1] + 1), (235, 235, 235), width + 2)
+    cv2.rectangle(frame, p1, p2, color, width)
+
+
 def draw_detections(frame, detections, hidden=(), colors=None):
     """Draw one frame's detections, skipping any bucket in `hidden`.
     Each detection is [x1, y1, x2, y2, bucket, track_id, conf]. `colors`
@@ -136,7 +145,7 @@ def draw_detections(frame, detections, hidden=(), colors=None):
         else:
             label = f"{bucket.capitalize()} {track_id}" if track_id is not None else bucket.capitalize()
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        draw_box(frame, (x1, y1), (x2, y2), color)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         cv2.rectangle(frame, (x1, y1 - th - 10), (x1 + tw + 6, y1), color, -1)
         text_color = (255, 255, 255) if sum(color) < 380 else (10, 10, 10)

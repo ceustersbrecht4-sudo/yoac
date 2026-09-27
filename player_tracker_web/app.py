@@ -37,7 +37,7 @@ from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
 from security import Throttle, init_online, init_security_headers
 from teams import assign_teams
-from tracker import BUCKET_COLORS, count_buckets, detect_players, render_video, video_info
+from tracker import BUCKET_COLORS, count_buckets, detect_players, draw_box, render_video, video_info
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(HERE, "uploads")
@@ -903,7 +903,7 @@ def frame(job_id):
                 if color is None or p["bucket"] in hidden:
                     continue
                 x1, y1, x2, y2 = (int(v * scale) for v in p["box"])
-                cv2.rectangle(img, (x1, y1), (x2, y2), tuple(int(c) for c in color), 2)
+                draw_box(img, (x1, y1), (x2, y2), color)
     return _jpeg(img, width, max_age=3600)
 
 

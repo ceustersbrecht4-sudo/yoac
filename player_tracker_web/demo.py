@@ -37,6 +37,11 @@ def _ink(bgr):
     return "#ffffff" if sum(bgr) < 380 else "#0a0a0a"
 
 
+def _dark(bgr):
+    """Dark enough that tracker.draw_box gives the box a light edge."""
+    return 0.114 * bgr[0] + 0.587 * bgr[1] + 0.299 * bgr[2] < 70
+
+
 def facts(detections, fps, colors=None):
     """Numbers measured on one analysed video. `detections` is the saved
     per-frame list of [x1, y1, x2, y2, bucket, track_id, conf]."""
@@ -73,7 +78,8 @@ def facts(detections, fps, colors=None):
         "frames": len(detections),
         "fps": round(fps, 2),
         "seconds": round(len(detections) / fps, 1) if fps else 0,
-        "teams": [{"name": t, "tracks": per_team[t], "color": _hex(kit(t)), "ink": _ink(kit(t))} for t in teams],
+        "teams": [{"name": t, "tracks": per_team[t], "color": _hex(kit(t)), "ink": _ink(kit(t)), "dark": _dark(kit(t))}
+                  for t in teams],
         "officials": officials,
         "median_in_view": int(median(in_view)) if in_view else 0,
         "max_in_view": max(in_view, default=0),

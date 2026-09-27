@@ -107,16 +107,6 @@ def _lab_to_bgr(lab):
     return tuple(int(v) for v in cv2.cvtColor(px, cv2.COLOR_LAB2BGR)[0, 0])
 
 
-def _box_color(bgr):
-    """Kit colour made bright enough to see as a box outline on the pitch."""
-    h, s, v = (int(x) for x in cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0, 0])
-    if s >= GREY_SAT:
-        s, v = max(s, 170), max(v, 230)
-    else:
-        v = 245 if v > 110 else 40  # white / black kits
-    return tuple(int(x) for x in cv2.cvtColor(np.uint8([[[h, s, v]]]), cv2.COLOR_HSV2BGR)[0, 0])
-
-
 def _color_name(bgr):
     """Same colour families as v6, for one colour."""
     h, s, v = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0, 0]
@@ -222,7 +212,7 @@ def assign_teams(video_path, all_detections, progress=None):
             base[t] = ("light " if t == light else "dark ") + base[t]
     for t in teams:
         names[t] = base[t]
-        colors[base[t]] = _box_color(team_bgr[t])
+        colors[base[t]] = team_bgr[t]  # the shirt colour as measured, not brightened
     colors[OTHER] = (160, 160, 160)
     colors[UNSURE] = (0, 215, 255)
 

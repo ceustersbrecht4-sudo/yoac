@@ -1,0 +1,46 @@
+{#- Small SVG pieces drawn the way the tracked video draws: a player in their
+    shirt colour, a 2px-style box around them and the label in a solid tab on
+    the box's top-left corner. Colours come from CSS variables (--a, --b: the
+    two kits), so every picture uses the real shirt colours of your match. -#}
+
+{# One player standing with their feet at (x, y). k: "a" / "b" (the two teams) or
+   "r" (an official: grey kit, never boxed). s: size (bigger = nearer the camera).
+   label: tab text, or "" for a box without a tab. ghost: dashed box, player hidden. #}
+{% macro player(x, y, k="a", s=1, label="", box=True, ghost=False, mark="") -%}
+{%- set w, h = 13 * s, 26 * s -%}
+{%- set bx, by = x - w / 2, y - h -%}
+{%- if not ghost %}
+<g class="pl">
+  <rect x="{{ x - 3.1 * s }}" y="{{ y - 5 * s }}" width="{{ 2.4 * s }}" height="{{ 5 * s }}" class="sock"/>
+  <rect x="{{ x + 0.7 * s }}" y="{{ y - 5 * s }}" width="{{ 2.4 * s }}" height="{{ 5 * s }}" class="sock"/>
+  <rect x="{{ x - 3.8 * s }}" y="{{ y - 9 * s }}" width="{{ 7.6 * s }}" height="{{ 4.4 * s }}" class="shorts"/>
+  <rect x="{{ x - 4.2 * s }}" y="{{ y - 18 * s }}" width="{{ 8.4 * s }}" height="{{ 9.4 * s }}" class="shirt-{{ k }}"/>
+  <circle cx="{{ x }}" cy="{{ y - 20.6 * s }}" r="{{ 2.7 * s }}" class="head"/>
+</g>
+{%- endif %}
+{%- if box and k != "r" %}
+<rect x="{{ bx }}" y="{{ by }}" width="{{ w }}" height="{{ h }}" class="halo-{{ k }}" stroke-width="{{ 1.3 * s + 1.6 }}"/>
+<rect x="{{ bx }}" y="{{ by }}" width="{{ w }}" height="{{ h }}" class="box-{{ k }}{{ ' ghost' if ghost }}" stroke-width="{{ 1.3 * s }}"/>
+{%- if label %}
+<rect x="{{ bx - 0.65 * s }}" y="{{ by - 7 * s }}" width="{{ label|length * 3.6 * s + 4 * s }}" height="{{ 7 * s }}" class="tab-{{ k }}{{ ' ghost' if ghost }}"/>
+<text x="{{ bx + 1.4 * s }}" y="{{ by - 1.8 * s }}" font-size="{{ 5.6 * s }}" class="ink-{{ k }}">{{ label }}</text>
+{%- endif %}
+{%- endif %}
+{%- if mark %}
+<rect x="{{ bx - 3 * s }}" y="{{ by - 3 * s }}" width="{{ w + 6 * s }}" height="{{ h + 6 * s }}" class="flag" stroke-width="{{ 1.4 * s }}"/>
+{%- endif %}
+{%- endmacro %}
+
+{# Grass with mowing stripes, as a camera in the stand sees it. #}
+{% macro grass(w, h, bands=6) -%}
+<rect width="{{ w }}" height="{{ h }}" class="grass"/>
+{%- for i in range(bands) if i % 2 %}
+<rect y="{{ h / bands * i }}" width="{{ w }}" height="{{ h / bands }}" class="grass-2"/>
+{%- endfor %}
+{%- endmacro %}
+
+{# A tab label on its own, e.g. above a frame. #}
+{% macro tab(x, y, text, k="a", size=7) -%}
+<rect x="{{ x }}" y="{{ y - size * 1.25 }}" width="{{ text|length * size * 0.62 + size * 0.8 }}" height="{{ size * 1.25 }}" class="tab-{{ k }}"/>
+<text x="{{ x + size * 0.4 }}" y="{{ y - size * 0.32 }}" font-size="{{ size }}" class="ink-{{ k }}">{{ text }}</text>
+{%- endmacro %}
