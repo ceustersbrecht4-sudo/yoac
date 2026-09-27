@@ -41,9 +41,16 @@
             <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(54, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(66, 56, "a", 0.8, pose="run") }}{{ bx.player(78, 52, "b", 0.76, pose="crouch", d=-1) }}{{ bx.player(62, 64, "a", 0.84, pose="run") }}
     {{ bx.tab(68, 18, "quick < 3 s", "a", 8) }}</svg></div><div>
             <h3>Ruck speed</h3>
-            <p>From the players meeting at the tackle until the group breaks up, for every ruck the camera sees start to end.
-              Scrums are counted too.</p>
-            <div class="rule">quick ball &lt; 3 s / slow ball &gt; 6 s / scrum = 10+ players in one group</div></div></div>
+            <p>From the tackle until the ball is out, the way coaches time it, for every ruck the camera sees start to end.
+              Elite teams average about 2.8 to 4.5 s. Scrums are counted too.</p>
+            <div class="rule">quick ball &lt; 3 s / slow ball &gt; 4 s / scrum = 10+ players in one group</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(46, 54, "a", 0.78, pose="crouch") }}{{ bx.player(58, 50, "b", 0.74, pose="crouch", d=-1) }}{{ bx.player(52, 62, "b", 0.8, pose="crouch", d=-1) }}
+    <path class="pline dash" d="M70 6 L70 70"/>{% for y in [30, 66] %}{{ bx.player(100, y, "b", 0.74, pose="crouch", d=-1) }}{% endfor %}{{ bx.player(56, 30, "b", 0.7, mark="x", d=-1) }}
+    {{ bx.tab(72, 10, "offside line", "a", 6) }}</svg></div><div>
+            <h3>Possible offside at the ruck (pitch marked)</h3>
+            <p>A defender standing in front of the offside line, the hindmost foot of the ruck on their side, just before the ball comes out.</p>
+            <div class="rule">&gt; 1 m in front of the line, for most of the last 1 s before the ball is out (Law 15)</div></div></div>
           <div class="row"><div class="side"><span class="kind good">going well</span>
             <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for x in [14, 38, 62, 86, 110] %}{{ bx.player(x, 60, "b", 0.78, pose="crouch", d=-1) }}{% endfor %}
     <path class="ok" stroke-width="2" d="M8 64 L120 64"/></svg></div><div>
@@ -59,7 +66,8 @@
           <p>On a wide shot, click at least 4 spots where two pitch lines cross, like the 22 and the 5 m line. The app then follows
             the camera as it pans and zooms, and the report adds:</p>
           <p><b>Line speed</b> in the first 1.5 s after the ball leaves a ruck: under 1.5 m/s is flagged as passive, 2.5 m/s and
-            more as good.<br><b>Mauls</b>, told apart from rucks: a breakdown that moves 3 m or more.</p>
+            more as good.<br><b>Mauls</b>, told apart from rucks: a breakdown that moves 3 m or more.<br><b>Offside at the ruck</b>:
+            defenders in front of the hindmost foot just before the ball comes out.</p>
           <p>Following the camera runs once per video, a few minutes for a full match.</p>
         </div>
         <figure style="margin:0">

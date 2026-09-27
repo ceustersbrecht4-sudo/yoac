@@ -6,15 +6,22 @@ Works from analysis.prepare() frames: a "contact group" there is 4+ players
 of both teams standing on top of each other. Here those groups are followed
 over time, so each ruck becomes one event with a start and an end.
 
-Ruck speed is the time from the group forming (tackle + first players
-arriving) to it breaking up (ball out, players leave). Coaches usually want
-quick ball: under 3 seconds.
+Ruck speed is timed the way coaches time it: from the tackle (the ball
+carrier going to ground with a tackler) until the ball is out. The tackle is
+found by looking back from the moment the ruck forms for the opposing pair
+at that spot; the ball out is the first frame the ball is seen clear of the
+ruck, or, when the ball isn't seen, the ruck breaking up. Quick ball is
+under 3 s; over 4 s is slow ball that lets the defence reorganise.
 
 With the pitch marked (pitch.py), positions are in metres, which adds:
 - mauls: a group that moves 3 m or more;
 - defensive line speed: how fast the defending line moves up in the
   first 1.5 s after the ball comes out. The defending team is the one whose
   line stands closest to the ruck (the attack stands deeper).
+- possible offside at the ruck (Law 15): everyone not in the ruck must stay
+  behind the offside line through the hindmost foot of the ruck on their
+  side. Defenders standing in front of it just before the ball comes out
+  are shown as moments to check.
 
 Thresholds are rules of thumb; each is a named constant below.
 """
@@ -25,14 +32,22 @@ from statistics import median
 import numpy as np
 
 import pitch
+from analysis import CONTACT_TOUCH
 
 JOIN_GAP = 0.6         # s a group may disappear (hidden, missed) and still be the same ruck
 MIN_BREAKDOWN = 1.0    # s a group must last to count as a ruck/maul/scrum
 MAX_BREAKDOWN = 60.0   # s longer than this = not a breakdown we can time
 SCRUM_SIZE = 10        # players seen in one group = a scrum
 MAUL_MOVE = 3.0        # m a group travels = a maul
-QUICK_RUCK = 3.0       # s
-SLOW_RUCK = 6.0        # s
+QUICK_RUCK = 3.0       # s: quick ball, the usual coaching benchmark
+SLOW_RUCK = 4.0        # s: slow ball, the defence has time to reorganise
+TACKLE_LOOKBACK = 2.0  # s before the ruck forms to look for the tackle that started it
+BALL_CLEAR = 0.4       # body lengths outside the ruck = the ball is out
+BALL_REACH = 4.0       # ... but within this many body lengths (not a ball elsewhere)
+OFFSIDE_WINDOW = 1.0   # s before the ball comes out that players are checked for offside
+OFFSIDE_MARGIN = 1.0   # m in front of the offside line before it counts (one camera isn't exact)
+OFFSIDE_SIDE = 1.5     # m across the pitch from the ruck's middle: closer = could be in the ruck
+OFFSIDE_SHARE = 0.5    # share of the window a player must be offside for
 LINE_WINDOW = 1.5      # s after the ball comes out that line speed is measured over
 LINE_REACH = 30.0      # m either side of the ruck (across the pitch) that counts as "the line"
 MIN_LINE_PLAYERS = 3
@@ -130,8 +145,18 @@ def breakdowns(frames, fps, maps=None, size=None):
                 if kind == "ruck" and travel >= MAUL_MOVE and secs >= 2:
                     kind = "maul"
         mid_f, mid_g = ev["seen"][len(ev["seen"]) // 2]
+        group_f0 = f0
+        if kind == "ruck":
+            f0 = _tackle_start(frames, f0, ev["seen"][0][1], fps)
+            out_f = _ball_out(frames, ev["seen"], fps)
+            if out_f is not None:
+                f1 = out_f
+            secs = (f1 - f0 + 1) / fps
+        else:
+            out_f = None
         out.append({
-            "kind": kind, "start_f": f0, "mid_f": mid_f, "mid_box": mid_g["box"], "end_f": f1, "start": round(f0 / fps, 2), "end": round(f1 / fps, 2),
+            "kind": kind, "start_f": f0, "group_f": group_f0, "mid_f": mid_f, "mid_box": mid_g["box"], "end_f": f1,
+            "start": round(f0 / fps, 2), "end": round(f1 / fps, 2), "ball_seen": out_f is not None,
             "seconds": round(secs, 1), "players": biggest, "timed": not (ev["blind_start"] or blind_end),
             "box": last["box"], "where": where, "travel": round(travel, 1) if travel is not None else None,
             "idx": last["idx"],
@@ -140,9 +165,44 @@ def breakdowns(frames, fps, maps=None, size=None):
     return out
 
 
+def _tackle_start(frames, f0, first, fps):
+    """The frame the tackle happened: going back from the ruck forming, the
+    last frame in a row with players of both teams touching at that spot."""
+    start = f0
+    for f in range(f0 - 1, max(-1, f0 - int(TACKLE_LOOKBACK * fps) - 1), -1):
+        near = [p for p in frames[f][0] if p["bucket"] not in ("other", "unsure")
+                and math.hypot(p["x"] - first["cx"], p["y"] - first["cy"]) < 1.5 * first["h"]]
+        if not any(a["bucket"] != b["bucket"]
+                   and math.hypot(a["x"] - b["x"], a["y"] - b["y"]) < CONTACT_TOUCH * (a["h"] + b["h"]) / 2
+                   for i, a in enumerate(near) for b in near[i + 1:]):
+            break
+        start = f
+    return start
+
+
+def _ball_out(frames, seen, fps):
+    """The first frame, from halfway through the ruck on, where the ball is
+    seen clear of it (passed or picked up from the base), in two frames close
+    together so a single wrong detection doesn't end the ruck. None if the
+    ball isn't seen."""
+    first_seen = None
+    for f, g in seen[len(seen) // 2:]:
+        x1, y1, x2, y2 = g["box"]
+        pad, reach = BALL_CLEAR * g["h"], BALL_REACH * g["h"]
+        clear = [b for b in (frames[f][4] if len(frames[f]) > 4 else [])
+                 if not (x1 - pad <= b[0] <= x2 + pad and y1 - pad <= b[1] <= y2 + pad)
+                 and math.hypot(b[0] - g["cx"], b[1] - g["cy"]) < reach]
+        if not clear:
+            continue
+        if first_seen is not None and f - first_seen <= max(2, int(0.3 * fps)):
+            return first_seen
+        first_seen = f
+    return None
+
+
 def _team_line(frame, H, team, ruck_x, ruck_y):
     """Pitch x of each `team` player near the ruck, standing outside contact."""
-    players, _, in_contact, _ = frame
+    players, _, in_contact = frame[:3]
     idx = [i for i, p in enumerate(players) if p["bucket"] == team and i not in in_contact]
     if len(idx) < MIN_LINE_PLAYERS:
         return None, []
@@ -208,6 +268,85 @@ def line_speeds(frames, fps, maps, events, teams):
     return out
 
 
+def offside_at_rucks(frames, fps, maps, events, teams):
+    """Rucks where a defender stood in front of the offside line (Law 15)
+    just before the ball came out. Needs the pitch marked. Returns
+    [{team, frame, t, players, metres}] - team = the defenders checked."""
+    if not maps or len(teams) < 2:
+        return []
+    a, b = teams
+    win = max(2, int(OFFSIDE_WINDOW * fps))
+    out = []
+    for ev in events:
+        if ev["kind"] != "ruck" or not ev["timed"] or not ev["where"]:
+            continue
+        rx, ry = ev["where"]
+        fs = [f for f in range(max(ev["group_f"], ev["end_f"] - win), ev["end_f"] + 1) if maps[f] is not None]
+        if len(fs) < win // 2:
+            continue
+        # Who defends: the team whose line stands closest to the ruck (as for line speed).
+        f_mid = fs[len(fs) // 2]
+        xa, _ = _team_line(frames[f_mid], maps[f_mid], a, rx, ry)
+        xb, _ = _team_line(frames[f_mid], maps[f_mid], b, rx, ry)
+        if xa is None or xb is None or math.copysign(1, xa - rx) == math.copysign(1, xb - rx):
+            continue
+        team, side = (a, math.copysign(1, xa - rx)) if abs(xa - rx) <= abs(xb - rx) else (b, math.copysign(1, xb - rx))
+        count, where = {}, {}
+        for f in fs:
+            players, groups, in_contact = frames[f][:3]
+            ruck = min(groups, key=lambda g: abs(sum(players[i]["x"] for i in g) / len(g) - ev["box"][0] / 2 - ev["box"][2] / 2),
+                       default=None)
+            if not ruck:
+                continue
+            xy = pitch.project(maps[f], _feet(players, ruck))
+            line = side * max(side * xy[:, 0])  # hindmost foot of the ruck on the defenders' side
+            idx = [i for i, p in enumerate(players) if p["bucket"] == team and i not in in_contact]
+            if not idx:
+                continue
+            pxy = pitch.project(maps[f], _feet(players, idx))
+            for k, i in enumerate(idx):
+                ahead = side * (line - pxy[k, 0])  # metres in front of the line, towards the ruck
+                if ahead > OFFSIDE_MARGIN and OFFSIDE_SIDE < abs(pxy[k, 1] - ry) <= LINE_REACH:
+                    key = players[i].get("id") or ("n", i)
+                    count[key] = count.get(key, 0) + 1
+                    where[key] = (f, players[i], round(float(ahead), 1))
+        caught = [where[k] for k, n in count.items() if n >= OFFSIDE_SHARE * len(fs)]
+        if caught:
+            f = max(w[0] for w in caught)
+            out.append({"team": team, "frame": f, "t": round(f / fps, 2), "players": [w[1] for w in caught],
+                        "metres": max(w[2] for w in caught)})
+        else:
+            out.append({"team": team, "frame": None, "t": None, "players": [], "metres": 0})
+    return out
+
+
+def offside_point(checks, team, phase):
+    """A coach-report point about offside at the ruck for `team`'s defence, or None."""
+    if phase == "attack":
+        return None
+    mine = [c for c in checks if c["team"] == team]
+    if len(mine) < 3:
+        return None
+    caught = [c for c in mine if c["frame"] is not None]
+    T = team.capitalize()
+    if not caught:
+        return {"kind": "good", "title": "Onside at the rucks",
+                "detail": f"At {len(mine)} rucks where {T} defended, nobody stood in front of the offside line "
+                          f"in the last {OFFSIDE_WINDOW:.0f} s before the ball came out.",
+                "why": "Staying onside keeps the penalty count down, and a line that starts level can move up together.",
+                "moments": []}
+    moments = [{"frame": c["frame"], "t": c["t"], "time": _fmt_t(c["t"]), "hl": _hl_players(c["players"]),
+                "label": f"{len(c['players'])} player{'s' if len(c['players']) > 1 else ''} about {c['metres']:.0f} m in front of the offside line"}
+               for c in sorted(caught, key=lambda c: -c["metres"])[:4]]
+    return {"kind": "issue", "title": "Possible offside at the ruck",
+            "detail": f"At {len(caught)} of {len(mine)} rucks, a {T} defender stood more than {OFFSIDE_MARGIN:.0f} m in front "
+                      f"of the offside line (the hindmost foot of the ruck) just before the ball came out.",
+            "why": "Referees penalise defenders who are in front of the hindmost foot, and it's where a lot of "
+                   "breakdown penalties come from. Check each moment: from one camera, a player lying in the ruck can "
+                   "look like the hindmost foot is further back than it is.",
+            "moments": moments}
+
+
 def _hl_players(players):
     if not players:
         return ""
@@ -229,7 +368,7 @@ def breakdown_summary(events, fps):
     s = {
         "rucks": len(rucks), "mauls": sum(1 for e in events if e["kind"] == "maul"),
         "scrums": sum(1 for e in events if e["kind"] == "scrum"),
-        "timed": len(timed),
+        "timed": len(timed), "ball_seen": sum(1 for e in timed if e.get("ball_seen")),
         "median": round(median(times), 1) if times else None,
         "quick": sum(1 for t in times if t < QUICK_RUCK),
         "medium": sum(1 for t in times if QUICK_RUCK <= t <= SLOW_RUCK),

@@ -1392,7 +1392,9 @@ function renderBreakdowns(out, data) {
   } else {
     const detail = b.timed
       ? `${b.timed} of ${b.rucks} rucks could be timed from start to end: ${b.quick} quick, ${b.medium} medium, ${b.slow} slow. ` +
-        "Ruck time runs from the players meeting at the tackle until the group breaks up, which is usually when the ball comes out."
+        "Ruck time runs from the tackle until the ball is out, the way coaches time it. " +
+        (b.ball_seen ? `For ${b.ball_seen} of them the ball was seen leaving the ruck; the rest are timed until the group breaks up, which can read a little long.`
+                     : "The ball wasn't seen leaving the rucks, so they're timed until the group breaks up, which can read a little long.")
       : "None of the rucks could be timed from start to end (they started or ended off camera or during a replay).";
     const kind = b.timed && b.slow > b.quick ? "issue" : b.timed && b.quick >= b.timed / 2 ? "good" : "info";
     const p = el("div", { class: `point ${kind}` },

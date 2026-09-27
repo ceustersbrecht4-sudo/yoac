@@ -32,10 +32,11 @@ automatically (0 = keep until deleted by hand).
 
 Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
 
-- **Ruck speed** for every ruck the camera sees from start to end: the time from the
-  players meeting at the tackle until the group breaks up (usually the ball coming out).
-  Quick ball is under 3 s, slow ball over 6 s; the slowest rucks are shown as moments.
-  Scrums are counted too. This works on every video.
+- **Ruck speed** for every ruck the camera sees from start to end, timed the way coaches time it: from the
+  tackle (ball carrier and tackler going down together) until the ball is out. When the ball is seen leaving
+  the ruck that's the end; otherwise it's the group breaking up, which can read a little long. Quick ball is
+  under 3 s (the usual benchmark; elite teams average about 2.8 to 4.5 s), slow ball over 4 s. The slowest
+  rucks are shown as moments. Scrums are counted too. This works on every video.
 - **Metres, after marking the pitch.** In the **Pitch** tab, click at least 4 spots where two
   pitch lines cross (e.g. "Left 22 × Near 5 m line") on a wide shot, then press *Save and
   measure*. The app follows the camera's panning and zooming from there (once per video;
@@ -45,6 +46,8 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
     is the one whose line stands closest to the ruck. Under 1.5 m/s is flagged as passive,
     2.5 m/s and more as good.
   - **Mauls** (a breakdown that moves 3 m or more) told apart from rucks.
+  - **Possible offside at the ruck** (Law 15): a defender standing more than 1 m in front of the offside
+    line (the hindmost foot of the ruck on their side) for most of the last second before the ball comes out.
   Mark an extra frame after a replay or camera cut; each marked frame needs 4 points.
 
 All thresholds are named at the top of `rugby.py`. These are measurements from one camera:

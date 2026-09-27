@@ -710,13 +710,17 @@ def report(job_id):
     maps, calib = _mappings(job_id, job)
     events = rugby.breakdowns(frames, fps, maps, _sizes.get(job_id))
     speeds = rugby.line_speeds(frames, fps, maps, events, main)
+    offside = rugby.offside_at_rucks(frames, fps, maps, events, main)
     order = {"issue": 0, "info": 1, "good": 2}
     for sec in sections:
         point = rugby.line_speed_point(speeds, sec["team"], sec["opponent"], sec["phase"], fps)
         if point:
             sec["stats"]["line_speed"] = point.pop("speed")
             sec["points"].append(point)
-            sec["points"].sort(key=lambda p: order[p["kind"]])
+        point = rugby.offside_point(offside, sec["team"], sec["phase"])
+        if point:
+            sec["points"].append(point)
+        sec["points"].sort(key=lambda p: order[p["kind"]])
     wide = sum(1 for f in frames if f[0])
     mapped = sum(1 for m in (maps or []) if m is not None)
     pitch_info = {

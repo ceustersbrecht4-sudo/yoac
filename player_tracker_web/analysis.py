@@ -78,9 +78,17 @@ def _contact_groups(players):
             if len(g) >= CONTACT_MIN and len({players[i]["bucket"] for i in g} - {"other", "unsure"}) >= 2]
 
 
+def _balls(detections):
+    """Where the ball was seen in this frame: [(x, y, conf)]. The detector
+    looks for a round "sports ball", so a rugby ball is often missed; when it
+    is seen, it tells when the ball really left a ruck."""
+    return [((x1 + x2) / 2, (y1 + y2) / 2, conf) for x1, y1, x2, y2, bucket, _, conf in detections if bucket == "ball"]
+
+
 def prepare(all_detections, size=None):
     """Team-independent per-frame data; cache this per video.
-    size = (width, height) of the video picture."""
+    size = (width, height) of the video picture.
+    Each frame: (players, contact groups, indexes in contact, clear, balls)."""
     frames = []
     for detections in all_detections:
         players = _players(detections, size)
@@ -91,7 +99,7 @@ def prepare(all_detections, size=None):
         groups = _contact_groups(players)
         unsure = sum(1 for p in players if p["bucket"] == "unsure")
         clear = bool(players) and unsure <= MAX_UNSURE * len(players)
-        frames.append((players, groups, {i for g in groups for i in g}, clear))
+        frames.append((players, groups, {i for g in groups for i in g}, clear, _balls(detections) if players else []))
     return frames
 
 
@@ -138,7 +146,7 @@ def _line_shape(pts):
 
 
 def _team_frame(frame, team):
-    players, groups, in_contact, clear = frame
+    players, groups, in_contact, clear = frame[:4]
     mine = [i for i, p in enumerate(players) if p["bucket"] == team]
     line = [i for i in mine if i not in in_contact]
     measurable = [i for i in line if players[i]["measurable"]]
