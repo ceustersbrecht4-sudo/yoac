@@ -1,0 +1,12 @@
+{
+  "_help": "Fill in your details below (open this file with Notepad). The legal pages show a warning until nothing in [square brackets] is left.",
+  "owner_name": "[Your name, or your club/company name]",
+  "owner_type": "[private person / sports club (vzw) / company]",
+  "address": "[Street and number, postcode, town, Belgium]",
+  "email": "[Contact e-mail address]",
+  "company_number": "[Enterprise number (KBO/BCE), or remove this line if you have none]",
+  "vat_number": "[VAT number, or remove this line if you have none]",
+  "country": "Belgium",
+  "last_updated": "25 September 2026",
+  "video_retention_days": 90
+}

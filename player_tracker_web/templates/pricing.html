@@ -1,0 +1,29 @@
+{% extends "_front.html" %}
+{% block title %}Pricing · YOAC Player Tracker{% endblock %}
+{% block content %}
+  <section class="plain-sec" id="pricing">
+    <div class="wrap">
+      <h2>Every account starts free</h2>
+      <div class="plans">
+        {% for key, p in plans.items() %}
+        <div class="plan tbox {{ '' if key == 'free' else 'plain' }}">
+          <span class="tab">{{ 'your start' if key == 'free' else key }}</span>
+          <h3>{{ p.name }}</h3>
+          <div class="price">{{ p.price if p.price and p.price != p.name else ('€0' if key == 'free' else '') }}</div>
+          <ul>
+            <li><b>{{ p.minutes_per_month }}</b> minutes of video analysed a month</li>
+            <li><b>{{ p.storage_gb }} GB</b> of videos stored</li>
+            {% if p.keep_days %}<li>Videos kept for <b>{{ p.keep_days }}</b> days</li>{% endif %}
+          </ul>
+          {% if key == 'free' %}<a class="btn" href="{{ url_for('landing') }}">Upload a clip</a>
+          {% else %}<span class="soon">Not available to buy yet.</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <p class="plans-note">Minutes reset on the first of each month. Videos refused as not match footage don't count.</p>
+    </div>
+  </section>
+{% endblock %}
+{% block next %}
+  <a class="next" href="{{ url_for("faq") }}"><div class="wrap"><small>Next page</small><b>Questions coaches ask &gt;</b></div></a>
+{% endblock %}

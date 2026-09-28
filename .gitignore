@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+users.json
+users.json.tmp
+secret.key
+invites.json
+invites.json.tmp

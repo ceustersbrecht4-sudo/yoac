@@ -1,0 +1,100 @@
+{% extends "_front.html" %}
+{% block title %}{% if follow %}Processing · {% endif %}How it works · YOAC Player Tracker{% endblock %}
+{% block content %}
+{% import "_boxes.html" as bx %}
+  <!-- ================= 02 processing: the stages the app really runs ================= -->
+  <section class="proc page-top" id="processing">
+    <div class="wrap">
+      <div class="proc-head">
+        <div>
+          <div class="step-label"><b>02</b> Processing</div>
+          <h2>What happens to the file on the way through</h2>
+        </div>
+        <p>The same stages the upload page shows while it works, with the settings they run on. A 10-second clip takes
+          a few minutes on a laptop. You can close the page once the upload is done.</p>
+      </div>
+
+      {% set live = follow or active %}
+      {% if live %}
+      <div class="live" id="live" data-job="{{ live.id }}"{% if follow %} data-go="1"{% endif %}>
+        <div class="top">
+          <strong>Your video "{{ live.name }}" is being analysed{% if follow %}. You'll be taken to the tracked video when it's done.{% endif %}</strong>
+          <span class="mono" id="liveText">Checking...</span>
+        </div>
+        <div class="meter"><i id="liveBar"></i></div>
+      </div>
+      {% endif %}
+
+      <ol class="rail" id="rail">
+        <li data-stage="upload">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
+            {{ bx.player(48, 60, "a", 0.8, box=False, pose="run") }}{{ bx.player(70, 74, "a", 0.9, box=False, pose="run") }}{{ bx.player(108, 56, "b", 0.8, box=False, pose="crouch", d=-1) }}{{ bx.player(124, 80, "b", 0.95, box=False, d=-1) }}
+            <rect class="meter-bg" x="0" y="86" width="160" height="10"/><rect class="meter-fg" x="0" y="86" width="98" height="10"/>
+            {{ bx.tab(0, 9, "match.mp4", "a", 7) }}</svg>
+          <span class="n">Upload</span>
+          <h3>Send the file</h3>
+          <p>Straight from your phone's gallery or your laptop.</p>
+          <p class="param">limit <b>2 GB</b>, <b>2 h</b><br>picture up to <b>4096 px</b></p>
+        </li>
+        <li data-stage="check">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true"><rect width="160" height="96" fill="#101713"/>
+            {% for i in range(16) %}{% set cx, cy = 4 + (i % 4) * 39, 12 + (i // 4) * 21 %}
+            {% if i in [2, 7, 13] %}<rect class="cell-crowd" x="{{ cx }}" y="{{ cy }}" width="35" height="18"/>
+            {% else %}<rect class="grass" x="{{ cx }}" y="{{ cy }}" width="35" height="18"/>{{ bx.player(cx + 12, cy + 15, "a", 0.42, box=False) }}{{ bx.player(cx + 24, cy + 16, "b", 0.45, box=False) }}{% endif %}{% endfor %}
+            {{ bx.tab(0, 9, "16 frames", "a", 7) }}</svg>
+          <span class="n">Check</span>
+          <h3>Is it a match?</h3>
+          <p>Anything that isn't match or training footage is refused and deleted, and its minutes are given back.</p>
+          <p class="param">samples <b>16 frames</b><br>grass in <b>40%</b> of them<br>later: <b>3+ people</b> in <b>30%</b> of frames</p>
+        </li>
+        <li data-stage="shrink">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}{{ bx.player(60, 70, "a", 0.9, box=False, pose="run") }}{{ bx.player(92, 62, "b", 0.85, box=False, d=-1) }}
+            <rect class="frame-out" x="3" y="14" width="154" height="79"/><rect class="frame-in" x="30" y="30" width="96" height="54"/>
+            <text class="label-w" x="120" y="26" font-size="7">4K</text>
+            {{ bx.tab(29, 29, "1280 px", "a", 7) }}</svg>
+          <span class="n">Shrink</span>
+          <h3>Make it smaller</h3>
+          <p>The detector only looks at 1280 pixels across, so the rest is thrown away first. The original is deleted.</p>
+          <p class="param">max <b>1280 px</b> long side<br>max <b>30 fps</b>, no sound</p>
+        </li>
+        <li data-stage="track">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true"><rect width="160" height="96" fill="#101713"/>
+            {% for i in range(3) %}{% set fx0 = 2 + i * 53 %}<svg x="{{ fx0 }}" y="14" width="50" height="70" viewBox="0 0 50 70">{{ bx.grass(50, 70, 3) }}
+            {% if i == 1 %}{{ bx.player(22, 58, "a", 0.95, "7", ghost=True) }}{{ bx.player(27, 62, "b", 1.0, "4") }}
+            {% else %}{{ bx.player(18 + i * 4, 58, "a", 0.95, "7") }}{{ bx.player(36, 60 + i, "b", 1.0, "4") }}{% endif %}</svg>{% endfor %}
+            <text class="label-w" x="2" y="94" font-size="7">seen</text><text class="label-w" x="55" y="94" font-size="7">hidden</text><text class="label-w" x="108" y="94" font-size="7">still 7</text>
+            {{ bx.tab(0, 9, "same number", "a", 7) }}</svg>
+          <span class="n">Track</span>
+          <h3>Find every player</h3>
+          <p>Each frame is scanned for people, and each person keeps one number from frame to frame, also when they
+            disappear behind others for a moment.</p>
+          <p class="param">YOLOv8m at <b>1280 px</b><br>boxes under <b>35%</b> sure are dropped<br>a hidden player keeps their number for <b>90 frames</b> (3 s at 30 fps)</p>
+        </li>
+        <li data-stage="teams">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}
+            {{ bx.player(28, 60, "a", 0.85, pose="run") }}{{ bx.player(46, 78, "a", 0.95, pose="run") }}{{ bx.player(32, 92, "a", 1.0, pose="run") }}
+            {{ bx.player(112, 58, "b", 0.85, d=-1) }}{{ bx.player(132, 76, "b", 0.95, pose="crouch", d=-1) }}{{ bx.player(118, 92, "b", 1.0, pose="run", d=-1) }}
+            {{ bx.player(80, 72, "r", 0.95) }}
+            {{ bx.tab(0, 9, A, "a", 7) }}{{ bx.tab(100, 9, B, "b", 7) }}</svg>
+          <span class="n">Teams</span>
+          <h3>Sort by shirt</h3>
+          <p>Shirt pixels from every frame a player is seen in vote on their team, so shade and floodlight don't flip them.
+            A small group in a clearly different colour is the referee and touch judges.</p>
+          <p class="param">votes: <b>every frame</b> of a track<br>officials: <b>under 15%</b> of players, <b>65%</b> of their votes</p>
+        </li>
+        <li data-stage="draw">
+          <svg class="draw glyph" viewBox="0 0 160 96" aria-hidden="true">{{ bx.grass(160, 96, 4) }}<path class="pline" d="M0 18 L160 18"/><path class="pline" d="M86 18 L78 96"/>
+            {{ bx.player(40, 56, "a", 0.8, A ~ " 9", pose="run") }}{{ bx.player(56, 86, "a", 0.95, A ~ " 3", pose="run") }}{{ bx.player(112, 58, "b", 0.8, B ~ " 6", d=-1) }}{{ bx.player(128, 88, "b", 0.95, B ~ " 2", pose="crouch", d=-1) }}
+            </svg>
+          <span class="n">Draw</span>
+          <h3>Draw the video</h3>
+          <p>Every player gets a box and a number in their team's real kit colour. Officials aren't drawn.</p>
+          <p class="param">H.264, plays in any browser<br>download it for the team meeting</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+{% endblock %}
+{% block next %}
+  <a class="next" href="{{ url_for("your_match") }}"><div class="wrap"><small>Next page</small><b>Your match &gt;</b></div></a>
+{% endblock %}

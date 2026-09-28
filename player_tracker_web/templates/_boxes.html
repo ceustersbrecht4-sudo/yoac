@@ -1,0 +1,102 @@
+{#- Small SVG pieces drawn the way the tracked video draws: a player in their
+    shirt colour, a 2px-style box around them and the label in a solid tab on
+    the box's top-left corner. Colours come from CSS variables (--a, --b: the
+    two kits), so every picture uses the real shirt colours of your match. -#}
+
+{# One player with their feet at (x, y). k: "a" / "b" (the two teams) or "r" (an
+   official: dark kit, never boxed). s: size (bigger = nearer the camera).
+   label: tab text, or "" for a box without a tab. ghost: dashed box, player hidden
+   behind someone. pose: "stand", "run" or "crouch" (in a ruck, or a defender set to
+   go). d: 1 facing right, -1 facing left. The box fits the pose, like a real
+   detection box fits the person in it. #}
+{% set POSES = {
+  "stand":  {"lean": 0.3, "drop": 0, "box": (-7.4, 8.4, -24.2),
+             "arms": [[(-4.2, -16.6), (-6.2, -12.7), (-5.9, -8.9)], [(4.4, -16.6), (6.5, -13.0), (7.2, -9.4)]],
+             "legs": [[(-1.9, -8.6), (-2.3, -4.7), (-2.8, -0.9)], [(1.9, -8.6), (2.5, -4.8), (3.1, -0.9)]]},
+  "run":    {"lean": 1.8, "drop": 0.4, "box": (-8.2, 10.8, -23.6),
+             "arms": [[(-3.2, -16.2), (-6.2, -13.8), (-4.4, -10.9)], [(5.6, -16.0), (7.8, -12.8), (9.6, -14.4)]],
+             "legs": [[(-1.0, -8.4), (-3.6, -5.0), (-6.8, -3.0)], [(1.8, -8.4), (4.8, -5.4), (4.0, -0.9)]]},
+  "crouch": {"lean": 2.6, "drop": 3.2, "box": (-6.6, 11.6, -20.8),
+             "arms": [[(-2.0, -13.4), (1.6, -10.2), (5.0, -10.4)], [(6.6, -13.2), (8.8, -10.2), (10.4, -8.8)]],
+             "legs": [[(-2.0, -5.6), (-5.2, -3.4), (-4.0, -0.9)], [(2.2, -5.6), (5.0, -3.6), (3.6, -0.9)]]},
+} %}
+{% set SKIN = ["#c99a74", "#8d5a3b", "#e2b896", "#6a4530", "#b07a55"] %}
+{% set HAIR = ["#2a1d14", "#101010", "#b8894a", "#3b2a1c", "#5a3b22"] %}
+
+{% macro pt(x, y, s, d, p) -%}{{ (x + d * p[0] * s)|round(2) }},{{ (y + p[1] * s)|round(2) }}{%- endmacro %}
+
+{% macro player(x, y, k="a", s=1, label="", box=True, ghost=False, mark="", pose="stand", d=1) -%}
+{%- set P = POSES[pose] -%}
+{%- set n = ((x * 7 + y * 13)|int) % 5 -%}
+{%- set skin, hair = SKIN[n], HAIR[(n + 2) % 5] -%}
+{%- set top, waist, lean = -17.6 + P.drop, -9.4 + P.drop, P.lean -%}
+{%- set b0, b1 = (P.box[0], P.box[1]) if d == 1 else (-P.box[1], -P.box[0]) -%}
+{%- set w, h = (b1 - b0) * s, -P.box[2] * s -%}
+{%- set bx, by = x + b0 * s, y - h -%}
+{%- if not ghost %}
+<g class="pl" stroke-linecap="butt" stroke-linejoin="miter">
+  {%- for leg in P.legs %}{# thigh and knee in skin, the lower leg in the kit's socks, then the boot #}
+  <polyline points="{{ pt(x, y, s, d, leg[0]) }} {{ pt(x, y, s, d, leg[1]) }} {{ pt(x, y, s, d, ((leg[1][0] + leg[2][0]) / 2, (leg[1][1] + leg[2][1]) / 2)) }}" fill="none" stroke="{{ skin }}" stroke-width="{{ (2.2 * s)|round(2) }}"/>
+  <line x1="{{ (x + d * (leg[1][0] + leg[2][0]) / 2 * s)|round(2) }}" y1="{{ (y + (leg[1][1] + leg[2][1]) / 2 * s)|round(2) }}" x2="{{ (x + d * leg[2][0] * s)|round(2) }}" y2="{{ (y + leg[2][1] * s)|round(2) }}" class="sock-{{ k }}" stroke-width="{{ (2.3 * s)|round(2) }}"/>
+  <line x1="{{ (x + d * (leg[2][0] - 0.4) * s)|round(2) }}" y1="{{ (y + (leg[2][1] + 0.3) * s)|round(2) }}" x2="{{ (x + d * (leg[2][0] + 2.0) * s)|round(2) }}" y2="{{ (y + (leg[2][1] + 0.3) * s)|round(2) }}" stroke="#0d0f0e" stroke-width="{{ (1.5 * s)|round(2) }}"/>
+  {%- endfor %}
+  <polygon points="{{ pt(x, y, s, d, (-4.0, waist)) }} {{ pt(x, y, s, d, (4.0, waist)) }} {{ pt(x, y, s, d, (4.5, waist + 3.9)) }} {{ pt(x, y, s, d, (0.5, waist + 3.4)) }} {{ pt(x, y, s, d, (-4.4, waist + 3.9)) }}" class="shorts"/>
+  <polygon points="{{ pt(x, y, s, d, (-4.7 + lean, top)) }} {{ pt(x, y, s, d, (4.9 + lean, top)) }} {{ pt(x, y, s, d, (4.0, waist + 0.4)) }} {{ pt(x, y, s, d, (-3.9, waist + 0.4)) }}" class="shirt-{{ k }}"/>
+  {# the side away from the light, so the shirt isn't a flat sticker #}
+  <polygon points="{{ pt(x, y, s, d, (-4.7 + lean, top)) }} {{ pt(x, y, s, d, (-1.6 + lean, top)) }} {{ pt(x, y, s, d, (-1.2, waist + 0.4)) }} {{ pt(x, y, s, d, (-3.9, waist + 0.4)) }}" class="shade"/>
+  <line x1="{{ (x + d * (lean - 1.3) * s)|round(2) }}" y1="{{ (y + (top + 0.4) * s)|round(2) }}" x2="{{ (x + d * (lean + 1.5) * s)|round(2) }}" y2="{{ (y + (top + 0.4) * s)|round(2) }}" class="collar" stroke-width="{{ (0.9 * s)|round(2) }}"/>
+  {%- for arm in P.arms %}{# short sleeve in the kit, forearm in skin #}
+  <line x1="{{ (x + d * (arm[0][0] + lean * 0.8) * s)|round(2) }}" y1="{{ (y + arm[0][1] * s)|round(2) }}" x2="{{ (x + d * arm[1][0] * s)|round(2) }}" y2="{{ (y + arm[1][1] * s)|round(2) }}" stroke="{{ skin }}" stroke-width="{{ (1.9 * s)|round(2) }}"/>
+  <line x1="{{ (x + d * (arm[0][0] + lean * 0.8) * s)|round(2) }}" y1="{{ (y + arm[0][1] * s)|round(2) }}" x2="{{ (x + d * ((arm[0][0] + lean * 0.8) * 0.55 + arm[1][0] * 0.45) * s)|round(2) }}" y2="{{ (y + (arm[0][1] * 0.55 + arm[1][1] * 0.45) * s)|round(2) }}" class="sleeve-{{ k }}" stroke-width="{{ (2.6 * s)|round(2) }}"/>
+  <polyline points="{{ pt(x, y, s, d, arm[1]) }} {{ pt(x, y, s, d, arm[2]) }}" fill="none" stroke="{{ skin }}" stroke-width="{{ (1.8 * s)|round(2) }}"/>
+  {%- endfor %}
+  {%- set hx, hy = lean + 0.4, -20.5 + P.drop %}
+  <circle cx="{{ (x + d * hx * s)|round(2) }}" cy="{{ (y + hy * s)|round(2) }}" r="{{ (2.6 * s)|round(2) }}" fill="{{ skin }}"/>
+  <path d="M{{ pt(x, y, s, d, (hx - 2.7, hy + 0.2)) }} A{{ (2.7 * s)|round(2) }} {{ (2.7 * s)|round(2) }} 0 0 {{ 1 if d == 1 else 0 }} {{ pt(x, y, s, d, (hx + 2.5, hy - 0.8)) }} L{{ pt(x, y, s, d, (hx - 1.0, hy - 0.9)) }} Z" fill="{{ hair }}"/>
+</g>
+{%- endif %}
+{%- if box and k != "r" %}
+<rect x="{{ bx|round(2) }}" y="{{ by|round(2) }}" width="{{ w|round(2) }}" height="{{ h|round(2) }}" class="halo-{{ k }}" stroke-width="{{ (1.3 * s + 1.6)|round(2) }}"/>
+<rect x="{{ bx|round(2) }}" y="{{ by|round(2) }}" width="{{ w|round(2) }}" height="{{ h|round(2) }}" class="box-{{ k }}{{ ' ghost' if ghost }}" stroke-width="{{ (1.3 * s)|round(2) }}"/>
+{%- if label %}
+<rect x="{{ (bx - 0.65 * s)|round(2) }}" y="{{ (by - 7 * s)|round(2) }}" width="{{ (label|length * 3.6 * s + 4 * s)|round(2) }}" height="{{ (7 * s)|round(2) }}" class="tab-{{ k }}{{ ' ghost' if ghost }}"/>
+<text x="{{ (bx + 1.4 * s)|round(2) }}" y="{{ (by - 1.8 * s)|round(2) }}" font-size="{{ (5.6 * s)|round(2) }}" class="ink-{{ k }}">{{ label }}</text>
+{%- endif %}
+{%- endif %}
+{%- if mark %}
+<rect x="{{ (bx - 3 * s)|round(2) }}" y="{{ (by - 3 * s)|round(2) }}" width="{{ (w + 6 * s)|round(2) }}" height="{{ (h + 6 * s)|round(2) }}" class="flag" stroke-width="{{ (1.4 * s)|round(2) }}"/>
+{%- endif %}
+{%- endmacro %}
+
+{# Grass with mowing stripes, as a camera in the stand sees it. #}
+{% macro grass(w, h, bands=6) -%}
+<rect width="{{ w }}" height="{{ h }}" class="grass"/>
+{%- for i in range(bands) if i % 2 %}
+<rect y="{{ h / bands * i }}" width="{{ w }}" height="{{ h / bands }}" class="grass-2"/>
+{%- endfor %}
+{%- endmacro %}
+
+{# A tab label on its own, e.g. above a frame. #}
+{% macro tab(x, y, text, k="a", size=7) -%}
+<rect x="{{ x }}" y="{{ y - size * 1.25 }}" width="{{ text|length * size * 0.62 + size * 0.8 }}" height="{{ size * 1.25 }}" class="tab-{{ k }}"/>
+<text x="{{ x + size * 0.4 }}" y="{{ y - size * 0.32 }}" font-size="{{ size }}" class="ink-{{ k }}">{{ text }}</text>
+{%- endmacro %}
+
+{# The drawing of a tracked frame (640 x 360) shown until a real match has been
+   analysed: a breakdown, the defending line, the attack and the referee. #}
+{% macro scene(A, B) -%}
+{{ grass(640, 360, 9) }}
+            <path class="pline" d="M0 38 L640 38"/><path class="pline" d="M0 346 L640 346"/>
+            <path class="pline" d="M318 38 L286 346"/><path class="pline" d="M112 38 L20 346"/><path class="pline" d="M526 38 L600 346"/>
+            <path class="pline dash" d="M0 62 L640 62"/><path class="pline dash" d="M0 318 L640 318"/>
+            <path class="pline dash" d="M392 38 L400 346"/>
+            {# breakdown #}
+            {{ player(334, 148, "b", 1.08, B ~ " 5", pose="crouch", d=-1) }}{{ player(356, 152, "a", 1.1, A ~ " 8", pose="crouch") }}{{ player(344, 164, "a", 1.14, pose="crouch") }}
+            {{ player(376, 142, "b", 1.06, pose="crouch", d=-1) }}{{ player(314, 128, "r", 1.02) }}
+            {# defending line #}
+            {% for x, y, n in [(420, 84, 12), (432, 118, 13), (436, 196, 6), (452, 246, 11), (466, 302, 2), (400, 58, 14)] %}
+            {{ player(x, y, "b", 0.82 + y / 360 * 0.9, B ~ " " ~ n, pose="crouch" if loop.index is odd else "stand", d=-1) }}{% endfor %}
+            {# attack, deeper #}
+            {% for x, y, n in [(300, 92, 10), (286, 190, 9), (252, 236, 12), (228, 288, 15), (206, 336, 14), (330, 66, 3)] %}
+            {{ player(x, y, "a", 0.82 + y / 360 * 0.9, A ~ " " ~ n, pose="run") }}{% endfor %}
+{%- endmacro %}

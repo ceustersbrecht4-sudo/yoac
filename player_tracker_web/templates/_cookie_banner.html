@@ -1,0 +1,73 @@
+<div id="cookie-banner" role="region" aria-label="Cookie choice" hidden>
+  <p>
+    We only use essential cookies to keep you logged in. With your OK, we also remember your recent videos on this device.
+    <a href="{{ url_for('legal_page', doc='cookies') }}">Cookie policy</a>
+  </p>
+  <div class="cookie-actions">
+    <button type="button" data-consent="declined">Only essential</button>
+    <button type="button" data-consent="accepted" class="cookie-accept">OK</button>
+  </div>
+</div>
+
+<style>
+  #cookie-banner {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #0f1f17;
+    color: #eaf3ee;
+    border: 1px solid #1d3a2b;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    z-index: 1000;
+  }
+  #cookie-banner[hidden] { display: none; }
+  #cookie-banner p { margin: 0; flex: 1 1 260px; }
+  #cookie-banner a { color: #8fd6a8; }
+  #cookie-banner .cookie-actions { display: flex; gap: 8px; }
+  #cookie-banner button {
+    font: inherit;
+    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid #3a4a41;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  #cookie-banner button.cookie-accept {
+    background: #1d7a48;
+    border-color: #1d7a48;
+    color: #fff;
+  }
+</style>
+
+<script nonce="{{ csp_nonce() }}">
+  (function () {
+    var banner = document.getElementById("cookie-banner");
+    if (!/(?:^|;\s*)cookie_consent=(accepted|declined)/.test(document.cookie)) {
+      banner.hidden = false;
+    }
+    banner.addEventListener("click", function (e) {
+      var choice = e.target.getAttribute("data-consent");
+      if (!choice) return;
+      document.cookie = "cookie_consent=" + choice +
+        "; max-age=" + 60 * 60 * 24 * 365 + "; path=/; SameSite=Lax";
+      // "Only essential": forget anything optional that was already saved.
+      if (choice === "declined") { try { localStorage.removeItem("recentJobs"); } catch (err) {} }
+      banner.hidden = true;
+    });
+  })();
+</script>

@@ -1,0 +1,29 @@
+{% extends "_front.html" %}
+{% block title %}FAQ · YOAC Player Tracker{% endblock %}
+{% block content %}
+  <section class="plain-sec" id="faq">
+    <div class="wrap"><div class="faq">
+      <h2 style="margin-bottom:20px">Questions coaches ask</h2>
+      <details><summary>What footage works best?</summary>
+        <p>A wide view from the stand or a high spot that shows most of the pitch. Phone footage is fine. Close-ups and
+          replays are skipped in the report because team shape can't be judged from them.</p></details>
+      <details><summary>Does it recognise players' faces or names?</summary>
+        <p>No. Players are detected as "a person", given a temporary number and grouped by shirt colour. Nobody is identified.</p></details>
+      <details><summary>Why does a player get a new number halfway through?</summary>
+        <p>A player who is out of sight for more than 90 frames (3 seconds at 30 fps), for example off the edge of the picture,
+          is picked up as someone new. A team has 15 on the pitch, and the app never counts more than 15 of one team in a frame: extras are replacements warming up, staff or crowd in a similar colour. Their team stays right, because that's decided by shirt colour.</p></details>
+      <details><summary>Who can see my videos?</summary>
+        <p>Only you, and the owner of the app for moderation. Videos are deleted automatically after the period of your plan,
+          or earlier when you delete them. See the <a href="{{ url_for('legal_page', doc='privacy') }}">privacy policy</a>.</p></details>
+      <details><summary>How accurate is it?</summary>
+        <p>It's a guide to which moments to review, not a referee. Far-away players can be missed or land in the wrong team, and
+          without marking the pitch, distances are in body lengths. Always check a moment on the video before acting on it.</p></details>
+      <details><summary>Can I upload videos of youth teams?</summary>
+        <p>Yes, if your club's rules allow it and players and parents know matches are filmed and analysed. You confirm this with
+          each upload.</p></details>
+    </div></div>
+  </section>
+{% endblock %}
+{% block next %}
+  <a class="next" href="{{ url_for("landing") }}"><div class="wrap"><small>Next page</small><b>Upload a match &gt;</b></div></a>
+{% endblock %}
