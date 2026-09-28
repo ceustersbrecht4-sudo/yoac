@@ -146,6 +146,78 @@
           <figcaption>The four crossings marked in this sketch are the minimum. Each extra marked frame, after a replay or a camera cut, needs 4 too.</figcaption>
         </figure>
       </div>
+
+      <div class="football" id="football">
+        <div class="step-label"><b>05</b> Soccer</div>
+        <h2>Soccer: same tracking, its own report</h2>
+        <p>Pick "Soccer" when you upload. Tracking, teams and the pitch marking work the same way. The report measures
+          team shape in metres, so the pitch has to be marked: the corners of the boxes, where halfway meets a touchline, or the
+          centre and penalty spots. Goalkeepers wear their own colour; the app finds them as the last player at each end and gives
+          them back to their team. Eleven a side: anyone past that is a sub warming up or staff.</p>
+        <div class="sheet" aria-label="What the soccer report measures">
+          <div class="row"><div class="side"><span class="kind info">info</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}<path class="pline" d="M8 4 L8 70"/>
+    {% for y in [26, 40, 54, 66] %}{{ bx.player(40, y, "b", 0.6, pose="stand", d=-1) }}{% endfor %}{% for y in [30, 46, 62] %}{{ bx.player(78, y, "b", 0.6, pose="stand", d=-1) }}{% endfor %}
+    <path class="ok" stroke-width="1.5" d="M10 18 L36 18 M32 14 L36 18 L32 22"/>{{ bx.tab(22, 10, "35 m", "b", 5) }}</svg></div><div>
+            <h3>Where the block sits</h3>
+            <p>How far the back line holds from its own goal without the ball.</p>
+            <div class="rule">low block &le; 28 m / mid block 28-45 m / high line &ge; 45 m (FIFA line height)</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}
+    {% for y in [30, 48, 66] %}{{ bx.player(18, y, "b", 0.6, pose="stand", d=-1) }}{% endfor %}{% for y in [30, 48, 66] %}{{ bx.player(112, y, "b", 0.6, pose="run", d=-1) }}{% endfor %}
+    <path class="flag" stroke-width="2" d="M28 14 L102 14 M28 10 L28 18 M102 10 L102 18"/>{{ bx.tab(66, 8, "44 m", "a", 5) }}</svg></div><div>
+            <h3>Stretched or compact</h3>
+            <p>Back line to front line, and touchline side to side, without the ball.</p>
+            <div class="rule">compact: 25-35 m long, 30-35 m wide / stretched: over 40 m long / too wide: over 45 m</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}
+    {% for y in [22, 38, 54] %}{{ bx.player(22, y + 8, "b", 0.56, d=-1) }}{% endfor %}{% for y in [22, 38, 54] %}{{ bx.player(106, y + 8, "b", 0.56, d=-1) }}{% endfor %}
+    <rect class="flag" stroke-width="1.6" x="36" y="16" width="60" height="50"/>{{ bx.player(66, 52, "a", 0.64, mark="x", pose="run") }}</svg></div><div>
+            <h3>Space between the lines</h3>
+            <p>The gap between the back line, the midfield and the front players, where a player can turn.</p>
+            <div class="rule">8-12 m is compact / over 15 m for a quarter of the time is flagged</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(64, 52, "a", 0.7, pose="run") }}<circle cx="68" cy="58" r="3" fill="#f2f0e8"/>
+    <circle class="flag" stroke-width="1.4" cx="66" cy="50" r="22" stroke-dasharray="4 3"/>{{ bx.player(18, 60, "b", 0.64, d=1) }}{{ bx.player(116, 44, "b", 0.64, d=-1) }}</svg></div><div>
+            <h3>Pressure on the ball (ball in view)</h3>
+            <p>Whether the player on the ball has a defender close enough to stop them picking a pass.</p>
+            <div class="rule">pressure: a defender within 5 m / left alone: nobody within 8 m</div></div></div>
+          <div class="row"><div class="side"><span class="kind info">info</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}
+    {% for y in [18, 32, 46, 60] %}{{ bx.player(26, y + 6, "b", 0.5, d=1) }}{% endfor %}{% for y in [18, 32, 46, 60] %}{{ bx.player(62, y + 6, "b", 0.5, d=1) }}{% endfor %}{% for y in [30, 50] %}{{ bx.player(98, y + 6, "b", 0.5, d=1) }}{% endfor %}
+    {{ bx.tab(100, 6, "4-4-2", "b", 5) }}</svg></div><div>
+            <h3>The shape they play in</h3>
+            <p>With all ten outfield players in view, the lines from back to front.</p>
+            <div class="rule">a new line starts 5 m further up / the shape seen most, at least 30% of the time</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(100, 40, "a", 0.66, pose="run", d=-1) }}<circle cx="94" cy="46" r="3" fill="#f2f0e8"/>
+    {{ bx.player(40, 56, "a", 0.6, mark="x", pose="stand") }}<path class="pline dash" d="M70 4 L70 70"/>{{ bx.tab(70, 6, "ball - 10 m", "a", 5) }}</svg></div><div>
+            <h3>Rest defence (ball in view)</h3>
+            <p>How many stay behind the ball when attacking in the other half, ready for a lost ball.</p>
+            <div class="rule">fewer than 3 outfield players 10 m or more behind the ball is flagged / 4 or more is good</div></div></div>
+        </div>
+
+        <div class="tactics-list">
+          <h3>Soccer tactics you can pick</h3>
+          <p>The same idea as rugby: tick what you planned, and the report says how much of the time the team played it and whether
+            it worked. With the ball in view the report splits the video by which team had it; without, it uses your
+            "attacking" or "defending" choice.</p>
+          {% for side, label in [("defence", "Defence"), ("attack", "Attack")] %}
+          <h4>{{ label }}</h4>
+          <div class="sheet">
+            {% for t in soccer_tactics if t.side == side %}
+            <div class="row"><div class="side"><span class="kind info">pitch marked</span></div><div>
+              <h3>{{ t.name }}</h3>
+              <p>{{ t.about }}</p>
+              <div class="rule">played: {{ t.played }}{% if t.worked %} / worked: {{ t.worked }}{% endif %}</div></div></div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+          <p class="later">Not measurable yet from one camera: man-marking against zonal, inverted and overlapping full-backs,
+            possession play, set pieces and pressing triggers. These need player roles or every pass, which one camera doesn't
+            give reliably yet. The ball is small from the stand, so checks that need it say so when it was seen too rarely.</p>
+        </div>
+      </div>
     </div>
   </section>
 {% endblock %}

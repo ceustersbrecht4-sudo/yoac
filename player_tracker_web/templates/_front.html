@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d1310">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}YOAC Player Tracker{% endblock %}</title>
-  <meta name="description" content="Upload your rugby match video. YOAC tracks every player, splits them into both teams and shows the moments in attack and defence worth reviewing.">
+  <meta name="description" content="Upload your rugby or soccer match video. YOAC tracks every player, splits them into both teams and shows the moments in attack and defence worth reviewing.">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/yoac-icon-64.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/yoac-icon-192.png') }}">
   {#- Shared by the front pages (home, how it works, your match, coach report,
@@ -141,6 +141,14 @@
     .file-facts div { font-family: var(--mono); font-size: .8rem; color: var(--muted); }
     .file-facts b { display: block; color: var(--text); font-size: .98rem; }
     #file { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .sport { display: flex; gap: 0; border: 1px solid var(--rule); padding: 0; margin: 0 0 14px; }
+    .sport legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .sport label { flex: 1; cursor: pointer; }
+    .sport label + label { border-left: 1px solid var(--rule); }
+    .sport input { position: absolute; opacity: 0; pointer-events: none; }
+    .sport span { display: block; text-align: center; padding: 11px 8px; font-weight: 700; font-size: .9rem; color: var(--soft); }
+    .sport input:checked + span { background: var(--go); color: #fff; }
+    .sport input:focus-visible + span { outline: 2px solid var(--go); outline-offset: -3px; }
     .consent { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; font-size: .86rem; color: var(--soft); line-height: 1.45; }
     .consent input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: var(--go); }
     .uploader .btn { width: 100%; }
@@ -260,6 +268,8 @@
     footer a { color: var(--soft); }
 
     .tactics-list { margin-top: 88px; padding-top: 56px; border-top: 1px solid var(--paper-rule); }
+    .football { margin-top: 88px; padding-top: 56px; border-top: 1px solid var(--paper-rule); }
+    .football > p { max-width: 68ch; margin-bottom: 28px; }
     .tactics-list > h3 { font-size: 2.2rem; margin-bottom: 14px; }
     .tactics-list > p { color: var(--ink-2); max-width: 60em; }
     .tactics-list h4 { font-family: var(--head); font-size: 1.6rem; margin: 30px 0 12px; }
@@ -389,6 +399,9 @@
     }
     input.addEventListener("change", function () { choose(input.files[0]); });
     $("rights").addEventListener("change", ready);
+    // The sport picked last time is picked again (only a convenience, so errors are ignored).
+    try { var last = localStorage.getItem("yoacSport"), r = last && document.querySelector('input[name="sport"][value="' + last + '"]'); if (r) r.checked = true; } catch (e) {}
+    document.querySelectorAll('input[name="sport"]').forEach(function (r) { r.addEventListener("change", function () { try { localStorage.setItem("yoacSport", r.value); } catch (e) {} }); });
     ["dragenter", "dragover"].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
     ["dragleave", "drop"].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
     drop.addEventListener("drop", function (e) { if (e.dataTransfer.files.length) choose(e.dataTransfer.files[0]); });
@@ -431,7 +444,8 @@
         $("sending").hidden = true; $("go").textContent = "Analyse this video"; ready();
         error("The upload failed. Check that the laptop running the app is on and reachable, then try again.");
       };
-      var fd = new FormData(); fd.append("rights", "1"); fd.append("video", file); xhr.send(fd);
+      var picked = document.querySelector('input[name="sport"]:checked');
+      var fd = new FormData(); fd.append("rights", "1"); fd.append("sport", picked ? picked.value : "rugby"); fd.append("video", file); xhr.send(fd);
     });
     })();
 

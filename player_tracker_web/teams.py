@@ -26,6 +26,7 @@ GREY_SAT = 40           # HSV saturation below this = white / grey / black kit
 L_WEIGHT = 0.3          # brightness matters less than hue (shade, floodlights)
 MERGE_DISTANCE = 14     # colour groups this close together are the same kit
 CLUSTERS = 4            # colour groups looked for: 2 teams + shade/light + officials
+CLUSTERS_SOCCER = 6     # football adds two goalkeepers, each in their own colour
 REF_MAX_SHARE = 0.15    # a group bigger than this share of all players can't be
                         # the officials (referee + 2 touch judges of ~33 people),
                         # so it's a team seen in different light
@@ -125,7 +126,7 @@ def _color_name(bgr):
     return "purple/pink"
 
 
-def assign_teams(video_path, all_detections, progress=None):
+def assign_teams(video_path, all_detections, progress=None, clusters=CLUSTERS):
     """
     Returns (new_detections, colors): detections with the bucket replaced by
     a team name, and {team name: BGR box colour}.
@@ -155,7 +156,7 @@ def assign_teams(video_path, all_detections, progress=None):
     weights = np.array([sum(w for _, w in tracks[k]) for k in keys], dtype=np.float64)
     scaled = feats * np.array([L_WEIGHT, 1, 1], dtype=np.float32)
 
-    centers, labels = _weighted_kmeans(scaled, weights, k=min(CLUSTERS, len(keys)))
+    centers, labels = _weighted_kmeans(scaled, weights, k=min(clusters, len(keys)))
     k = len(centers)
     size = np.array([weights[labels == j].sum() for j in range(k)])
 

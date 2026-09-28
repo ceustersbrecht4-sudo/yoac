@@ -1,8 +1,9 @@
 # YOAC Player Tracker
 
-Rugby match analysis for coaches: upload match footage, and YOAC tracks every
-player, sorts them into the two teams by shirt colour (the referee is left
-out), and builds a coach report with the moments to review.
+Rugby and soccer match analysis for coaches: upload match footage, pick the
+sport, and YOAC tracks every player, sorts them into the two teams by shirt
+colour (the referee is left out), and builds a coach report with the moments
+to review.
 
 It runs on your own laptop. Your account and videos stay on it.
 
@@ -27,6 +28,39 @@ have one). These appear in the privacy policy, terms of use and legal notice. Th
 legal pages show an orange "Not finished yet" notice until you've done this.
 `video_retention_days` sets how long videos are kept before they're deleted
 automatically (0 = keep until deleted by hand).
+
+## Soccer
+
+Pick **Soccer** when you upload. Tracking, teams and pitch marking are shared with rugby; the report is its own
+(`soccer.py`):
+
+- **Goalkeepers** wear their own colour, so the colour step first puts them with the officials. A keeper is the
+  "other" person who is nearly always the last one at an end of the play, level with its middle (assistant referees
+  are at the edge, the referee in the middle). The last outfield player in front of a keeper is one of their own
+  defenders (the offside law), so that gives the keeper's team. 11 a side: anyone past that is a sub or staff.
+- **Pitch marking**: goal lines, the 6-yard and penalty box lines, halfway, touchlines and the box sides, plus the
+  centre and penalty spots (with the "Middle" line). The boxes are the same size on any pitch; length 40-120 m and
+  width 25-90 m (default 105 x 68).
+- **Which end each team defends**: the last player near each goal is almost always a defender of that end.
+- **Who has the ball** (when the ball is seen): a team's player within 2 m of it for 5 frames in a row gets it,
+  and keeps it until the other team does or nobody is on it for 3 s. When possession is known for 30% or more of the
+  measured footage, the report splits attacking (with the ball) from defending (without). Otherwise it uses the
+  coach's Attacking / Defending choice.
+- **Team shape in metres** (pitch marked): back line height (the deepest four outfield players), length, width,
+  the biggest gap between lines (a new line starts 5 m further up), whether the back four are level (within 5 m),
+  and the shape (4-4-2, 4-3-3...) when all ten outfield players are in view. A measurement only counts when the
+  space 5 m past the last player is on screen, so nobody can be hidden out of the picture.
+- **Flags**: low / mid / high block (28 m and 45 m from goal, FIFA line height), stretched (over 40 m long) or
+  compact (35 m or less), too wide without the ball (over 45 m), space between the lines (over 15 m), back line not
+  level, ball carrier left alone (nobody within 8 m; pressure = within 5 m), narrow with the ball (under 40 m),
+  rest defence (fewer than 3 outfield players 10 m behind the ball in the other half).
+- **Tactics** a coach can pick: high press, mid block, low block, high line / offside trap, two banks of four,
+  counter-press, build up from the back, direct / long ball, switch the play, overload the ball side, hold the
+  width, counter-attack and rest defence. Each says how much of the time (or of the spells, lost balls or balls
+  won) the team played it and whether it worked. The ones that need the ball say so when it was seen too rarely.
+
+The ball is small from the stand and the COCO detector misses it often, so possession-based checks need a clip
+where the ball stays in view. Every threshold is named at the top of `soccer.py`.
 
 ## Rugby measurements
 
@@ -219,6 +253,7 @@ to each coach's own latest video. Only use footage you're allowed to show to eve
 | `analysis.py` | Coach report: line gaps, dog-legs, numbers, breakdown |
 | `pitch.py` | From pixels to metres: the marked pitch points and following the camera |
 | `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
+| `soccer.py` | Soccer: goalkeepers, possession, team shape in metres, soccer tactics |
 | `demo.py` | The front page's frame, close-ups and measured numbers, from a real analysed video |
 | `templates/` | The pages: login, front pages (`_front.html` + one file per page), upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |

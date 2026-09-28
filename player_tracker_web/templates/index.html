@@ -120,6 +120,13 @@
   .file-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
   .fact { font-size: .82rem; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
   .fact.warn { color: var(--warn); border-color: currentColor; }
+  .sport { display: flex; gap: 8px; border: 0; padding: 0; margin: 0 0 12px; }
+  .sport legend { font-size: .8rem; color: var(--muted); margin-bottom: 6px; padding: 0; }
+  .sport label { flex: 1; cursor: pointer; }
+  .sport input { position: absolute; opacity: 0; pointer-events: none; }
+  .sport span { display: block; text-align: center; padding: 10px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); font-weight: 600; font-size: .92rem; }
+  .sport input:checked + span { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .sport input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
   .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); font-size: .88rem; color: var(--muted); cursor: pointer; }
   .consent input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: var(--accent); }
   .consent a { color: var(--accent); }
@@ -358,6 +365,11 @@
   <section id="uploadCard">
     <div class="card">
       <form id="form">
+        <fieldset class="sport" id="sportPick">
+          <legend>Sport</legend>
+          <label><input type="radio" name="sport" value="rugby" checked><span>Rugby</span></label>
+          <label><input type="radio" name="sport" value="soccer"><span>Soccer</span></label>
+        </fieldset>
         <label class="drop" id="drop" for="file">
           <strong id="fileName">Choose a match video</strong>
           <span class="muted small" id="fileHint">Tap to pick from your gallery or files · MP4, MOV, AVI, MKV, WEBM</span>
@@ -469,11 +481,11 @@
     <!-- pitch tab: mark 4+ points so the report can measure in metres -->
     <div class="card" id="pitchPane" hidden>
       <h2>Mark the pitch</h2>
-      <p class="muted small" style="margin:0 0 14px">Click at least 4 spots where two pitch lines cross, then say which lines they are. The app follows the camera from there, so the report can measure in metres: defensive line speed, mauls and where rucks happen. Left and right are as seen from the camera; near is the touchline closest to the camera.</p>
+      <p class="muted small" id="pitchIntro" style="margin:0 0 14px">Click at least 4 spots where two pitch lines cross, then say which lines they are. The app follows the camera from there, so the report can measure in metres: defensive line speed, mauls and where rucks happen. Left and right are as seen from the camera; near is the touchline closest to the camera.</p>
       <div class="pitch-size">
         <label>Length <input type="number" id="pLen" min="40" max="100" step="1" value="100"> m</label>
         <label>Width <input type="number" id="pWid" min="25" max="70" step="1" value="70"> m</label>
-        <span class="muted small">Try line to try line, touchline to touchline. Full size is 100 × 70.</span>
+        <span class="muted small" id="pitchSizeHint">Try line to try line, touchline to touchline. Full size is 100 × 70.</span>
       </div>
       <div class="calib-frame" id="calibFrame">
         <img id="calibImg" alt="Frame of the video to mark the pitch on">
@@ -615,6 +627,10 @@ function renderRecent() {
 let chosenFile = null, fileOk = false;
 function updateAnalyseBtn() { btn.disabled = !(chosenFile && fileOk && $("rights").checked); }
 $("rights").addEventListener("change", updateAnalyseBtn);
+// The sport picked last time is picked again (only a convenience, so errors are ignored).
+try { const s = localStorage.getItem("yoacSport"); const r = s && document.querySelector(`input[name="sport"][value="${s}"]`); if (r) r.checked = true; } catch (e) {}
+document.querySelectorAll('input[name="sport"]').forEach(r => r.addEventListener("change", () => { try { localStorage.setItem("yoacSport", r.value); } catch (e) {} }));
+
 function setFile(f) {
   if (!f) return;
   chosenFile = f;
@@ -832,7 +848,7 @@ $("form").addEventListener("submit", ev => {
     poll(data.job_id);
   };
   xhr.onerror = () => fail("The upload failed. Check that the laptop is on, on the same Wi-Fi and running the app. If your phone locked during the upload, try again and keep the screen on until it reaches 100%.");
-  const fd = new FormData(); fd.append("rights", "1"); fd.append("video", f); xhr.send(fd);
+  const fd = new FormData(); fd.append("rights", "1"); fd.append("sport", (document.querySelector('input[name="sport"]:checked') || {}).value || "rugby"); fd.append("video", f); xhr.send(fd);
 });
 
 let pollTimer = null, currentJob = null, failures = 0;
@@ -917,7 +933,8 @@ function openJob(id, report = null) {
 let result = null, applied = new Set(), pending = new Set();
 
 function showResult(jobId, s, reveal = false) {
-  result = { jobId, teams: s.teams || {}, colors: s.colors || {}, canHide: s.can_hide };
+  if (result && result.sport !== (s.sport || "rugby")) rTactics.clear();
+  result = { jobId, teams: s.teams || {}, colors: s.colors || {}, canHide: s.can_hide, sport: s.sport || "rugby" };
   applied = new Set(s.hidden || []); pending = new Set(applied);
   const v = `?v=${s.version || 0}`;
   const src = `/video/${jobId}${v}`;
@@ -1023,6 +1040,16 @@ async function openPitch() {
     return;
   }
   $("pLen").value = calib.length; $("pWid").value = calib.width;
+  if (calib.min && calib.max) {
+    $("pLen").min = calib.min[0]; $("pLen").max = calib.max[0];
+    $("pWid").min = calib.min[1]; $("pWid").max = calib.max[1];
+  }
+  $("pitchSizeHint").textContent = calib.sport === "soccer"
+    ? "Goal line to goal line, touchline to touchline. A full-size pitch is about 105 × 68; the boxes are the same size on any pitch."
+    : "Try line to try line, touchline to touchline. Full size is 100 × 70.";
+  $("pitchIntro").textContent = calib.sport === "soccer"
+    ? "Click at least 4 spots where two pitch lines cross (corners of the boxes, where the halfway line meets a touchline) or a spot (centre or penalty spot, with the \"Middle\" line), then say which lines they are. The app follows the camera from there, so the report can measure in metres: how high the back line holds, how compact the team is, and the gaps between the lines. Left and right are as seen from the camera; near is the touchline closest to the camera."
+    : "Click at least 4 spots where two pitch lines cross, then say which lines they are. The app follows the camera from there, so the report can measure in metres: defensive line speed, mauls and where rucks happen. Left and right are as seen from the camera; near is the touchline closest to the camera.";
   $("calibSlider").max = Math.max(0, calib.frames - 1);
   calibFrame = calib.points.length ? calib.points[0].f : Math.floor(calib.frames / 3);
   $("calibSlider").value = calibFrame;
@@ -1151,9 +1178,20 @@ async function drawPitchCheck() {
   map.setAttribute("viewBox", `${-m} ${-m} ${L + 2 * m} ${W + 2 * m}`);
   map.append(svg("rect", { x: -m, y: -m, width: L + 2 * m, height: W + 2 * m, fill: "#10331f" }));
   map.append(svg("rect", { x: 0, y: 0, width: L, height: W, fill: "#17492c", stroke: "#e8f5ec", "stroke-width": 0.4 }));
-  const across = [[22, 0], [L - 22, 0], [L / 2, 0], [L / 2 - 10, 1], [L / 2 + 10, 1], [5, 1], [L - 5, 1]];
-  for (const [x, dash] of across) map.append(svg("line", { x1: x, y1: 0, x2: x, y2: W, stroke: "#e8f5ec", "stroke-width": 0.3, "stroke-dasharray": dash ? "1.5 1.5" : "none", opacity: 0.8 }));
-  for (const y of [5, 15, W - 15, W - 5]) map.append(svg("line", { x1: 0, y1: W - y, x2: L, y2: W - y, stroke: "#e8f5ec", "stroke-width": 0.25, "stroke-dasharray": "1.5 1.5", opacity: 0.6 }));
+  const chalk = { stroke: "#e8f5ec", "stroke-width": 0.3, fill: "none", opacity: 0.8 };
+  if (data.sport === "soccer") {
+    // Halfway, centre circle, and both penalty and goal boxes (fixed sizes on any pitch).
+    map.append(svg("line", { x1: L / 2, y1: 0, x2: L / 2, y2: W, ...chalk }));
+    map.append(svg("circle", { cx: L / 2, cy: W / 2, r: 9.15, ...chalk }));
+    for (const [d, h] of [[16.5, 20.16], [5.5, 9.16]]) {
+      map.append(svg("rect", { x: 0, y: W / 2 - h, width: d, height: 2 * h, ...chalk }));
+      map.append(svg("rect", { x: L - d, y: W / 2 - h, width: d, height: 2 * h, ...chalk }));
+    }
+  } else {
+    const across = [[22, 0], [L - 22, 0], [L / 2, 0], [L / 2 - 10, 1], [L / 2 + 10, 1], [5, 1], [L - 5, 1]];
+    for (const [x, dash] of across) map.append(svg("line", { x1: x, y1: 0, x2: x, y2: W, ...chalk, "stroke-dasharray": dash ? "1.5 1.5" : "none" }));
+    for (const y of [5, 15, W - 15, W - 5]) map.append(svg("line", { x1: 0, y1: W - y, x2: L, y2: W - y, ...chalk, "stroke-width": 0.25, "stroke-dasharray": "1.5 1.5", opacity: 0.6 }));
+  }
   // Near touchline at the bottom, like the camera sees it.
   for (const p of data.players) map.append(svg("circle", { cx: p.x, cy: W - p.y, r: 1.4, fill: colorOf(p.team), stroke: "#000", "stroke-width": 0.25 }));
   $("pitchCheckText").textContent = data.mapped
@@ -1220,11 +1258,14 @@ $("applyBtn").onclick = async () => {
 // ------------------------------------------------------------ coach report
 
 let rTeams = [], rTeam = "both", rPhase = "mixed";
-const TACTICS = {{ tactics|tojson }};
-const TACTIC_GROUPS = { line: "Defensive line", ruck: "Around the ruck", back: "Backfield", tempo: "Tempo", carry: "Where the ball goes", depth: "Depth", shape: "Shape" };
+const TACTIC_LISTS = {{ tactics|tojson }};
+const tacticList = () => TACTIC_LISTS[(result && result.sport) || "rugby"] || TACTIC_LISTS.rugby;
+const TACTIC_GROUPS = { line: "Defensive line", ruck: "Around the ruck", back: "Backfield", tempo: "Tempo", carry: "Where the ball goes", depth: "Depth", shape: "Shape",
+  block: "Where the block sits", build: "Building the attack", space: "Space and numbers" };
 const rTactics = new Set();
 function drawTactics() {
   const box = $("tacticBox"); box.innerHTML = "";
+  const TACTICS = tacticList();
   const show = rTeam !== "both";
   $("tacticField").hidden = !show;
   if (!show) return;
@@ -1312,7 +1353,7 @@ $("onlyTeamBtn").onclick = () => {
 $("reportBtn").onclick = async () => {
   const params = new URLSearchParams({ team: rTeam });
   params.set(rTeam === "both" ? "attacker" : "phase", rPhase);
-  const picked = rTeam === "both" ? [] : TACTICS.filter(t => rTactics.has(t.id) && (rPhase === "mixed" || t.side === rPhase)).map(t => t.id);
+  const picked = rTeam === "both" ? [] : tacticList().filter(t => rTactics.has(t.id) && (rPhase === "mixed" || t.side === rPhase)).map(t => t.id);
   if (picked.length) params.set("tactics", picked.join(","));
   $("reportBtn").disabled = true; $("reportBtn").textContent = "Working…";
   $("reportError").hidden = true;
@@ -1347,6 +1388,7 @@ function renderReport(data) {
     out.append(box);
   }
   renderBreakdowns(out, data);
+  renderMatch(out, data);
   for (const s of data.sections) {
     out.append(el("div", { class: "report-head", style: `--team:${colorOf(s.team)}` },
       el("span", { class: "dot", style: `background:${colorOf(s.team)}` }),
@@ -1361,8 +1403,15 @@ function renderReport(data) {
     if (counts.info) summary.append(el("span", { class: "pill info" }, `${counts.info} worth a look`));
     if (summary.childNodes.length) out.append(summary);
 
-    const st = s.stats, fmt = v => v == null ? "–" : v;
-    out.append(el("div", { class: "stats" },
+    const st = s.stats, fmt = v => v == null ? "–" : v, m = v => v == null ? "–" : v + " m";
+    if (data.sport === "soccer") out.append(el("div", { class: "stats" },
+      stat(fmt(st.players_in_view), "players in view (average)"),
+      stat(m(st.line_height), "back line from own goal"),
+      stat(m(st.team_length), "back to front"),
+      stat(m(st.team_width), "across the pitch"),
+      stat(m(st.line_gap), "biggest gap between lines"),
+      st.formation ? stat(st.formation, "shape") : null));
+    else out.append(el("div", { class: "stats" },
       stat(fmt(st.players_in_view), "players in view (average)"),
       stat(fmt(st.players_in_line), "standing in the line"),
       stat(fmt(st.per_breakdown), "players per ruck / maul"),
@@ -1397,7 +1446,11 @@ function renderReport(data) {
   }
   out.append(el("div", { class: "caveat" },
     el("strong", {}, "How to read this. "),
-    (data.pitch && data.pitch.coverage
+    (data.sport === "soccer"
+      ? (data.pitch && data.pitch.coverage
+        ? `Distances are in metres, from the pitch points you marked (${data.pitch.coverage}% of the wide footage could be measured). A measurement only counts when the space just past the last player is on screen, so nobody is hidden out of the picture. `
+        : "Soccer shape is measured in metres, so mark the pitch in the Pitch tab first. ")
+      : data.pitch && data.pitch.coverage
       ? `Line speed and mauls are in metres, from the pitch points you marked (${data.pitch.coverage}% of the wide footage could be measured). Other points use "body lengths" (a player's height on screen). `
       : "The app measures what the camera shows, in \"body lengths\" (a player's height on screen), not metres. ") +
     "Players off-screen aren't counted, and far-away players can be missed or marked unsure. " +
@@ -1420,6 +1473,32 @@ function momentGrid(moments, team, opp) {
 }
 
 // Rucks, mauls and scrums: both teams together (who won the ball isn't known).
+// Football: both teams together - what could be measured and who had the ball.
+function renderMatch(out, data) {
+  const mt = data.match;
+  if (data.sport !== "soccer") return;
+  const box = el("div", { class: "breakdowns" });
+  box.append(el("div", { class: "report-head" }, el("h3", {}, "The match"), el("span", { class: "phase" }, "Both teams")));
+  if (!mt) {
+    box.append(el("p", { class: "rnote", html: ICONS.note },
+      "Tip: mark the pitch in the Pitch tab to get the soccer report in metres: back line height, how compact each team is, the space between the lines, the shape they play in, and with the ball in view, possession and pressure on the ball."));
+    out.append(box);
+    return;
+  }
+  const [a, b] = data.teams, p = mt.possession;
+  box.append(el("div", { class: "stats" },
+    stat(mt.measured + " s", "measured on the pitch"),
+    stat(mt.ball_seen + "%", "of it with a player on the ball"),
+    p ? stat(p[a] + "%", `${cap(a)} had the ball`) : null,
+    p ? stat(p[b] + "%", `${cap(b)} had the ball`) : null,
+    mt.turnovers == null ? null : stat(mt.turnovers, "times the ball changed team"),
+    stat(mt.keepers, "goalkeeper tracks found")));
+  box.append(el("p", { class: "rnote", html: ICONS.note },
+    `${cap(a)} defended the ${mt.defends[a]} goal and ${cap(b)} the ${mt.defends[b]} goal (as seen from the camera), worked out from who stood last at each end.` +
+    (p ? "" : " The ball was seen too rarely to say who had it, so possession isn't shown.")));
+  out.append(box);
+}
+
 function renderBreakdowns(out, data) {
   const b = data.breakdowns, pt = data.pitch || {};
   if (!b) return;

@@ -12,8 +12,9 @@ From pixels to metres on the pitch.
 3. Every mapped frame is checked against the players: if most of them would
    land off the pitch, that frame's mapping is not trusted.
 
-Pitch coordinates: x = metres along the pitch from the LEFT try line (as seen
-from the camera), y = metres across from the NEAR touchline.
+Pitch coordinates: x = metres along the pitch from the LEFT try line / goal
+line (as seen from the camera), y = metres across from the NEAR touchline.
+Rugby and soccer each have their own lines to mark (lines_across/lines_along).
 """
 
 import math
@@ -23,15 +24,35 @@ import numpy as np
 
 DEFAULT_LENGTH = 100.0  # try line to try line (World Rugby: at most 100 m)
 DEFAULT_WIDTH = 70.0    # touchline to touchline (at most 70 m)
+# Per sport: default size and the sizes a coach may enter (metres).
+SIZES = {
+    "rugby": {"length": 100.0, "width": 70.0, "min": (40, 25), "max": (100, 70)},
+    "soccer": {"length": 105.0, "width": 68.0, "min": (40, 25), "max": (120, 90)},  # laws: 90-120 x 45-90
+}
+BOX_DEPTH, BOX_HALF = 16.5, 20.16          # soccer penalty area: 16.5 m deep, 40.32 m wide
+AREA_DEPTH, AREA_HALF = 5.5, 9.16          # goal area: 5.5 m deep, 18.32 m wide
+SPOT = 11.0                                # penalty spot: 11 m out from the goal line
 MOTION_WIDTH = 640      # frames are shrunk to this width to follow the camera
 MIN_INLIERS = 25        # background points that must agree on a move
 ON_PITCH_MARGIN = 6.0   # metres outside the lines still counted as "on the pitch"
 ON_PITCH_SHARE = 0.6    # share of players that must land on the pitch
 
 
-def lines_across(length):
+def lines_across(length, sport="rugby"):
     """Lines that cross the pitch (constant x), left to right."""
     half = length / 2
+    if sport == "soccer":
+        return {
+            "left_goal": ("Left goal line", 0.0),
+            "left_area": ("Left goal area (6-yard) line", AREA_DEPTH),
+            "left_spot": ("Left penalty spot (with the middle line)", SPOT),
+            "left_box": ("Left penalty box line", BOX_DEPTH),
+            "halfway": ("Halfway line", half),
+            "right_box": ("Right penalty box line", length - BOX_DEPTH),
+            "right_spot": ("Right penalty spot (with the middle line)", length - SPOT),
+            "right_area": ("Right goal area (6-yard) line", length - AREA_DEPTH),
+            "right_goal": ("Right goal line", length),
+        }
     return {
         "left_try": ("Left try line", 0.0),
         "left_5": ("Left 5 m line", 5.0),
@@ -45,8 +66,19 @@ def lines_across(length):
     }
 
 
-def lines_along(width):
+def lines_along(width, sport="rugby"):
     """Lines that run the length of the pitch (constant y), near to far."""
+    if sport == "soccer":
+        mid = width / 2
+        return {
+            "near_touch": ("Near touchline", 0.0),
+            "near_box": ("Near side of the penalty box", mid - BOX_HALF),
+            "near_area": ("Near side of the goal area", mid - AREA_HALF),
+            "middle": ("Middle: centre spot and penalty spots", mid),
+            "far_area": ("Far side of the goal area", mid + AREA_HALF),
+            "far_box": ("Far side of the penalty box", mid + BOX_HALF),
+            "far_touch": ("Far touchline", width),
+        }
     return {
         "near_touch": ("Near touchline", 0.0),
         "near_5": ("Near 5 m line", 5.0),

@@ -33,11 +33,13 @@ import numpy as np
 import pitch
 import quota
 import rugby
+import soccer
 import tactics
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
 from legal import init_legal, retention_days
 from security import Throttle, init_online, init_security_headers
+import teams as teams_module
 from teams import assign_teams
 from tracker import BUCKET_COLORS, count_buckets, detect_players, draw_box, render_video, video_info
 
@@ -100,7 +102,7 @@ def _save_meta(job_id):
     with jobs_lock:
         job = jobs[job_id]
         meta = {k: job.get(k) for k in ("filename", "input", "output", "teams", "colors", "hidden", "version",
-                                        "owner", "uploaded", "original_name", "seconds")}
+                                        "owner", "uploaded", "original_name", "seconds", "sport", "keepers")}
     with open(_meta_path(job_id), "w") as f:
         json.dump(meta, f)
 
@@ -170,7 +172,13 @@ def _analyze(job_id):
     job = jobs[job_id]
     detections = detect_players(job["input"], progress=_progress(job_id, "Tracking players..."))
     check_players(detections)  # no match in it -> ContentRejected
-    detections, colors = assign_teams(job["input"], detections, progress=_progress(job_id, "Sorting players into teams..."))
+    football = _sport(job) == "soccer"
+    detections, colors = assign_teams(job["input"], detections, progress=_progress(job_id, "Sorting players into teams..."),
+                                      clusters=teams_module.CLUSTERS_SOCCER if football else teams_module.CLUSTERS)
+    if football:
+        # Keepers wear their own colour; give them back to their team.
+        detections, keepers = soccer.find_keepers(detections)
+        _update(job_id, keepers={str(k): t for k, t in keepers.items()})
     with open(_detections_path(job_id), "w") as f:
         json.dump(detections, f, separators=(",", ":"))
     teams = count_buckets(detections)
@@ -298,7 +306,7 @@ def your_match():
 
 @app.route("/coach-report")
 def coach_report():
-    return _front("report.html", tactics=tactics.catalogue())
+    return _front("report.html", tactics=tactics.catalogue(), soccer_tactics=soccer.catalogue())
 
 
 @app.route("/pricing")
@@ -367,7 +375,7 @@ def _count_transfer(resp):
 
 @app.route("/upload")
 def index():
-    return render_template("index.html", usage=_usage(accounts.current_user()), tactics=tactics.catalogue())
+    return render_template("index.html", usage=_usage(accounts.current_user()), tactics={"rugby": tactics.catalogue(), "soccer": soccer.catalogue()})
 
 
 @app.route("/analyze", methods=["POST"])
@@ -444,6 +452,7 @@ def analyze():
             "seconds": facts["seconds"],      # counted against the monthly analysis minutes
             "uploaded": int(time.time()),
             "original_name": name,
+            "sport": request.form.get("sport") if request.form.get("sport") in SPORTS else "rugby",
         }
     job_queue.put(("analyze", job_id, None))
     return jsonify(job_id=job_id)
@@ -587,6 +596,7 @@ def status(job_id):
             elapsed=(time.time() - job["started"]) if job["started"] else 0,
             queued_ahead=max(0, queued_ahead),
             transfer_blocked=blocked,
+            sport=_sport(job),
         )
 
 
@@ -595,7 +605,16 @@ _prepared = {}
 _prepared_lock = threading.Lock()
 
 
+SPORTS = ("rugby", "soccer")
+
+
+def _sport(job):
+    """Which sport a video is: chosen at upload; videos from before soccer are rugby."""
+    return job.get("sport") if job.get("sport") in SPORTS else "rugby"
+
+
 def _prepared_frames(job_id, video_path):
+    per_team = analysis.PER_TEAM[_sport(jobs.get(job_id) or {})]
     with _prepared_lock:
         if job_id not in _prepared:
             cap = cv2.VideoCapture(video_path)
@@ -604,7 +623,7 @@ def _prepared_frames(job_id, video_path):
             size = (first.shape[1], first.shape[0]) if ok else None
             with open(_detections_path(job_id)) as f:
                 _prepared.clear()  # keep only one video in memory
-                _prepared[job_id] = analysis.prepare(json.load(f), size)
+                _prepared[job_id] = analysis.prepare(json.load(f), size, per_team)
                 _sizes[job_id] = size
         return _prepared[job_id]
 
@@ -626,7 +645,8 @@ def _load_calibration(job_id):
 def _keyframes(calib):
     """{frame: homography} from the saved marked points (raises
     pitch.CalibrationError if a view doesn't work)."""
-    across, along = pitch.lines_across(calib["length"]), pitch.lines_along(calib["width"])
+    sport = calib.get("sport", "rugby")
+    across, along = pitch.lines_across(calib["length"], sport), pitch.lines_along(calib["width"], sport)
     views = {}
     for p in calib["points"]:
         views.setdefault(p["f"], []).append((p["x"], p["y"], across[p["across"]][1], along[p["along"]][1]))
@@ -706,6 +726,8 @@ def report(job_id):
 
     fps, _ = video_info(job["input"])
     frames = _prepared_frames(job_id, job["input"])
+    if _sport(job) == "soccer":
+        return _soccer_report(job_id, job, frames, fps, main, plan, team)
     sections = [analysis.analyse_team(frames, fps, t, o, p) for t, o, p in plan]
 
     # Rugby layer: breakdowns (always) and line speed (pitch marked).
@@ -749,8 +771,34 @@ def report(job_id):
         "measuring": bool(calib and calib.get("points")) and maps is None,
         "coverage": round(100 * mapped / wide) if maps and wide else 0,
     }
-    return jsonify(fps=fps, teams=main, sections=sections, breakdowns=rugby.breakdown_summary(events, fps, lineout_list),
-                   pitch=pitch_info)
+    return jsonify(sport="rugby", fps=fps, teams=main, sections=sections,
+                   breakdowns=rugby.breakdown_summary(events, fps, lineout_list), pitch=pitch_info)
+
+
+def _pitch_info(frames, maps, calib):
+    wide = sum(1 for f in frames if f[0])
+    mapped = sum(1 for m in (maps or []) if m is not None)
+    return {
+        "marked": bool(calib and calib.get("points")),
+        "measuring": bool(calib and calib.get("points")) and maps is None,
+        "coverage": round(100 * mapped / wide) if maps and wide else 0,
+    }
+
+
+def _soccer_report(job_id, job, frames, fps, main, plan, team):
+    """The football report: team shape in metres, who had the ball, and the
+    tactics the coach picked."""
+    maps, calib = _mappings(job_id, job)
+    ctx = soccer.context(frames, fps, maps, calib, main, job.get("keepers"), _sizes.get(job_id))
+    sections = [soccer.analyse_team(ctx, frames, t, o, p) for t, o, p in plan]
+    chosen = [t for t in request.args.get("tactics", "").split(",") if t in soccer.BY_ID][:12]
+    if chosen and team != "both":
+        for sec in sections:
+            sec["tactics"] = soccer.evaluate(
+                [t for t in chosen if soccer.BY_ID[t]["side"] == sec["phase"] or sec["phase"] == "mixed"],
+                ctx, frames, sec["team"], sec["opponent"], sec["phase"])
+    return jsonify(sport="soccer", fps=fps, teams=main, sections=sections, breakdowns=None,
+                   match=soccer.summary(ctx), pitch=_pitch_info(frames, maps, calib))
 
 
 def _carries(job_id, job, team, fps):
@@ -793,11 +841,14 @@ def calibration(job_id):
     if request.method == "GET":
         calib = _load_calibration(job_id) or {}
         (w, h), count, fps = _video_size(job)
-        length = calib.get("length", pitch.DEFAULT_LENGTH)
-        width = calib.get("width", pitch.DEFAULT_WIDTH)
+        sport = _sport(job)
+        dims = pitch.SIZES[sport]
+        length = calib.get("length", dims["length"])
+        width = calib.get("width", dims["width"])
         return jsonify(length=length, width=width, points=calib.get("points", []), size=[w, h], frames=count, fps=fps,
-                       across=[[k, v[0]] for k, v in pitch.lines_across(length).items()],
-                       along=[[k, v[0]] for k, v in pitch.lines_along(width).items()],
+                       sport=sport, min=dims["min"], max=dims["max"],
+                       across=[[k, v[0]] for k, v in pitch.lines_across(length, sport).items()],
+                       along=[[k, v[0]] for k, v in pitch.lines_along(width, sport).items()],
                        followed=os.path.exists(_motion_path(job_id)))
 
     user = accounts.current_user()
@@ -815,15 +866,19 @@ def calibration(job_id):
         return jsonify(ok=True, cleared=True)
     if calibrations_per_hour.wait(user):
         return jsonify(error="You've saved the pitch marking a lot in the last hour. Try again later."), 429
+    sport = _sport(job)
+    dims = pitch.SIZES[sport]
     try:
-        length = float(body.get("length", pitch.DEFAULT_LENGTH))
-        width = float(body.get("width", pitch.DEFAULT_WIDTH))
+        length = float(body.get("length", dims["length"]))
+        width = float(body.get("width", dims["width"]))
     except (TypeError, ValueError):
         return jsonify(error="Pitch length and width must be numbers."), 400
-    if not (40 <= length <= 100 and 25 <= width <= 70):
-        return jsonify(error="Pitch length must be 40-100 m (try line to try line) and width 25-70 m."), 400
+    (lo_l, lo_w), (hi_l, hi_w) = dims["min"], dims["max"]
+    if not (lo_l <= length <= hi_l and lo_w <= width <= hi_w):
+        ends = "goal line to goal line" if sport == "soccer" else "try line to try line"
+        return jsonify(error=f"Pitch length must be {lo_l}-{hi_l} m ({ends}) and width {lo_w}-{hi_w} m."), 400
     (w, h), count, _ = _video_size(job)
-    across, along = pitch.lines_across(length), pitch.lines_along(width)
+    across, along = pitch.lines_across(length, sport), pitch.lines_along(width, sport)
     raw = body.get("points")
     if not isinstance(raw, list) or not 4 <= len(raw) <= 40:
         return jsonify(error="Mark at least 4 points (and at most 40)."), 400
@@ -841,7 +896,7 @@ def calibration(job_id):
         points.append(pt)
     if len({p["f"] for p in points}) > 8:
         return jsonify(error="Use at most 8 different frames."), 400
-    calib = {"length": length, "width": width, "points": points}
+    calib = {"length": length, "width": width, "points": points, "sport": sport}
     try:
         _keyframes(calib)
     except pitch.CalibrationError as e:
@@ -885,8 +940,9 @@ def pitch_view(job_id):
     maps, calib = _mappings(job_id, job)
     frames = _prepared_frames(job_id, job["input"])
     H = maps[frame_no] if maps and frame_no < len(maps) else None
-    out = {"length": (calib or {}).get("length", pitch.DEFAULT_LENGTH),
-           "width": (calib or {}).get("width", pitch.DEFAULT_WIDTH), "mapped": H is not None, "players": []}
+    dims = pitch.SIZES[_sport(job)]
+    out = {"length": (calib or {}).get("length", dims["length"]), "sport": _sport(job),
+           "width": (calib or {}).get("width", dims["width"]), "mapped": H is not None, "players": []}
     if H is not None:
         players = [p for p in frames[frame_no][0] if p["bucket"] not in ("other", "unsure")]
         xy = pitch.project(H, [(p["x"], p["y"]) for p in players])

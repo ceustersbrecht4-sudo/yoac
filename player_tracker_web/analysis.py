@@ -25,6 +25,7 @@ CLOSE_UP = 0.22       # typical player taller than this share of the picture
                       # = close-up / replay; team shape can't be judged there
 MIN_WIDE_PLAYERS = 6  # fewer players in view = too tight a shot to judge shape
 PLAYERS_PER_TEAM = 15  # rugby union: 15 a side on the pitch, 30 players plus the officials
+PER_TEAM = {"rugby": 15, "soccer": 11}
 MAX_UNSURE = 0.15     # more than this share of "unsure" players in a frame =
                       # a gap in the line might just be a player we couldn't
                       # place, so line shape isn't judged in that frame
@@ -49,7 +50,7 @@ def _players(detections, size):
     return players
 
 
-def _cap_teams(players):
+def _cap_teams(players, per_team=PLAYERS_PER_TEAM):
     """A team never has more than 15 players on the pitch. When more are
     seen, the extras are replacements warming up, staff or crowd in a
     similar colour: keep the 15 nearest the rest of the play (those people
@@ -57,7 +58,7 @@ def _cap_teams(players):
     {team: number left out})."""
     teams = {p["bucket"] for p in players} - {"other", "unsure", "unknown"}
     extra = {}
-    if not any(sum(1 for p in players if p["bucket"] == t) > PLAYERS_PER_TEAM for t in teams):
+    if not any(sum(1 for p in players if p["bucket"] == t) > per_team for t in teams):
         return players, extra
     on = [p for p in players if p["bucket"] in teams]
     cx, cy = median(p["x"] for p in on), median(p["y"] for p in on)
@@ -65,10 +66,10 @@ def _cap_teams(players):
     drop = set()
     for t in teams:
         mine = [p for p in players if p["bucket"] == t]
-        if len(mine) > PLAYERS_PER_TEAM:
+        if len(mine) > per_team:
             mine.sort(key=lambda p: math.hypot(p["x"] - cx, p["y"] - cy) / scale)
-            drop.update(id(p) for p in mine[PLAYERS_PER_TEAM:])
-            extra[t] = len(mine) - PLAYERS_PER_TEAM
+            drop.update(id(p) for p in mine[per_team:])
+            extra[t] = len(mine) - per_team
     return [p for p in players if id(p) not in drop], extra
 
 
@@ -109,14 +110,14 @@ def _balls(detections):
     return [((x1 + x2) / 2, (y1 + y2) / 2, conf) for x1, y1, x2, y2, bucket, _, conf in detections if bucket == "ball"]
 
 
-def prepare(all_detections, size=None):
+def prepare(all_detections, size=None, per_team=PLAYERS_PER_TEAM):
     """Team-independent per-frame data; cache this per video.
     size = (width, height) of the video picture.
     Each frame: (players, contact groups, indexes in contact, clear, balls,
     {team: players left out because more than 15 were seen})."""
     frames = []
     for detections in all_detections:
-        players, extra = _cap_teams(_players(detections, size))
+        players, extra = _cap_teams(_players(detections, size), per_team)
         wide = len(players) >= MIN_WIDE_PLAYERS and (
             not size or median(p["h"] for p in players) < CLOSE_UP * size[1])
         if not wide:
