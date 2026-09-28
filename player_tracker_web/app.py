@@ -27,6 +27,7 @@ import cv2
 import accounts
 import analysis
 import compact
+import contact
 import demo as front_demo
 import numpy as np
 import pitch
@@ -726,6 +727,8 @@ def report(job_id):
                       rugby.scrum_offside_point(scrum_off, sec["team"])):
             if point:
                 sec["points"].append(point)
+        if sec["phase"] == "attack":
+            sec["carries"] = contact.summary(_carries(job_id, job, sec["team"], fps), sec["team"])
         if chosen and team != "both":
             plan = tactics.evaluate([t for t in chosen if tactics.BY_ID[t]["side"] == sec["phase"] or sec["phase"] == "mixed"],
                                     frames, fps, maps, events, speeds, sec["team"], sec["opponent"], sec["phase"],
@@ -748,6 +751,28 @@ def report(job_id):
     }
     return jsonify(fps=fps, teams=main, sections=sections, breakdowns=rugby.breakdown_summary(events, fps, lineout_list),
                    pitch=pitch_info)
+
+
+def _carries(job_id, job, team, fps):
+    """Carries into contact by `team`, worked out once per video and team
+    (the pose model reads a frame for each contact) and saved next to it."""
+    saved = os.path.join(OUTPUT_DIR, f"{job_id}.carries.json")
+    key = str(os.path.getmtime(_detections_path(job_id)))
+    try:
+        with open(saved) as f:
+            cache = json.load(f)
+        if cache.get("key") == key and team in cache:
+            return cache[team]
+    except (OSError, ValueError):
+        cache = {}
+    if cache.get("key") != key:
+        cache = {"key": key}
+    with open(_detections_path(job_id)) as f:
+        detections = json.load(f)
+    cache[team] = contact.analyse(detections, fps, team, pose=contact.pose_reader(job["input"]))
+    with open(saved, "w") as f:
+        json.dump(cache, f)
+    return cache[team]
 
 
 def _video_size(job):

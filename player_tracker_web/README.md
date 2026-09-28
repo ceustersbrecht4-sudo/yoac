@@ -63,6 +63,15 @@ Besides line shape (gaps, dog-legs, numbers, width), the coach report now has:
 All thresholds are named at the top of `rugby.py`. These are measurements from one camera:
 use them to find moments to review, and check them on the video.
 
+## Carries into contact
+
+When a report is made for a team that's attacking, every carry into contact is checked, close-ups included
+(everything is measured against the player's own size, so zoom doesn't matter): did the carrier run at space
+(a gap or a defender's edge) or straight at a defender, with footwork or not; were they low or upright at
+contact and leading with the shoulder or square (from a pose model: `yolov8m-pose.pt`, downloaded on first use,
+about 50 MB); and did their legs keep driving forward after contact. Worked out once per video and saved
+(`outputs/<id>.carries.json`). Thresholds are at the top of `contact.py`.
+
 ## 15 a side
 
 A rugby union team has 15 players on the pitch (30 in total, plus the officials). When the app sees more than 15

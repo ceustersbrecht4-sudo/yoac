@@ -1384,6 +1384,10 @@ function renderReport(data) {
       if (p.moments.length) box.append(momentGrid(p.moments, s.team, s.opponent || ""));
       out.append(box);
     };
+    if (s.carries && s.carries.length) {
+      out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, `${cap(s.team)}'s carries into contact`));
+      s.carries.forEach(pointBox);
+    }
     if (s.tactics && s.tactics.length) {
       out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, `${cap(s.team)}'s tactics: did they stick?`));
       s.tactics.forEach(pointBox);
