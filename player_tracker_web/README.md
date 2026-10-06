@@ -54,10 +54,28 @@ Pick **Soccer** when you upload. Tracking, teams and pitch marking are shared wi
   compact (35 m or less), too wide without the ball (over 45 m), space between the lines (over 15 m), back line not
   level, ball carrier left alone (nobody within 8 m; pressure = within 5 m), narrow with the ball (under 40 m),
   rest defence (fewer than 3 outfield players 10 m behind the ball in the other half).
-- **Tactics** a coach can pick: high press, mid block, low block, high line / offside trap, two banks of four,
-  counter-press, build up from the back, direct / long ball, switch the play, overload the ball side, hold the
-  width, counter-attack and rest defence. Each says how much of the time (or of the spells, lost balls or balls
-  won) the team played it and whether it worked. The ones that need the ball say so when it was seen too rarely.
+- **Set pieces** (`soccer_play.py`): a ball that sits still for 1 s or more is a restart, and where it sits says
+  which: within 2.5 m of a corner flag = corner, the penalty spot = penalty, the centre spot = kick-off, the goal
+  area = goal kick, the touchline = throw-in, anywhere else = free kick (only when nobody stands on the ball for
+  0.5 s and the teams aren't both on it). For each: who took it, who got the first touch, and whether the taking
+  team still had it 5 s later; at corners the numbers in the box and whether the defenders marked man-to-man
+  (within 1.5 m of an attacker) or zonally; at free kicks any defender nearer than 8 m (9.15 m in law), and
+  whether it was in shooting range (35 m); goal kicks short or long (first touch within 30 m).
+- **After losing the ball**: how long until a player gets within 5 m of it (within 2 s = a counter-press) and how
+  many outfield players are behind the ball 5 s later (fewer than 6 is flagged).
+- **Passes and possible offside**: a pass is the ball going 5 m or more from one teammate to another within 2.5 s.
+  A pass received by a player who stood more than 1 m past the second-last defender (and the ball, in the other
+  half) when it was played is flagged, only when the space behind the line is on screen.
+- **1v1s** (`soccer_duels.py`, works in close-ups like rugby's carries): a player on the ball with one defender within
+  2 body lengths and nobody else within 3. Defending: side-on or square and knees bent or upright (pose model),
+  about an arm's length away (0.45-1.3 body lengths), and who came away with the ball. On the ball: running at
+  the defender's side or straight at them, a change of pace, and whether the ball was kept.
+- **Tactics** a coach can pick (23): high press, mid block, low block, high line / offside trap, two banks of four,
+  counter-press, man-marking, zonal, show them wide (touchline trap), zonal or man-to-man at corners; build up
+  from the back, direct / long ball, switch the play, possession play, overload the ball side, hold the width,
+  overlapping runs, counter-attack, rest defence, short corners, short or long goal kicks. Each says how much of
+  the time (or of the spells, lost balls, corners or goal kicks) the team played it and whether it worked. The
+  ones that need the ball say so when it was seen too rarely.
 
 The ball is small from the stand and the COCO detector misses it often, so possession-based checks need a clip
 where the ball stays in view. Every threshold is named at the top of `soccer.py`.
@@ -254,6 +272,8 @@ to each coach's own latest video. Only use footage you're allowed to show to eve
 | `pitch.py` | From pixels to metres: the marked pitch points and following the camera |
 | `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
 | `soccer.py` | Soccer: goalkeepers, possession, team shape in metres, soccer tactics |
+| `soccer_play.py` | Soccer set pieces, pressing after losing the ball, passes and possible offside |
+| `soccer_duels.py` | Soccer 1v1s with the pose model (close-ups included) |
 | `demo.py` | The front page's frame, close-ups and measured numbers, from a real analysed video |
 | `templates/` | The pages: login, front pages (`_front.html` + one file per page), upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |

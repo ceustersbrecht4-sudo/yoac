@@ -195,11 +195,38 @@
             <h3>Rest defence (ball in view)</h3>
             <p>How many stay behind the ball when attacking in the other half, ready for a lost ball.</p>
             <div class="rule">fewer than 3 outfield players 10 m or more behind the ball is flagged / 4 or more is good</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}<path class="pline" d="M4 4 L4 70 M4 14 L40 14 L40 70"/>
+    {% for y in [30, 46, 62] %}{{ bx.player(18, y, "b", 0.5, d=1) }}{% endfor %}{% for y in [24, 38, 52, 66] %}{{ bx.player(30, y, "a", 0.5, pose="run", d=-1) }}{% endfor %}
+    {{ bx.player(118, 12, "a", 0.5, d=-1) }}<circle cx="114" cy="14" r="2.5" fill="#f2f0e8"/><path class="flag" stroke-width="1.4" d="M44 20 L44 68"/>{{ bx.tab(74, 10, "4 v 3 in the box", "a", 5) }}</svg></div><div>
+            <h3>Set pieces</h3>
+            <p>Corners, throw-ins, goal kicks, free kicks, penalties and kick-offs, found where the ball sits still. Who took each one,
+              the numbers in the box at corners, marking, who won the first ball, and whether the ball was kept.</p>
+            <div class="rule">still ball 1 s+ / corner within 2.5 m of the flag / wall nearer than 8 m at a free kick (9.15 m in law) / kept = still yours 5 s later</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(70, 50, "a", 0.66, pose="run", d=1) }}<circle cx="78" cy="56" r="2.5" fill="#f2f0e8"/>
+    {{ bx.player(40, 54, "b", 0.62, pose="run", d=1) }}{{ bx.player(52, 30, "b", 0.6, pose="run", d=1) }}<path class="ok" stroke-width="1.5" d="M48 58 L62 58 M58 54 L62 58 L58 62"/>{{ bx.tab(60, 10, "pressure in 1.4 s", "b", 5) }}</svg></div><div>
+            <h3>After losing the ball</h3>
+            <p>How quickly someone gets onto the ball (the counter-press), and how many are back behind it five seconds later.</p>
+            <div class="rule">pressure within 2 s at half the lost balls is good / fewer than 6 behind the ball after 5 s is flagged</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{% for y in [24, 42, 60] %}{{ bx.player(60, y, "b", 0.56, d=1) }}{% endfor %}
+    <path class="pline dash" d="M62 4 L62 70"/>{{ bx.player(46, 50, "a", 0.6, mark="x", pose="run", d=-1) }}{{ bx.player(104, 36, "a", 0.6, d=-1) }}<circle cx="98" cy="42" r="2.5" fill="#f2f0e8"/>{{ bx.tab(62, 8, "second-last defender", "b", 5) }}</svg></div><div>
+            <h3>Possible offside</h3>
+            <p>A pass received by a player who stood past the second-last defender (and the ball, in the other half) when it was played.</p>
+            <div class="rule">more than 1 m past the line / only judged when the space behind the line is on screen</div></div></div>
+          <div class="row"><div class="side"><span class="kind good">going well</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.grass(132, 70, 3) }}{{ bx.player(46, 58, "a", 0.82, pose="run", d=1) }}<circle cx="56" cy="64" r="3" fill="#f2f0e8"/>
+    {{ bx.player(80, 60, "b", 0.82, pose="crouch", d=-1) }}<path class="ok" stroke-width="1.4" d="M60 30 L72 30 M60 26 L60 34 M72 26 L72 34"/>{{ bx.tab(66, 14, "arm's length", "b", 5) }}</svg></div><div>
+            <h3>1v1s, from close-ups too</h3>
+            <p>Defending: side-on or square, knees bent or upright, about an arm's length away or not, and who came away with the ball.
+              On the ball: running at the defender's side or straight at them, a change of pace, and whether the ball was kept.</p>
+            <div class="rule">pose model: shoulders, hips, ankles / measured in body lengths, so zoom doesn't matter</div></div></div>
         </div>
 
         <div class="tactics-list">
           <h3>Soccer tactics you can pick</h3>
-          <p>The same idea as rugby: tick what you planned, and the report says how much of the time the team played it and whether
+          <p>The same idea as rugby, {{ soccer_tactics|length }} tactics: tick what you planned, and the report says how much of the time the team played it and whether
             it worked. With the ball in view the report splits the video by which team had it; without, it uses your
             "attacking" or "defending" choice.</p>
           {% for side, label in [("defence", "Defence"), ("attack", "Attack")] %}
@@ -213,9 +240,10 @@
             {% endfor %}
           </div>
           {% endfor %}
-          <p class="later">Not measurable yet from one camera: man-marking against zonal, inverted and overlapping full-backs,
-            possession play, set pieces and pressing triggers. These need player roles or every pass, which one camera doesn't
-            give reliably yet. The ball is small from the stand, so checks that need it say so when it was seen too rarely.</p>
+          <p class="later">Not measurable yet from one camera: inverted full-backs and other player roles, rehearsed set-piece
+            routines, pressing triggers (a back pass, a bad touch), and headers and shots. These need player roles or the ball in the
+            air, which one camera doesn't give reliably yet. The ball is small from the stand, so checks that need it say so when
+            it was seen too rarely.</p>
         </div>
       </div>
     </div>

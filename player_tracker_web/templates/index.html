@@ -1261,7 +1261,8 @@ let rTeams = [], rTeam = "both", rPhase = "mixed";
 const TACTIC_LISTS = {{ tactics|tojson }};
 const tacticList = () => TACTIC_LISTS[(result && result.sport) || "rugby"] || TACTIC_LISTS.rugby;
 const TACTIC_GROUPS = { line: "Defensive line", ruck: "Around the ruck", back: "Backfield", tempo: "Tempo", carry: "Where the ball goes", depth: "Depth", shape: "Shape",
-  block: "Where the block sits", build: "Building the attack", space: "Space and numbers" };
+  block: "Where the block sits", build: "Building the attack", space: "Space and numbers", marking: "Marking and pressing traps",
+  set: "Set pieces" };
 const rTactics = new Set();
 function drawTactics() {
   const box = $("tacticBox"); box.innerHTML = "";
@@ -1433,6 +1434,10 @@ function renderReport(data) {
       if (p.moments.length) box.append(momentGrid(p.moments, s.team, s.opponent || ""));
       out.append(box);
     };
+    if (s.duels && s.duels.length) {
+      out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, `${cap(s.team)}'s 1v1s`));
+      s.duels.forEach(pointBox);
+    }
     if (s.carries && s.carries.length) {
       out.append(el("h4", { class: "tactic-group", style: "margin-top:18px" }, `${cap(s.team)}'s carries into contact`));
       s.carries.forEach(pointBox);
@@ -1492,7 +1497,15 @@ function renderMatch(out, data) {
     p ? stat(p[a] + "%", `${cap(a)} had the ball`) : null,
     p ? stat(p[b] + "%", `${cap(b)} had the ball`) : null,
     mt.turnovers == null ? null : stat(mt.turnovers, "times the ball changed team"),
+    mt.passes ? stat(mt.passes[a] + " / " + mt.passes[b], `passes ${cap(a)} / ${cap(b)}`) : null,
+    mt.offsides ? stat(mt.offsides, "possible offsides") : null,
     stat(mt.keepers, "goalkeeper tracks found")));
+  const sp = mt.set_pieces || {};
+  if (sp.count) {
+    const NAMES = { corner: "corners", throw_in: "throw-ins", goal_kick: "goal kicks", free_kick: "free kicks", penalty: "penalties", kick_off: "kick-offs" };
+    box.append(el("div", { class: "stats" }, ...Object.entries(sp.by_kind).map(([k, n]) =>
+      stat(`${n[a] || 0} / ${n[b] || 0}`, `${NAMES[k]} ${cap(a)} / ${cap(b)}`))));
+  }
   box.append(el("p", { class: "rnote", html: ICONS.note },
     `${cap(a)} defended the ${mt.defends[a]} goal and ${cap(b)} the ${mt.defends[b]} goal (as seen from the camera), worked out from who stood last at each end.` +
     (p ? "" : " The ball was seen too rarely to say who had it, so possession isn't shown.")));

@@ -43,7 +43,7 @@ def _dark(bgr):
     return 0.114 * bgr[0] + 0.587 * bgr[1] + 0.299 * bgr[2] < 70
 
 
-def facts(detections, fps, colors=None):
+def facts(detections, fps, colors=None, per_team=PER_TEAM):
     """Numbers measured on one analysed video. `detections` is the saved
     per-frame list of [x1, y1, x2, y2, bucket, track_id, conf]."""
     seen = {}      # track id -> frames it was found in
@@ -58,8 +58,8 @@ def facts(detections, fps, colors=None):
             bucket_of[tid] = bucket
             if bucket not in TEAM_SKIP:
                 n[bucket] = n.get(bucket, 0) + 1
-        # 15 a side: anyone past that is a replacement, staff or crowd, not a player.
-        in_view.append(sum(min(v, PER_TEAM) for v in n.values()))
+        # 15 a side (11 in soccer): anyone past that is a replacement, staff or crowd, not a player.
+        in_view.append(sum(min(v, per_team) for v in n.values()))
 
     per_team, officials = {}, 0
     longest_track, hidden_runs = 0, []
@@ -158,14 +158,14 @@ def crops(frame, size, hidden=(), colors=None):
     return out
 
 
-def summary(detections, fps, size, hidden=(), colors=None, name=""):
+def summary(detections, fps, size, hidden=(), colors=None, name="", per_team=PER_TEAM):
     """Everything the front page needs about one analysed video."""
     f = frame_index(len(detections))
     return {
         "name": name,
         "frame": f,
         "size": list(size) if size else None,
-        "facts": facts(detections, fps, colors),
+        "facts": facts(detections, fps, colors, per_team),
         "crops": crops(detections[f], size, hidden, colors) if detections and size else [],
     }
 

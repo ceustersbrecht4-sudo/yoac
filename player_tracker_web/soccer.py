@@ -80,7 +80,9 @@ OVERLOAD_TIME = 5.0
 MIN_SPELL = 10.0         # s of possession before a switch of play is expected
 MIN_EVENTS = 3
 PLAYED_ENOUGH = 0.6
-PLAYED_ENOUGH_RARE = {"direct": 0.3, "switch": 0.3, "overload": 0.3, "counter_attack": 0.4, "build_up": 0.5}
+PLAYED_ENOUGH_RARE = {"direct": 0.3, "switch": 0.3, "overload": 0.3, "counter_attack": 0.4, "build_up": 0.5,
+                      "overlap": 0.3, "possession": 0.4, "short_corners": 0.3, "short_goal_kicks": 0.5,
+                      "long_goal_kicks": 0.5}
 
 
 # =============================================================== goalkeepers
@@ -245,13 +247,15 @@ def _possession(ctx, frames):
         b, xy = ctx["ball"][f], ctx["xy"][f]
         if b is None or xy is None:
             continue
-        best, who = POSSESS_REACH, None
+        best, who, tid = POSSESS_REACH, None, None
         for p, (x, y) in zip(frames[f][0], xy):
             if p["bucket"] in ctx["teams"]:
                 d = math.hypot(x - b[0], y - b[1])
                 if d < best:
-                    best, who = d, p["bucket"]
+                    best, who, tid = d, p["bucket"], p["id"]
         owner[f] = who
+        if who is not None:
+            ctx["owner_id"][f] = (tid, who)
     poss, turnovers = [None] * n, []
     cur, cand, streak, last = None, None, 0, -10 ** 9
     for f in range(n):
@@ -285,7 +289,8 @@ def context(frames, fps, maps, calib, teams, keepers=None, size=None):
     ctx = {"fps": fps, "L": L, "W": W, "n": n, "teams": list(teams), "mapped": [],
            "xy": [None] * n, "ball": [None] * n, "poss": [None] * n, "turnovers": [],
            "shape": {t: [None] * n for t in teams}, "flip": {t: False for t in teams}, "use_poss": False,
-           "keepers": {int(k) for k in (keepers or {})}}
+           "keepers": {int(k) for k in (keepers or {})}, "view": [None] * n, "owner_id": [None] * n,
+           "ball_share": 0}
     if not maps or len(teams) < 2:
         return ctx
     ctx["flip"] = _directions(frames, maps, teams, L)
@@ -297,6 +302,7 @@ def context(frames, fps, maps, calib, teams, keepers=None, size=None):
         ctx["xy"][f] = xy
         ctx["ball"][f] = _ball(frames[f], H, L, W)
         poly = _view(H, size)
+        ctx["view"][f] = poly
         for t in teams:
             ctx["shape"][t][f] = _shape(players, xy, t, ctx["flip"][t], ctx["keepers"], L, W, poly)
         ctx["mapped"].append(f)
@@ -638,10 +644,93 @@ CATALOGUE = [
      "about": "Keep players behind the ball while attacking, ready for a lost ball.",
      "played": "4 or more outfield players 10 m behind the ball when attacking in their half (needs the ball)",
      "worked": "after losing the ball there, the other team doesn't go 30 m forward within 10 s"},
+    {"id": "overlap", "side": "attack", "group": "space", "name": "Overlapping runs", "needs_metres": True,
+     "about": "A full-back or midfielder runs round the outside of the player on the ball on the wing.",
+     "played": "with the ball in a wide channel, a teammate from behind and outside gets ahead of the ball within 3 s (needs the ball)",
+     "worked": "the runner gets the ball within 5 s"},
+    {"id": "possession", "side": "attack", "group": "build", "name": "Possession play", "needs_metres": True,
+     "about": "Keep the ball with short passes and move the other team around until a gap opens.",
+     "played": "a spell of 5 s or more has 5 or more passes (needs the ball)",
+     "worked": "the spell reaches the final third (70 m or more from your own goal)"},
+    # defence: marking and pressing traps
+    {"id": "man_marking", "side": "defence", "group": "marking", "name": "Man-marking", "needs_metres": True,
+     "about": "Every defender picks up one opponent and follows them.",
+     "played": "60% or more of the outfield players are within 3 m of the same opponent as a second earlier",
+     "worked": "their player receiving a pass has one of yours within 3 m (needs the ball)"},
+    {"id": "zonal", "side": "defence", "group": "marking", "name": "Zonal defending", "needs_metres": True,
+     "about": "Players hold zones and the whole block slides with the ball.",
+     "played": "fewer than 30% follow one opponent, and the block's middle stays within 12 m (across) of the ball",
+     "worked": "38 m or less across and 12 m or less between the lines"},
+    {"id": "press_wide", "side": "defence", "group": "marking", "name": "Show them wide (touchline trap)", "needs_metres": True,
+     "about": "Let them go wide, then close the ball in against the touchline.",
+     "played": "with their ball in a wide channel (15 m from touch), 3 or more of yours within 15 m of it (needs the ball)",
+     "worked": "the player on the ball has one of yours within 5 m"},
+    # set pieces
+    {"id": "zonal_corners", "side": "defence", "group": "set", "name": "Zonal at corners", "needs_metres": True,
+     "about": "Defenders cover zones of the box at corners instead of following runners.",
+     "played": "at their corners, 30% or fewer of your box defenders are within 1.5 m of an attacker",
+     "worked": "you get the first touch"},
+    {"id": "man_corners", "side": "defence", "group": "set", "name": "Man-to-man at corners", "needs_metres": True,
+     "about": "Each defender picks up one attacker in the box at corners.",
+     "played": "at their corners, 60% or more of your box defenders are within 1.5 m of an attacker",
+     "worked": "you get the first touch"},
+    {"id": "short_corners", "side": "attack", "group": "set", "name": "Short corners", "needs_metres": True,
+     "about": "Play corners short to change the angle of the cross.",
+     "played": "the ball stays within 15 m of the corner flag and out of the box for 3 s",
+     "worked": "you still have the ball 5 s later"},
+    {"id": "short_goal_kicks", "side": "attack", "group": "set", "name": "Short goal kicks", "needs_metres": True,
+     "about": "Play out from goal kicks to a centre-back or midfielder.",
+     "played": "the first touch after the goal kick is within 30 m of it",
+     "worked": "your team gets that first touch"},
+    {"id": "long_goal_kicks", "side": "attack", "group": "set", "name": "Long goal kicks", "needs_metres": True,
+     "about": "Kick long and win the first or second ball up the pitch.",
+     "played": "the first touch after the goal kick is 30 m or more from it",
+     "worked": "your team gets that first touch"},
 ]
 BY_ID = {t["id"]: t for t in CATALOGUE}
-EVENT_CHECKS = ("direct", "switch", "build_up", "counter_press", "counter_attack")
-NEEDS_BALL = {"high_press", "counter_press", "build_up", "direct", "switch", "overload", "counter_attack", "rest_defence"}
+EVENT_CHECKS = ("direct", "switch", "build_up", "counter_press", "counter_attack", "overlap", "possession",
+                "zonal_corners", "man_corners", "short_corners", "short_goal_kicks", "long_goal_kicks")
+NEEDS_BALL = {"high_press", "counter_press", "build_up", "direct", "switch", "overload", "counter_attack", "rest_defence",
+              "overlap", "possession", "press_wide", "zonal_corners", "man_corners", "short_corners", "short_goal_kicks",
+              "long_goal_kicks"}
+UNITS = {"direct": "spells from your own half", "switch": "spells of 10 s or more",
+         "build_up": "spells starting near your own goal", "counter_press": "lost balls",
+         "counter_attack": "balls won in your own half", "overlap": "spells on the wing", "possession": "spells of 5 s or more",
+         "zonal_corners": "corners against you", "man_corners": "corners against you", "short_corners": "corners",
+         "short_goal_kicks": "goal kicks", "long_goal_kicks": "goal kicks"}
+MARK_R = 3.0            # m from an opponent = marking them
+MARK_SHARE, ZONE_SHARE = 0.6, 0.3
+WIDE_CHANNEL = 15.0     # m from a touchline = the ball is wide
+OVERLAP_TIME = 3.0      # s for the overlapping runner to get ahead of the ball
+POSSESSION_PASSES = 5
+FINAL_THIRD = 70.0
+
+
+def _marks(ctx, frames, f, team, opp):
+    """{team player id: nearest opponent id within MARK_R} for team's outfield in frame f."""
+    xy = ctx["xy"][f]
+    if xy is None:
+        return None
+    pl = list(zip(frames[f][0], xy))
+    theirs = [(p["id"], x, y) for p, (x, y) in pl if p["bucket"] == opp and p["id"] is not None]
+    out = {}
+    for p, (x, y) in pl:
+        if p["bucket"] != team or p["id"] is None or p["id"] in ctx["keepers"]:
+            continue
+        near = min(((math.hypot(x - a, y - b), i) for i, a, b in theirs), default=None)
+        out[p["id"]] = near[1] if near and near[0] <= MARK_R else None
+    return out
+
+
+def _follow_share(ctx, frames, f, team, opp):
+    """Share of team's outfield players marking the same opponent as a second earlier."""
+    now = _marks(ctx, frames, f, team, opp)
+    g = f - int(ctx["fps"])
+    before = _marks(ctx, frames, g, team, opp) if g >= 0 else None
+    if not now or before is None or len(now) < MIN_OUTFIELD:
+        return None
+    same = sum(1 for k, v in now.items() if v is not None and before.get(k) == v)
+    return same / len(now)
 
 
 def catalogue():
@@ -693,6 +782,28 @@ def _frame_check(tid, ctx, frames, f, team, opp):
         xs = [x for x, _ in s["pos"]]
         mids = [sum(xs[:4]) / 4, sum(xs[4:8]) / 4]
         return True, mids[1] - mids[0] <= LINE_GAP_GOOD
+    if tid in ("man_marking", "zonal"):
+        share = _follow_share(ctx, frames, f, team, opp)
+        if share is None:
+            return None, None
+        if tid == "man_marking":
+            return share >= MARK_SHARE, None
+        b = ctx["ball"][f]
+        cy = median(y for _, y in s["pos"])
+        played = share < ZONE_SHARE and (b is None or abs(cy - b[1]) <= 12.0)
+        if not played or "width" not in s:
+            return played, None
+        return True, s["width"] <= NARROW_OUT and s.get("line_gap", 0) <= LINE_GAP_GOOD
+    if tid == "press_wide":
+        b = ctx["ball"][f]
+        if b is None or ctx["poss"][f] != opp or WIDE_CHANNEL < b[1] < ctx["W"] - WIDE_CHANNEL:
+            return None, None
+        near = sum(1 for p, (x, y) in zip(frames[f][0], ctx["xy"][f])
+                   if p["bucket"] == team and math.hypot(x - b[0], y - b[1]) <= OVERLOAD_REACH)
+        if near < 3:
+            return False, None
+        _, d = _ball_idx(ctx, frames, f, team)
+        return True, None if d is None else d <= PRESS_REACH
     if tid == "wide":
         if "wings" not in s:
             return None, None
@@ -740,10 +851,81 @@ def _ball_path(ctx, a, b):
     return [(g, ctx["ball"][g]) for g in range(a, min(b, ctx["n"] - 1) + 1) if ctx["ball"][g] is not None]
 
 
-def _event_checks(tid, ctx, frames, team, opp):
+def _pos(ctx, frames, f, tid, team):
+    """(own x, y) of track `tid` in frame f, or None."""
+    if f >= ctx["n"] or ctx["xy"][f] is None:
+        return None
+    for p, (x, y) in zip(frames[f][0], ctx["xy"][f]):
+        if p["id"] == tid:
+            return _own_x(ctx, team, float(x)), float(y)
+    return None
+
+
+def _event_checks(tid, ctx, frames, team, opp, extra=None):
     """[(frame, played, worked)] for tactics judged per spell or per lost ball."""
     fps, L, W = ctx["fps"], ctx["L"], ctx["W"]
+    extra = extra or {}
     out = []
+    if tid in ("zonal_corners", "man_corners", "short_corners", "short_goal_kicks", "long_goal_kicks"):
+        kind = "goal_kick" if "goal_kicks" in tid else "corner"
+        for e in extra.get("set_pieces", []):
+            if e["kind"] != kind or (e["against"] if tid in ("zonal_corners", "man_corners") else e["team"]) != team:
+                continue
+            if tid in ("zonal_corners", "man_corners"):
+                if not e.get("marking"):
+                    continue
+                played = e["marking"] == ("zonal" if tid == "zonal_corners" else "man")
+                out.append((e["f"], played, (e["first_ball"] == team) if played and e["first_ball"] else None))
+            elif tid == "short_corners":
+                if "short" not in e:
+                    continue
+                out.append((e["f"], e["short"], e["kept"] if e["short"] else None))
+            else:
+                if "short" not in e:
+                    continue
+                played = e["short"] if tid == "short_goal_kicks" else not e["short"]
+                out.append((e["f"], played, (e["first_ball"] == team) if played and e["first_ball"] else None))
+        return out
+    if tid == "possession":
+        ps = [p for p in extra.get("passes", []) if p["team"] == team]
+        for a, b in _spells(ctx, team):
+            if b - a < 5 * fps:
+                continue
+            n = sum(1 for p in ps if a <= p["release"] <= b)
+            reached = any(_own_x(ctx, team, ctx["ball"][g][0]) >= FINAL_THIRD for g in range(a, b + 1) if ctx["ball"][g])
+            played = n >= POSSESSION_PASSES
+            out.append((a, played, reached if played else None))
+        return out
+    if tid == "overlap":
+        for a, b in _spells(ctx, team):
+            wide = [g for g in range(a, b + 1) if ctx["ball"][g] and ctx["owner_id"][g]
+                    and (ctx["ball"][g][1] <= WIDE_CHANNEL or ctx["ball"][g][1] >= W - WIDE_CHANNEL)]
+            if not wide:
+                continue
+            f = wide[0]
+            bx, by = _own_x(ctx, team, ctx["ball"][f][0]), ctx["ball"][f][1]
+            touch = 0.0 if by <= WIDE_CHANNEL else W
+            carrier = ctx["owner_id"][f][0]
+            runner = None
+            if ctx["xy"][f] is not None:
+                for p, (x, y) in zip(frames[f][0], ctx["xy"][f]):
+                    if p["bucket"] != team or p["id"] in (carrier, None) or p["id"] in ctx["keepers"]:
+                        continue
+                    if _own_x(ctx, team, float(x)) >= bx - 2 or abs(y - touch) > abs(by - touch) + 3:
+                        continue
+                    for g in range(f + 1, min(b, f + int(OVERLAP_TIME * fps)) + 1):
+                        q, ball = _pos(ctx, frames, g, p["id"], team), ctx["ball"][g]
+                        if q and ball and q[0] > _own_x(ctx, team, ball[0]) + 2 and abs(q[1] - touch) <= abs(ball[1] - touch) + 3:
+                            runner = p["id"]
+                            break
+                    if runner:
+                        break
+            got = None
+            if runner:
+                got = any(ctx["owner_id"][g] and ctx["owner_id"][g][0] == runner
+                          for g in range(f, min(ctx["n"], f + int(5 * fps) + 1)))
+            out.append((f, bool(runner), got))
+        return out
     if tid in ("direct", "switch", "build_up"):
         for a, b in _spells(ctx, team):
             path = _ball_path(ctx, a, b)
@@ -852,7 +1034,7 @@ def _moment(frames, fps, f, label, idx=None):
     return {"frame": f, "t": round(f / fps, 2), "time": analysis._fmt_t(f / fps), "hl": hl, "label": label}
 
 
-def evaluate(chosen, ctx, frames, team, opp, phase):
+def evaluate(chosen, ctx, frames, team, opp, phase, extra=None):
     """Report points for the football tactics `team`'s coach picked."""
     fps = ctx["fps"]
     T = team.capitalize()
@@ -878,10 +1060,8 @@ def evaluate(chosen, ctx, frames, team, opp, phase):
                                   "Defending above so the report knows which moments to check."))
             continue
         if tid in EVENT_CHECKS:
-            checks = _event_checks(tid, ctx, frames, team, opp)
-            unit = {"direct": "spells from your own half", "switch": "spells of 10 s or more",
-                    "build_up": "spells starting near your own goal", "counter_press": "lost balls",
-                    "counter_attack": "balls won in your own half"}[tid]
+            checks = _event_checks(tid, ctx, frames, team, opp, extra)
+            unit = UNITS[tid]
             if len(checks) < MIN_EVENTS:
                 points.append(_tpoint(t, "info", f"{t['name']}: not enough to judge",
                                       f"Only {len(checks)} {unit} could be checked (at least {MIN_EVENTS} needed)."))
@@ -912,16 +1092,31 @@ def evaluate(chosen, ctx, frames, team, opp, phase):
             if tid == "rest_defence":
                 rw = _rest_worked(ctx, team)
                 tried, worked = rw, [r for r in rw if r[1]]
-            works = len(worked) / len(tried) if len(tried) >= (MIN_EVENTS if tid == "rest_defence" else fps) else None
+            if tid == "man_marking":
+                # Their receivers: was one of yours within 3 m when the ball arrived?
+                rw = []
+                for ps in (extra or {}).get("passes", []):
+                    if ps["team"] != opp:
+                        continue
+                    q = _pos(ctx, frames, ps["receive"], ps["receiver"], team)
+                    if q is None:
+                        continue
+                    near = min((math.hypot(_own_x(ctx, team, float(x)) - q[0], float(y) - q[1])
+                                for p, (x, y) in zip(frames[ps["receive"]][0], ctx["xy"][ps["receive"]])
+                                if p["bucket"] == team), default=99)
+                    rw.append((ps["receive"], near <= MARK_R))
+                tried, worked = rw, [r for r in rw if r[1]]
+            per_event = tid in ("rest_defence", "man_marking")
+            works = len(worked) / len(tried) if len(tried) >= (MIN_EVENTS if per_event else fps) else None
             no = {r[0]: (1, "") for r in res if not r[1]}
-            bad = {r[0]: (1, "") for r in tried if r[2] is False} if tid != "rest_defence" else {}
-            if tid == "rest_defence":
+            bad = {r[0]: (1, "") for r in tried if r[2] is False} if not per_event else {}
+            if per_event:
                 bad = {f: (1, "") for f, ok in rw if not ok}
             misses = [_moment(frames, fps, e["frame"], f"{t['name']} played, didn't work") for e in analysis._events(bad, fps)] + \
                      [_moment(frames, fps, e["frame"], f"{t['name']} not played") for e in analysis._events(no, fps)]
             detail = f"Played {share:.0%} of the {len(res) / fps:.0f}s it could be checked; played means {t['played']}."
         if works is not None and t["worked"]:
-            if tid in EVENT_CHECKS or tid == "rest_defence":
+            if tid in EVENT_CHECKS or tid in ("rest_defence", "man_marking"):
                 detail += f" It worked {len(worked)} of {len(tried)} times ({works:.0%}): {t['worked']}."
             else:
                 detail += f" It worked {works:.0%} of the time it was played: {t['worked']}."

@@ -34,6 +34,8 @@ import pitch
 import quota
 import rugby
 import soccer
+import soccer_duels
+import soccer_play
 import tactics
 from accounts import init_accounts
 from content_check import ContentRejected, check_players, check_upload
@@ -791,14 +793,57 @@ def _soccer_report(job_id, job, frames, fps, main, plan, team):
     maps, calib = _mappings(job_id, job)
     ctx = soccer.context(frames, fps, maps, calib, main, job.get("keepers"), _sizes.get(job_id))
     sections = [soccer.analyse_team(ctx, frames, t, o, p) for t, o, p in plan]
+    restarts = soccer_play.set_pieces(ctx, frames) if maps else []
+    trans = soccer_play.transitions(ctx, frames) if maps else []
+    passes = soccer_play.passes(ctx) if maps else []
+    offs = soccer_play.offsides(ctx, frames, passes)
+    extra = {"set_pieces": restarts, "passes": passes}
     chosen = [t for t in request.args.get("tactics", "").split(",") if t in soccer.BY_ID][:12]
-    if chosen and team != "both":
-        for sec in sections:
+    order = {"issue": 0, "info": 1, "good": 2}
+    for sec in sections:
+        t, o, ph = sec["team"], sec["opponent"], sec["phase"]
+        sec["points"] += (soccer_play.set_piece_points(restarts, t, ph) + soccer_play.offside_points(offs, t, ph)
+                          + (soccer_play.transition_points(trans, t) if ph in ("defence", "mixed") else []))
+        sec["points"].sort(key=lambda p: order[p["kind"]])
+        # 1v1s work in close-ups too, so they don't need the pitch marked.
+        duels = []
+        if ph in ("attack", "mixed"):
+            duels += soccer_duels.attacking_points(_duels(job_id, job, t, fps), t)
+        if ph in ("defence", "mixed"):
+            duels += soccer_duels.defending_points(_duels(job_id, job, o, fps), t)
+        sec["duels"] = duels
+        if chosen and team != "both":
             sec["tactics"] = soccer.evaluate(
-                [t for t in chosen if soccer.BY_ID[t]["side"] == sec["phase"] or sec["phase"] == "mixed"],
-                ctx, frames, sec["team"], sec["opponent"], sec["phase"])
+                [c for c in chosen if soccer.BY_ID[c]["side"] == ph or ph == "mixed"], ctx, frames, t, o, ph, extra)
+    match = soccer.summary(ctx)
+    if match is not None:
+        match["set_pieces"] = soccer_play.set_piece_summary(restarts, main)
+        match["passes"] = {tm: sum(1 for p in passes if p["team"] == tm) for tm in main}
+        match["offsides"] = len(offs)
     return jsonify(sport="soccer", fps=fps, teams=main, sections=sections, breakdowns=None,
-                   match=soccer.summary(ctx), pitch=_pitch_info(frames, maps, calib))
+                   match=match, pitch=_pitch_info(frames, maps, calib))
+
+
+def _duels(job_id, job, team, fps):
+    """1v1s with `team` on the ball, worked out once per video and team (the
+    pose model reads a frame for each) and saved next to it."""
+    saved = os.path.join(OUTPUT_DIR, f"{job_id}.duels.json")
+    key = str(os.path.getmtime(_detections_path(job_id)))
+    try:
+        with open(saved) as f:
+            cache = json.load(f)
+        if cache.get("key") == key and team in cache:
+            return cache[team]
+    except (OSError, ValueError):
+        cache = {}
+    if cache.get("key") != key:
+        cache = {"key": key}
+    with open(_detections_path(job_id)) as f:
+        detections = json.load(f)
+    cache[team] = soccer_duels.analyse(detections, fps, team, pose=contact.pose_reader(job["input"]))
+    with open(saved, "w") as f:
+        json.dump(cache, f)
+    return cache[team]
 
 
 def _carries(job_id, job, team, fps):
@@ -1099,7 +1144,7 @@ def _demo_info():
                 detections = json.load(f)
             size, _, fps = _video_size(job)
             info = dict(front_demo.summary(detections, fps, size, job.get("hidden") or [], job.get("colors"),
-                                           job.get("original_name") or ""), key=key[1])
+                                           job.get("original_name") or "", analysis.PER_TEAM[_sport(job)]), key=key[1])
             with open(saved, "w") as f:
                 json.dump(info, f)
         _demo_cache.clear()  # only the latest video is ever shown
