@@ -1,6 +1,6 @@
 # YOAC Player Tracker
 
-Rugby and soccer match analysis for coaches: upload match footage, pick the
+Rugby, soccer and basketball analysis for coaches: upload match footage, pick the
 sport, and YOAC tracks every player, sorts them into the two teams by shirt
 colour (the referee is left out), and builds a coach report with the moments
 to review.
@@ -79,6 +79,31 @@ Pick **Soccer** when you upload. Tracking, teams and pitch marking are shared wi
 
 The ball is small from the stand and the COCO detector misses it often, so possession-based checks need a clip
 where the ball stays in view. Every threshold is named at the top of `soccer.py`.
+
+## Basketball
+
+Pick **Basketball** when you upload, and mark the court (the corners of the key, halfway at a sideline, the court
+corners; FIBA 28 x 15 m by default, NBA sizes fit too). Five a side. `basketball.py`:
+
+- **Who is attacking**: the ball says who has it (a player within 2 m, 5 frames in a row); when the ball is hidden,
+  the team nearer the basket of the half the players are in is defending (defenders stand between their player
+  and the basket). Which basket each team attacks follows from that.
+- **Half-court or transition**: 8 of 10 players in view in one half = a half-court set.
+- **Offence**: spacing (distance to the nearest teammate: under 3.5 m crowded, 4.5 m or more good), a player in the
+  corner, possible 3 seconds in the key, more than 8 s to get over halfway, possessions past 20 s of the 24 s clock.
+- **Defence**: goal-side (an attacker has a defender nearer the basket than them: under 60% flagged, 80% good),
+  help in the paint with the ball 6 m or more out, pressure on the ball (within 2 m), man-to-man or zone (60% or
+  more staying with the same attacker = man; 30% or fewer = zone, with its shape read from the lines, e.g. 2-3).
+- **Ball screens**: an attacker standing still (under 0.5 m in 0.5 s) within 1.3 m of the ball handler's defender.
+  In the 1.5 s after the handler comes off it: switch, hedge or trap, drop, or over the top; worked = the ball or the
+  handler in the key within 3 s.
+- **Free throws** from the players standing still along the key, **on-ball defence** with the pose model (knees
+  bent, about an arm's length away; close-ups included).
+- **Tactics** a coach can pick (17): man-to-man, 2-3 / 3-2 / 1-3-1 zone, full-court press, pack the paint, switch /
+  hedge / drop on screens, get back in transition; push the pace, use the clock, pick-and-roll, 5-out, 4-out 1-in,
+  fill the corners, post-ups.
+
+Shots, makes and rebounds aren't measured yet: the ball in the air can't be placed on the court from one camera.
 
 ## Rugby measurements
 
@@ -273,7 +298,8 @@ to each coach's own latest video. Only use footage you're allowed to show to eve
 | `rugby.py` | Rucks, mauls, scrums, ruck speed and defensive line speed |
 | `soccer.py` | Soccer: goalkeepers, possession, team shape in metres, soccer tactics |
 | `soccer_play.py` | Soccer set pieces, pressing after losing the ball, passes and possible offside |
-| `soccer_duels.py` | Soccer 1v1s with the pose model (close-ups included) |
+| `soccer_duels.py` | Soccer 1v1s with the pose model (close-ups included); also basketball on-ball defence |
+| `basketball.py` | Basketball: possession, spacing, the key, help defence, screens, zones, free throws, tactics |
 | `demo.py` | The front page's frame, close-ups and measured numbers, from a real analysed video |
 | `templates/` | The pages: login, front pages (`_front.html` + one file per page), upload tool, cookie banner |
 | `static/` | YOAC logos and the Barlow Condensed font (SIL OFL) |

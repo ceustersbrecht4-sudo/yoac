@@ -246,6 +246,72 @@
             it was seen too rarely.</p>
         </div>
       </div>
+
+      <div class="football" id="basketball">
+        <div class="step-label"><b>06</b> Basketball</div>
+        <h2>Basketball: the same tracking, measured on the court</h2>
+        <p>Pick "Basketball" when you upload, and mark the court: the corners of the key, where halfway meets a sideline, or
+          the court corners. Five a side; anyone past that is on the bench. Who is attacking comes from the ball, and when the
+          ball is hidden, from where the players stand: defenders are the ones between their player and the basket.</p>
+        <div class="sheet" aria-label="What the basketball report measures">
+          <div class="row"><div class="side"><span class="kind good">going well</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}<path class="pline" d="M4 4 L4 70 M4 24 L34 24 L34 52 L4 52"/>
+    {% for x, y in [(70, 38), (52, 14), (52, 64), (14, 10), (14, 68)] %}{{ bx.player(x, y, "a", 0.46, d=-1) }}{% endfor %}{{ bx.tab(96, 8, "4.8 m apart", "a", 5) }}</svg></div><div>
+            <h3>Spacing and the corners</h3>
+            <p>How far each attacker is from the nearest teammate in the half-court, and whether someone holds a corner.</p>
+            <div class="rule">crowded: under 3.5 m / good: 4.5 m or more (15-18 ft) / corner: within 4.2 m of the baseline and 3 m of the sideline</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}<path class="pline" d="M4 4 L4 70"/><rect class="flag" stroke-width="1.6" x="4" y="22" width="34" height="30"/>
+    {{ bx.player(22, 46, "a", 0.56, mark="x") }}{{ bx.player(80, 40, "a", 0.56, d=-1) }}{{ bx.tab(70, 10, "4.2 s in the key", "a", 5) }}</svg></div><div>
+            <h3>Rules of the clock</h3>
+            <p>An attacker parked in the key, a slow trip over halfway, and possessions running deep into the shot clock.</p>
+            <div class="rule">3 s in the key / 8 s to cross halfway / late: 20 s of the 24 s shot clock</div></div></div>
+          <div class="row"><div class="side"><span class="kind issue">work on</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}<path class="pline" d="M4 4 L4 70 M4 24 L34 24 L34 52 L4 52"/>
+    {{ bx.player(86, 36, "a", 0.56, d=-1) }}<circle cx="80" cy="42" r="3" fill="#f2f0e8"/>{{ bx.player(98, 40, "b", 0.56, d=-1, mark="x") }}{{ bx.player(60, 64, "a", 0.5, d=-1) }}{{ bx.player(52, 62, "b", 0.5, d=-1) }}
+    <rect class="flag" stroke-width="1.4" x="4" y="24" width="30" height="28" stroke-dasharray="4 3"/></svg></div><div>
+            <h3>Goal-side and help defence</h3>
+            <p>Whether each attacker has a defender between them and the basket, and whether someone helps in the paint when the ball is outside.</p>
+            <div class="rule">goal-side under 60% is flagged, 80% is good / help: a defender in or next to the key with the ball 6 m or more out</div></div></div>
+          <div class="row"><div class="side"><span class="kind info">info</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}{{ bx.player(84, 40, "a", 0.6, pose="run", d=-1) }}<circle cx="78" cy="46" r="3" fill="#f2f0e8"/>
+    {{ bx.player(68, 30, "a", 0.6, d=1) }}{{ bx.player(64, 44, "b", 0.6, d=1) }}{{ bx.player(46, 52, "b", 0.6, d=1) }}{{ bx.tab(66, 8, "switch", "b", 5) }}</svg></div><div>
+            <h3>Ball screens and how they were defended</h3>
+            <p>An attacker standing still next to the ball handler's defender. Then: switch, hedge or trap, drop, or over the top, and whether the ball got into the key.</p>
+            <div class="rule">screen: within 1.3 m, moved under 0.5 m in 0.5 s / read in the 1.5 s after the handler comes off it / worked: into the key within 3 s</div></div></div>
+          <div class="row"><div class="side"><span class="kind info">info</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}{% for x, y in [(78, 26), (78, 50)] %}{{ bx.player(x, y, "b", 0.5, d=-1) }}{% endfor %}{% for x, y in [(36, 18), (36, 38), (36, 58)] %}{{ bx.player(x, y, "b", 0.5, d=-1) }}{% endfor %}
+    {{ bx.tab(100, 8, "2-3 zone", "b", 5) }}</svg></div><div>
+            <h3>Man-to-man or zone</h3>
+            <p>Whether defenders stay with the same attacker, and if not, the shape of the zone from the front line back.</p>
+            <div class="rule">man: 60% or more stay with one attacker within 2.5 m / zone: 30% or fewer, lines 1.5 m apart</div></div></div>
+          <div class="row"><div class="side"><span class="kind good">going well</span>
+            <svg class="draw" viewBox="0 0 132 70" aria-hidden="true">{{ bx.court(132, 70) }}{{ bx.player(54, 58, "a", 0.82, d=1) }}<circle cx="64" cy="50" r="3" fill="#f2f0e8"/>
+    {{ bx.player(84, 60, "b", 0.82, pose="crouch", d=-1) }}{{ bx.tab(70, 12, "low, arm's length", "b", 5) }}</svg></div><div>
+            <h3>On-ball defence, from close-ups too</h3>
+            <p>Knees bent or upright and about an arm's length from the ball handler, read with the pose model, plus free throws and possession.</p>
+            <div class="rule">measured in body lengths, so zoom doesn't matter</div></div></div>
+        </div>
+
+        <div class="tactics-list">
+          <h3>Basketball tactics you can pick</h3>
+          <p>{{ basketball_tactics|length }} tactics. Tick what you planned, and the report says how much of the time the team
+            played it and whether it worked.</p>
+          {% for side, label in [("defence", "Defence"), ("attack", "Offence")] %}
+          <h4>{{ label }}</h4>
+          <div class="sheet">
+            {% for t in basketball_tactics if t.side == side %}
+            <div class="row"><div class="side"><span class="kind info">court marked</span></div><div>
+              <h3>{{ t.name }}</h3>
+              <p>{{ t.about }}</p>
+              <div class="rule">played: {{ t.played }}{% if t.worked %} / worked: {{ t.worked }}{% endif %}</div></div></div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+          <p class="later">Not measurable yet from one camera: shots and makes (the ball in the air can't be placed on the court),
+            rebounds and box-outs, and named plays (horns, floppy). The ball handler is found when the ball is in view.</p>
+        </div>
+      </div>
     </div>
   </section>
 {% endblock %}

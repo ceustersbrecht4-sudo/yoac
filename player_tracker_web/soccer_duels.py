@@ -164,8 +164,9 @@ def _moment(r, label, box="box"):
             "hl": "box:" + ",".join(str(v) for v in r["box"]) + ";box:" + ",".join(str(v) for v in r["carrier_box"])}
 
 
-def defending_points(duels, team):
-    """Points for `team` defending 1v1s (duels = the other team on the ball)."""
+def defending_points(duels, team, sport="soccer"):
+    """Points for `team` defending 1v1s (duels = the other team on the ball).
+    In basketball the defender squares up to the ball, so side-on is left out."""
     T = team.capitalize()
     pts = []
     judged = [r for r in duels if r["outcome"]]
@@ -180,7 +181,7 @@ def defending_points(duels, team):
             "why": "In a 1v1 the defender's job is first to stop the attacker going forward, then to win it at the right moment. "
                    "Look at the lost ones: did the defender dive in, or stand off?",
             "moments": [_moment(r, "Attacker kept it") for r in lost[:4]]})
-    side = [r for r in duels if r["turned"]]
+    side = [r for r in duels if r["turned"]] if sport == "soccer" else []
     if len(side) >= 3:
         on = sum(1 for r in side if r["turned"] == "shoulder")
         sq = [r for r in side if r["turned"] == "square"]

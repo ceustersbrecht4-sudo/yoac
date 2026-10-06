@@ -369,6 +369,7 @@
           <legend>Sport</legend>
           <label><input type="radio" name="sport" value="rugby" checked><span>Rugby</span></label>
           <label><input type="radio" name="sport" value="soccer"><span>Soccer</span></label>
+          <label><input type="radio" name="sport" value="basketball"><span>Basketball</span></label>
         </fieldset>
         <label class="drop" id="drop" for="file">
           <strong id="fileName">Choose a match video</strong>
@@ -1046,8 +1047,12 @@ async function openPitch() {
   }
   $("pitchSizeHint").textContent = calib.sport === "soccer"
     ? "Goal line to goal line, touchline to touchline. A full-size pitch is about 105 × 68; the boxes are the same size on any pitch."
+    : calib.sport === "basketball"
+    ? "Baseline to baseline, sideline to sideline. FIBA courts are 28 × 15, NBA 28.65 × 15.24."
     : "Try line to try line, touchline to touchline. Full size is 100 × 70.";
-  $("pitchIntro").textContent = calib.sport === "soccer"
+  $("pitchIntro").textContent = calib.sport === "basketball"
+    ? "Click at least 4 spots where two court lines cross: the corners of the key (where it meets the baseline and the free-throw line), where halfway meets a sideline, or the court corners. Then say which lines they are. The app follows the camera from there, so the report can measure in metres: spacing, players in the key, help defence and screens. Left and right are as seen from the camera; near is the sideline closest to the camera."
+    : calib.sport === "soccer"
     ? "Click at least 4 spots where two pitch lines cross (corners of the boxes, where the halfway line meets a touchline) or a spot (centre or penalty spot, with the \"Middle\" line), then say which lines they are. The app follows the camera from there, so the report can measure in metres: how high the back line holds, how compact the team is, and the gaps between the lines. Left and right are as seen from the camera; near is the touchline closest to the camera."
     : "Click at least 4 spots where two pitch lines cross, then say which lines they are. The app follows the camera from there, so the report can measure in metres: defensive line speed, mauls and where rucks happen. Left and right are as seen from the camera; near is the touchline closest to the camera.";
   $("calibSlider").max = Math.max(0, calib.frames - 1);
@@ -1179,7 +1184,17 @@ async function drawPitchCheck() {
   map.append(svg("rect", { x: -m, y: -m, width: L + 2 * m, height: W + 2 * m, fill: "#10331f" }));
   map.append(svg("rect", { x: 0, y: 0, width: L, height: W, fill: "#17492c", stroke: "#e8f5ec", "stroke-width": 0.4 }));
   const chalk = { stroke: "#e8f5ec", "stroke-width": 0.3, fill: "none", opacity: 0.8 };
-  if (data.sport === "soccer") {
+  if (data.sport === "basketball") {
+    // Halfway, centre circle, and both keys (the paint) with the free-throw circles and baskets.
+    map.append(svg("line", { x1: L / 2, y1: 0, x2: L / 2, y2: W, ...chalk }));
+    map.append(svg("circle", { cx: L / 2, cy: W / 2, r: 1.8, ...chalk }));
+    for (const [x, d] of [[0, 1], [L, -1]]) {
+      map.append(svg("rect", { x: d > 0 ? 0 : L - 5.8, y: W / 2 - 2.45, width: 5.8, height: 4.9, ...chalk }));
+      map.append(svg("circle", { cx: x + d * 5.8, cy: W / 2, r: 1.8, ...chalk }));
+      map.append(svg("circle", { cx: x + d * 1.575, cy: W / 2, r: 0.3, ...chalk }));
+      map.append(svg("path", { d: `M${x} 0.9 L${x + d * 2.99} 0.9 A6.75 6.75 0 0 ${d > 0 ? 1 : 0} ${x + d * 2.99} ${W - 0.9} L${x} ${W - 0.9}`, ...chalk }));
+    }
+  } else if (data.sport === "soccer") {
     // Halfway, centre circle, and both penalty and goal boxes (fixed sizes on any pitch).
     map.append(svg("line", { x1: L / 2, y1: 0, x2: L / 2, y2: W, ...chalk }));
     map.append(svg("circle", { cx: L / 2, cy: W / 2, r: 9.15, ...chalk }));
@@ -1262,7 +1277,7 @@ const TACTIC_LISTS = {{ tactics|tojson }};
 const tacticList = () => TACTIC_LISTS[(result && result.sport) || "rugby"] || TACTIC_LISTS.rugby;
 const TACTIC_GROUPS = { line: "Defensive line", ruck: "Around the ruck", back: "Backfield", tempo: "Tempo", carry: "Where the ball goes", depth: "Depth", shape: "Shape",
   block: "Where the block sits", build: "Building the attack", space: "Space and numbers", marking: "Marking and pressing traps",
-  set: "Set pieces" };
+  set: "Set pieces", defence: "Defence", pressure: "Pressure and help", screens: "Ball screens", pace: "Pace", sets: "Offence" };
 const rTactics = new Set();
 function drawTactics() {
   const box = $("tacticBox"); box.innerHTML = "";
@@ -1390,6 +1405,7 @@ function renderReport(data) {
   }
   renderBreakdowns(out, data);
   renderMatch(out, data);
+  renderCourt(out, data);
   for (const s of data.sections) {
     out.append(el("div", { class: "report-head", style: `--team:${colorOf(s.team)}` },
       el("span", { class: "dot", style: `background:${colorOf(s.team)}` }),
@@ -1405,7 +1421,13 @@ function renderReport(data) {
     if (summary.childNodes.length) out.append(summary);
 
     const st = s.stats, fmt = v => v == null ? "–" : v, m = v => v == null ? "–" : v + " m";
-    if (data.sport === "soccer") out.append(el("div", { class: "stats" },
+    if (data.sport === "basketball") out.append(el("div", { class: "stats" },
+      stat(fmt(st.players_in_view), "players in view (average)"),
+      stat(m(st.spacing), "spacing on offence"),
+      stat(st.goal_side == null ? "–" : st.goal_side + "%", "attackers with a defender goal-side"),
+      stat(st.possession_length == null ? "–" : st.possession_length + " s", "typical possession"),
+      st.defence ? stat(st.defence, "defence") : null));
+    else if (data.sport === "soccer") out.append(el("div", { class: "stats" },
       stat(fmt(st.players_in_view), "players in view (average)"),
       stat(m(st.line_height), "back line from own goal"),
       stat(m(st.team_length), "back to front"),
@@ -1451,7 +1473,11 @@ function renderReport(data) {
   }
   out.append(el("div", { class: "caveat" },
     el("strong", {}, "How to read this. "),
-    (data.sport === "soccer"
+    (data.sport === "basketball"
+      ? (data.pitch && data.pitch.coverage
+        ? `Distances are in metres, from the court points you marked (${data.pitch.coverage}% of the footage could be measured). Players hide behind each other on a court, so counts are of the players in view. `
+        : "Basketball is measured in metres on the court, so mark the court in the Pitch tab first. ")
+      : data.sport === "soccer"
       ? (data.pitch && data.pitch.coverage
         ? `Distances are in metres, from the pitch points you marked (${data.pitch.coverage}% of the wide footage could be measured). A measurement only counts when the space just past the last player is on screen, so nobody is hidden out of the picture. `
         : "Soccer shape is measured in metres, so mark the pitch in the Pitch tab first. ")
@@ -1477,7 +1503,6 @@ function momentGrid(moments, team, opp) {
   return grid;
 }
 
-// Rucks, mauls and scrums: both teams together (who won the ball isn't known).
 // Football: both teams together - what could be measured and who had the ball.
 function renderMatch(out, data) {
   const mt = data.match;
@@ -1512,6 +1537,33 @@ function renderMatch(out, data) {
   out.append(box);
 }
 
+// Basketball: both teams together.
+function renderCourt(out, data) {
+  if (data.sport !== "basketball") return;
+  const mt = data.match;
+  const box = el("div", { class: "breakdowns" });
+  box.append(el("div", { class: "report-head" }, el("h3", {}, "The game"), el("span", { class: "phase" }, "Both teams")));
+  if (!mt) {
+    box.append(el("p", { class: "rnote", html: ICONS.note },
+      "Tip: mark the court in the Pitch tab to get the basketball report in metres: spacing, players in the key, goal-side and help defence, ball screens and how they were defended, transition and free throws."));
+    out.append(box);
+    return;
+  }
+  const [a, b] = data.teams, p = mt.possession;
+  box.append(el("div", { class: "stats" },
+    stat(mt.measured + " s", "measured on the court"),
+    stat(mt.ball_seen + "%", "of it with a player on the ball"),
+    p ? stat(p[a] + "%", `${cap(a)} attacking`) : null,
+    p ? stat(p[b] + "%", `${cap(b)} attacking`) : null,
+    stat(`${mt.possessions[a]} / ${mt.possessions[b]}`, `possessions ${cap(a)} / ${cap(b)}`),
+    stat(mt.screens, "ball screens"),
+    stat(mt.free_throws, "free throws")));
+  if (mt.attacks[a]) box.append(el("p", { class: "rnote", html: ICONS.note },
+    `${cap(a)} attacked the ${mt.attacks[a]} basket and ${cap(b)} the ${mt.attacks[b] || "other"} one (as seen from the camera), worked out from who stood between the players and the basket.`));
+  out.append(box);
+}
+
+// Rucks, mauls and scrums: both teams together (who won the ball isn't known).
 function renderBreakdowns(out, data) {
   const b = data.breakdowns, pt = data.pitch || {};
   if (!b) return;

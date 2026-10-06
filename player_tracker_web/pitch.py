@@ -28,10 +28,14 @@ DEFAULT_WIDTH = 70.0    # touchline to touchline (at most 70 m)
 SIZES = {
     "rugby": {"length": 100.0, "width": 70.0, "min": (40, 25), "max": (100, 70)},
     "soccer": {"length": 105.0, "width": 68.0, "min": (40, 25), "max": (120, 90)},  # laws: 90-120 x 45-90
+    "basketball": {"length": 28.0, "width": 15.0, "min": (20, 11), "max": (30, 17)},  # FIBA 28 x 15, NBA 28.65 x 15.24
 }
 BOX_DEPTH, BOX_HALF = 16.5, 20.16          # soccer penalty area: 16.5 m deep, 40.32 m wide
 AREA_DEPTH, AREA_HALF = 5.5, 9.16          # goal area: 5.5 m deep, 18.32 m wide
 SPOT = 11.0                                # penalty spot: 11 m out from the goal line
+KEY_DEPTH, KEY_HALF = 5.8, 2.45            # basketball key (paint): free-throw line 5.8 m out, 4.9 m wide (NBA 5.79 x 4.88)
+BASKET = 1.575                             # m from the baseline to the middle of the basket
+THREE = 6.75                               # m: three-point line from the basket (FIBA; corners 0.9 m in from the sideline)
 MOTION_WIDTH = 640      # frames are shrunk to this width to follow the camera
 MIN_INLIERS = 25        # background points that must agree on a move
 ON_PITCH_MARGIN = 6.0   # metres outside the lines still counted as "on the pitch"
@@ -41,6 +45,14 @@ ON_PITCH_SHARE = 0.6    # share of players that must land on the pitch
 def lines_across(length, sport="rugby"):
     """Lines that cross the pitch (constant x), left to right."""
     half = length / 2
+    if sport == "basketball":
+        return {
+            "left_base": ("Left baseline", 0.0),
+            "left_ft": ("Left free-throw line", KEY_DEPTH),
+            "halfway": ("Halfway line", half),
+            "right_ft": ("Right free-throw line", length - KEY_DEPTH),
+            "right_base": ("Right baseline", length),
+        }
     if sport == "soccer":
         return {
             "left_goal": ("Left goal line", 0.0),
@@ -68,6 +80,15 @@ def lines_across(length, sport="rugby"):
 
 def lines_along(width, sport="rugby"):
     """Lines that run the length of the pitch (constant y), near to far."""
+    if sport == "basketball":
+        mid = width / 2
+        return {
+            "near_side": ("Near sideline", 0.0),
+            "near_lane": ("Near side of the key", mid - KEY_HALF),
+            "middle": ("Middle: centre of the circles", mid),
+            "far_lane": ("Far side of the key", mid + KEY_HALF),
+            "far_side": ("Far sideline", width),
+        }
     if sport == "soccer":
         mid = width / 2
         return {
@@ -105,7 +126,10 @@ def solve(points):
     if min(np.linalg.norm(img[i] - img[j]) for i in range(len(img)) for j in range(i + 1, len(img))) < 8:
         raise CalibrationError("Two marked points are on top of each other. Spread them out.")
     hull = cv2.convexHull(world.astype(np.float32))
-    if cv2.contourArea(hull) < 40:
+    # Nearly in a line: the area they cover is tiny for how far apart they are
+    # (relative, so a basketball court's key counts as well as a rugby 22).
+    reach = max(np.linalg.norm(world[i] - world[j]) for i in range(len(world)) for j in range(i + 1, len(world)))
+    if cv2.contourArea(hull) < max(4.0, 0.02 * reach ** 2):
         raise CalibrationError("The points are almost in a straight line on the pitch. Use points on at least "
                                "two different lines across and two different lines along the pitch.")
     H, _ = cv2.findHomography(img, world, 0)

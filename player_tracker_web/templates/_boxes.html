@@ -76,6 +76,14 @@
 {%- endfor %}
 {%- endmacro %}
 
+{# A wooden basketball floor: boards running along the court. #}
+{% macro court(w, h, boards=7) -%}
+<rect width="{{ w }}" height="{{ h }}" fill="#b98a55"/>
+{%- for i in range(boards) if i % 2 %}
+<rect y="{{ h / boards * i }}" width="{{ w }}" height="{{ h / boards }}" fill="#c39462"/>
+{%- endfor %}
+{%- endmacro %}
+
 {# A tab label on its own, e.g. above a frame. #}
 {% macro tab(x, y, text, k="a", size=7) -%}
 <rect x="{{ x }}" y="{{ y - size * 1.25 }}" width="{{ text|length * size * 0.62 + size * 0.8 }}" height="{{ size * 1.25 }}" class="tab-{{ k }}"/>

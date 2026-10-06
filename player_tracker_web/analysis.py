@@ -25,7 +25,8 @@ CLOSE_UP = 0.22       # typical player taller than this share of the picture
                       # = close-up / replay; team shape can't be judged there
 MIN_WIDE_PLAYERS = 6  # fewer players in view = too tight a shot to judge shape
 PLAYERS_PER_TEAM = 15  # rugby union: 15 a side on the pitch, 30 players plus the officials
-PER_TEAM = {"rugby": 15, "soccer": 11}
+PER_TEAM = {"rugby": 15, "soccer": 11, "basketball": 5}
+CLOSE_UPS = {"basketball": 0.4}   # on a small court players fill more of the picture
 MAX_UNSURE = 0.15     # more than this share of "unsure" players in a frame =
                       # a gap in the line might just be a player we couldn't
                       # place, so line shape isn't judged in that frame
@@ -110,7 +111,7 @@ def _balls(detections):
     return [((x1 + x2) / 2, (y1 + y2) / 2, conf) for x1, y1, x2, y2, bucket, _, conf in detections if bucket == "ball"]
 
 
-def prepare(all_detections, size=None, per_team=PLAYERS_PER_TEAM):
+def prepare(all_detections, size=None, per_team=PLAYERS_PER_TEAM, close_up=CLOSE_UP):
     """Team-independent per-frame data; cache this per video.
     size = (width, height) of the video picture.
     Each frame: (players, contact groups, indexes in contact, clear, balls,
@@ -119,7 +120,7 @@ def prepare(all_detections, size=None, per_team=PLAYERS_PER_TEAM):
     for detections in all_detections:
         players, extra = _cap_teams(_players(detections, size), per_team)
         wide = len(players) >= MIN_WIDE_PLAYERS and (
-            not size or median(p["h"] for p in players) < CLOSE_UP * size[1])
+            not size or median(p["h"] for p in players) < close_up * size[1])
         if not wide:
             players = []  # close-up / replay: skip for structure analysis
         groups = _contact_groups(players)

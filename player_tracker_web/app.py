@@ -33,6 +33,7 @@ import numpy as np
 import pitch
 import quota
 import rugby
+import basketball
 import soccer
 import soccer_duels
 import soccer_play
@@ -308,7 +309,8 @@ def your_match():
 
 @app.route("/coach-report")
 def coach_report():
-    return _front("report.html", tactics=tactics.catalogue(), soccer_tactics=soccer.catalogue())
+    return _front("report.html", tactics=tactics.catalogue(), soccer_tactics=soccer.catalogue(),
+                  basketball_tactics=basketball.catalogue())
 
 
 @app.route("/pricing")
@@ -377,7 +379,8 @@ def _count_transfer(resp):
 
 @app.route("/upload")
 def index():
-    return render_template("index.html", usage=_usage(accounts.current_user()), tactics={"rugby": tactics.catalogue(), "soccer": soccer.catalogue()})
+    return render_template("index.html", usage=_usage(accounts.current_user()), tactics={"rugby": tactics.catalogue(), "soccer": soccer.catalogue(),
+                                                                                         "basketball": basketball.catalogue()})
 
 
 @app.route("/analyze", methods=["POST"])
@@ -607,7 +610,7 @@ _prepared = {}
 _prepared_lock = threading.Lock()
 
 
-SPORTS = ("rugby", "soccer")
+SPORTS = ("rugby", "soccer", "basketball")
 
 
 def _sport(job):
@@ -616,7 +619,9 @@ def _sport(job):
 
 
 def _prepared_frames(job_id, video_path):
-    per_team = analysis.PER_TEAM[_sport(jobs.get(job_id) or {})]
+    sport = _sport(jobs.get(job_id) or {})
+    per_team = analysis.PER_TEAM[sport]
+    close_up = analysis.CLOSE_UPS.get(sport, analysis.CLOSE_UP)
     with _prepared_lock:
         if job_id not in _prepared:
             cap = cv2.VideoCapture(video_path)
@@ -625,7 +630,7 @@ def _prepared_frames(job_id, video_path):
             size = (first.shape[1], first.shape[0]) if ok else None
             with open(_detections_path(job_id)) as f:
                 _prepared.clear()  # keep only one video in memory
-                _prepared[job_id] = analysis.prepare(json.load(f), size, per_team)
+                _prepared[job_id] = analysis.prepare(json.load(f), size, per_team, close_up)
                 _sizes[job_id] = size
         return _prepared[job_id]
 
@@ -730,6 +735,8 @@ def report(job_id):
     frames = _prepared_frames(job_id, job["input"])
     if _sport(job) == "soccer":
         return _soccer_report(job_id, job, frames, fps, main, plan, team)
+    if _sport(job) == "basketball":
+        return _basketball_report(job_id, job, frames, fps, main, plan, team)
     sections = [analysis.analyse_team(frames, fps, t, o, p) for t, o, p in plan]
 
     # Rugby layer: breakdowns (always) and line speed (pitch marked).
@@ -822,6 +829,30 @@ def _soccer_report(job_id, job, frames, fps, main, plan, team):
         match["offsides"] = len(offs)
     return jsonify(sport="soccer", fps=fps, teams=main, sections=sections, breakdowns=None,
                    match=match, pitch=_pitch_info(frames, maps, calib))
+
+
+def _basketball_report(job_id, job, frames, fps, main, plan, team):
+    """The basketball report: spacing, the key, help defence, screens,
+    transition, free throws, on-ball defence and the tactics picked."""
+    maps, calib = _mappings(job_id, job)
+    c = basketball.context(frames, fps, maps, calib, main, _sizes.get(job_id))
+    extra = {"screens": basketball.screens(c, frames) if maps else [],
+             "free_throws": basketball.free_throws(c, frames) if maps else []}
+    sections = [basketball.analyse_team(c, frames, t, o, p, extra) for t, o, p in plan]
+    chosen = [t for t in request.args.get("tactics", "").split(",") if t in basketball.BY_ID][:12]
+    for sec in sections:
+        t, o, ph = sec["team"], sec["opponent"], sec["phase"]
+        duels = []
+        if ph in ("attack", "mixed"):
+            duels += soccer_duels.attacking_points(_duels(job_id, job, t, fps), t)
+        if ph in ("defence", "mixed"):
+            duels += soccer_duels.defending_points(_duels(job_id, job, o, fps), t, sport="basketball")
+        sec["duels"] = duels
+        if chosen and team != "both":
+            sec["tactics"] = basketball.evaluate(
+                [x for x in chosen if basketball.BY_ID[x]["side"] == ph or ph == "mixed"], c, frames, t, o, ph, extra)
+    return jsonify(sport="basketball", fps=fps, teams=main, sections=sections, breakdowns=None,
+                   match=basketball.summary(c, extra), pitch=_pitch_info(frames, maps, calib))
 
 
 def _duels(job_id, job, team, fps):
@@ -920,7 +951,7 @@ def calibration(job_id):
         return jsonify(error="Pitch length and width must be numbers."), 400
     (lo_l, lo_w), (hi_l, hi_w) = dims["min"], dims["max"]
     if not (lo_l <= length <= hi_l and lo_w <= width <= hi_w):
-        ends = "goal line to goal line" if sport == "soccer" else "try line to try line"
+        ends = {"soccer": "goal line to goal line", "basketball": "baseline to baseline"}.get(sport, "try line to try line")
         return jsonify(error=f"Pitch length must be {lo_l}-{hi_l} m ({ends}) and width {lo_w}-{hi_w} m."), 400
     (w, h), count, _ = _video_size(job)
     across, along = pitch.lines_across(length, sport), pitch.lines_along(width, sport)
